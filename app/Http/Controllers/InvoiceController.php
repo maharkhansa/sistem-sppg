@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\StockTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Exception;
 
 class InvoiceController extends Controller
 {
@@ -31,14 +32,18 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Menampilkan satu Invoice
+     * Menampilkan detail Invoice
      */
     public function show(Invoice $invoice)
     {
+        /*
+         * Load seluruh relasi yang diperlukan
+         * untuk tampilan Invoice.
+         */
         $invoice->load([
+            'kitchen',
             'stockTransaction',
             'purchaseOrder',
-            'kitchen',
             'details.item',
             'details.supplier',
         ]);
@@ -55,8 +60,11 @@ class InvoiceController extends Controller
     public function createFromOut(
         StockTransaction $stockTransaction
     ) {
-        // Pastikan transaksi adalah OUT
+        /*
+         * Pastikan transaksi adalah OUT
+         */
         if ($stockTransaction->type !== 'OUT') {
+
             return redirect()
                 ->route('stock-transactions.out')
                 ->with(
@@ -65,8 +73,11 @@ class InvoiceController extends Controller
                 );
         }
 
-        // Pastikan OUT mempunyai PO
+        /*
+         * Pastikan OUT mempunyai PO
+         */
         if (!$stockTransaction->purchase_order_id) {
+
             return redirect()
                 ->route('stock-transactions.out')
                 ->with(
@@ -75,31 +86,42 @@ class InvoiceController extends Controller
                 );
         }
 
-        // Cek apakah Invoice sudah pernah dibuat
+        /*
+         * Cek apakah Invoice sudah dibuat
+         */
         $existingInvoice = Invoice::where(
             'stock_transaction_id',
             $stockTransaction->id
         )->first();
 
         if ($existingInvoice) {
+
             return redirect()
-                ->route('invoices.index')
+                ->route(
+                    'invoices.show',
+                    $existingInvoice->id
+                )
                 ->with(
                     'error',
                     'Invoice untuk transaksi OUT ini sudah dibuat.'
                 );
         }
 
-        // Ambil data OUT beserta detail PO dan supplier
+        /*
+         * Load seluruh data yang dibutuhkan
+         */
         $stockTransaction->load([
-            'purchaseOrder.details.supplier',
-            'purchaseOrder.details.item',
             'kitchen',
             'details.item',
+            'purchaseOrder.details.item',
+            'purchaseOrder.details.supplier',
         ]);
 
-        // Pastikan ada detail barang
+        /*
+         * Pastikan OUT mempunyai detail
+         */
         if ($stockTransaction->details->isEmpty()) {
+
             return redirect()
                 ->route('stock-transactions.out')
                 ->with(
@@ -108,91 +130,144 @@ class InvoiceController extends Controller
                 );
         }
 
-        DB::transaction(function () use (
-            $stockTransaction
-        ) {
+        try {
 
-            // Buat Invoice
-            $invoice = Invoice::create([
-                'invoice_number' => $this->generateInvoiceNumber(
-                    $stockTransaction->transaction_date
-                ),
+            $invoiceId = DB::transaction(
+                function () use ($stockTransaction) {
 
-                'invoice_date' =>
-                    $stockTransaction->transaction_date,
+                    /*
+                     * Hitung total berdasarkan detail OUT
+                     */
+                    $totalAmount =
+                        $stockTransaction
+                            ->details
+                            ->sum('subtotal');
 
-                'stock_transaction_id' =>
-                    $stockTransaction->id,
+                    /*
+                     * Buat Invoice
+                     */
+                    $invoice = Invoice::create([
+                        'invoice_number' =>
+                            $this->generateInvoiceNumber(
+                                $stockTransaction->transaction_date
+                            ),
 
-                'purchase_order_id' =>
-                    $stockTransaction->purchase_order_id,
+                        'invoice_date' =>
+                            $stockTransaction->transaction_date,
 
-                'kitchen_id' =>
-                    $stockTransaction->kitchen_id,
+                        'stock_transaction_id' =>
+                            $stockTransaction->id,
 
-                'total_amount' =>
-                    $stockTransaction->details->sum('subtotal'),
+                        'purchase_order_id' =>
+                            $stockTransaction->purchase_order_id,
 
-                'status' => 'DRAFT',
+                        'kitchen_id' =>
+                            $stockTransaction->kitchen_id,
 
-                'notes' =>
-                    'Invoice dibuat otomatis dari OUT ' .
-                    $stockTransaction->transaction_number,
+                        'total_amount' =>
+                            $totalAmount,
 
-                'created_by' =>
-                    auth()->id() ?? 1,
-            ]);
+                        'status' =>
+                            'DRAFT',
 
-            /*
-             * Salin detail OUT ke Invoice.
-             *
-             * Supplier diambil dari detail PO
-             * berdasarkan item yang sama.
-             */
-            foreach (
-                $stockTransaction->details
-                as $detail
-            ) {
+                        'notes' =>
+                            'Invoice dibuat otomatis dari OUT ' .
+                            $stockTransaction->transaction_number,
 
-                $poDetail = $stockTransaction
-                    ->purchaseOrder
-                    ->details
-                    ->firstWhere(
-                        'item_id',
-                        $detail->item_id
-                    );
+                        'created_by' =>
+                            auth()->id() ?? 1,
+                    ]);
 
-                $invoice->details()->create([
+                    /*
+                     * Ambil detail PO
+                     */
+                    $poDetails =
+                        $stockTransaction
+                            ->purchaseOrder
+                            ->details;
 
-                    'supplier_id' =>
-                        $poDetail?->supplier_id,
+                    /*
+                     * Salin setiap detail OUT
+                     * ke Invoice Detail
+                     */
+                    foreach (
+                        $stockTransaction->details
+                        as $outDetail
+                    ) {
 
-                    'item_id' =>
-                        $detail->item_id,
+                        /*
+                         * Cari supplier berdasarkan
+                         * item yang sama pada PO.
+                         */
+                        $poDetail = $poDetails
+                            ->firstWhere(
+                                'item_id',
+                                $outDetail->item_id
+                            );
 
-                    'quantity' =>
-                        $detail->quantity,
+                        /*
+                         * Buat detail Invoice
+                         */
+                        $invoice->details()->create([
 
-                    'unit' =>
-                        $detail->unit,
+                            'supplier_id' =>
+                                $poDetail?->supplier_id,
 
-                    'unit_price' =>
-                        $detail->unit_price,
+                            'item_id' =>
+                                $outDetail->item_id,
 
-                    'subtotal' =>
-                        $detail->subtotal,
+                            'quantity' =>
+                                $outDetail->quantity,
 
-                    'notes' => null,
-                ]);
-            }
-        });
+                            'unit' =>
+                                $outDetail->unit,
 
-        return redirect()
-            ->route('invoices.index')
-            ->with(
-                'success',
-                'Invoice berhasil dibuat otomatis dari OUT.'
+                            'unit_price' =>
+                                $outDetail->unit_price,
+
+                            'subtotal' =>
+                                $outDetail->subtotal,
+
+                            'notes' =>
+                                null,
+                        ]);
+                    }
+
+                    /*
+                     * Pastikan detail Invoice
+                     * benar-benar berhasil dibuat.
+                     */
+                    if ($invoice->details()->count() === 0) {
+
+                        throw new Exception(
+                            'Detail Invoice gagal dibuat.'
+                        );
+                    }
+
+                    return $invoice->id;
+                }
             );
+
+            return redirect()
+                ->route(
+                    'invoices.show',
+                    $invoiceId
+                )
+                ->with(
+                    'success',
+                    'Invoice berhasil dibuat otomatis dari OUT.'
+                );
+
+        } catch (Exception $e) {
+
+            return redirect()
+                ->route('stock-transactions.out')
+                ->with(
+                    'error',
+                    'Gagal membuat Invoice: ' .
+                    $e->getMessage()
+                );
+        }
     }
 
     /**

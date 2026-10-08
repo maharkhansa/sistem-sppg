@@ -98,7 +98,13 @@ Route::patch(
 */
 
 Route::resource('stock-transactions', StockTransactionController::class)
-    ->only(['index', 'create', 'store']);
+    ->only([
+        'index',
+        'create',
+        'store',
+        'edit',
+        'update',
+    ]);
 
 Route::get(
     '/stock-transactions/out',

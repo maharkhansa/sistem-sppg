@@ -12,16 +12,15 @@ class NotaKeluar extends Model
     use HasFactory;
 
     protected $fillable = [
-        'nota_number',
-        'nota_date',
         'stock_transaction_id',
         'purchase_order_id',
         'kitchen_id',
         'supplier_id',
+        'nota_number',
+        'barcode_number',
+        'customer_order_number',
+        'nota_date',
         'total_amount',
-        'status',
-        'notes',
-        'created_by',
     ];
 
     protected $casts = [
@@ -61,14 +60,6 @@ class NotaKeluar extends Model
     {
         return $this->hasMany(
             NotaKeluarDetail::class
-        );
-    }
-
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(
-            User::class,
-            'created_by'
         );
     }
 }

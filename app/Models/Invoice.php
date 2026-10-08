@@ -49,7 +49,7 @@ class Invoice extends Model
     }
 
     /**
-     * Invoice untuk SPPG
+     * Invoice untuk Kitchen / SPPG
      */
     public function kitchen(): BelongsTo
     {
@@ -59,7 +59,7 @@ class Invoice extends Model
     }
 
     /**
-     * Detail barang dalam Invoice
+     * Detail barang Invoice
      */
     public function details(): HasMany
     {
@@ -79,8 +79,13 @@ class Invoice extends Model
         );
     }
 
+    /**
+     * Biaya tambahan Invoice
+     */
     public function expenses(): HasMany
     {
-    return $this->hasMany(InvoiceExpense::class);
+        return $this->hasMany(
+            InvoiceExpense::class
+        );
     }
 }

@@ -1,11 +1,22 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $invoice->invoice_number }} - Invoice Belanja Program MBG</title>
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ $invoice->invoice_number }}
+        - Invoice Belanja Program MBG
+    </title>
 
     <style>
+
         * {
             box-sizing: border-box;
         }
@@ -30,7 +41,6 @@
             border: 1px solid #d1d5db;
         }
 
-        /* ACTIONS BAR */
         .top-actions {
             display: flex;
             justify-content: space-between;
@@ -58,7 +68,6 @@
             color: white;
         }
 
-        /* HEADER */
         .invoice-header {
             display: flex;
             justify-content: space-between;
@@ -73,21 +82,20 @@
             text-transform: uppercase;
         }
 
-        .header-left .sppg-name {
+        .sppg-name {
             font-size: 14px;
             font-weight: bold;
             margin-top: 3px;
             text-transform: uppercase;
         }
 
-        .header-left .date {
+        .date {
             font-size: 13px;
             font-weight: bold;
             margin-top: 8px;
             text-transform: uppercase;
         }
 
-        /* KOTAK DAPUR */
         .kitchen-box {
             background-color: #1e7e34 !important;
             color: #ffffff !important;
@@ -98,12 +106,11 @@
             text-transform: uppercase;
             min-width: 140px;
             display: inline-block;
+
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            color-adjust: exact !important;
         }
 
-        /* TABEL */
         .supplier-section {
             margin-bottom: 12px;
             page-break-inside: avoid;
@@ -127,6 +134,7 @@
             text-align: center;
             font-weight: bold;
             text-transform: uppercase;
+
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
@@ -139,21 +147,22 @@
             text-align: right;
         }
 
-        /* SUPPLIER FOOTER */
         .supplier-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
+
             border-left: 1px solid #000;
             border-right: 1px solid #000;
             border-bottom: 1px solid #000;
+
             padding: 6px 8px;
+
             font-size: 11px;
             background: #fff;
         }
 
         .approval-text {
-            font-family: Arial, Helvetica, sans-serif;
             white-space: nowrap;
         }
 
@@ -172,7 +181,6 @@
             font-size: 12px;
         }
 
-        /* TOTAL */
         .grand-total-container {
             display: flex;
             justify-content: flex-end;
@@ -183,55 +191,85 @@
             display: flex;
             gap: 20px;
             align-items: center;
+
             font-weight: bold;
             font-size: 13px;
+
             padding-right: 10px;
         }
 
-        /* SIGNATURE */
-        .signature-section {
-            margin-top: 25px;
-            page-break-inside: avoid;
-        }
-
-        .signature-grid-top {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-
-        .signature-box {
+        .empty-data {
+            border: 1px solid #000;
+            padding: 15px;
             text-align: center;
-            width: 260px;
-        }
-
-        .signature-space {
-            height: 60px;
-        }
-
-        .signature-line {
-            border-bottom: 1px dashed #000;
-            margin: 0 auto;
-            width: 80%;
-        }
-
-        .signature-name-bold {
             font-weight: bold;
-            margin-top: 10px;
-        }
-
-        .knowing-title {
-            text-align: center;
-            font-size: 12px;
             margin-bottom: 15px;
         }
+
+        .signature-section {
+    margin-top: 25px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.signature-grid-top {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    margin-bottom: 20px;
+}
+
+.signature-grid-top .signature-box {
+    display: table-cell;
+    width: 50%;
+    text-align: center;
+    vertical-align: top;
+}
+
+.signature-grid-bottom {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.signature-grid-bottom .signature-box {
+    display: table-cell;
+    width: 33.333%;
+    text-align: center;
+    vertical-align: top;
+}
+
+.signature-box {
+    text-align: center;
+}
+
+.signature-space {
+    height: 60px;
+}
+
+.signature-line {
+    border-bottom: 1px dashed #000;
+    margin: 0 auto;
+    width: 80%;
+    height: 1px;
+}
+
+.signature-name-bold {
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.knowing-title {
+    text-align: center;
+    font-size: 12px;
+    margin-bottom: 15px;
+}
 
         .signature-grid-bottom {
             display: flex;
             justify-content: space-between;
         }
 
-        /* PRINT */
         @media print {
 
             @page {
@@ -243,6 +281,7 @@
                 background: white;
                 padding: 0;
                 margin: 0;
+
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
@@ -259,65 +298,102 @@
             .kitchen-box {
                 background-color: #1e7e34 !important;
                 color: #ffffff !important;
+
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
 
             .invoice-table th {
                 background-color: #e5e7eb !important;
+
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
         }
+
     </style>
+
 </head>
 
 <body>
 
 <div class="invoice-container">
 
-    {{-- Tombol Navigasi --}}
+    {{-- ACTION --}}
     <div class="top-actions">
 
-        <a href="{{ route('stock-transactions.out') }}"
-           class="btn btn-back">
+        <a
+            href="{{ route('stock-transactions.out') }}"
+            class="btn btn-back"
+        >
             ← Kembali ke Barang Keluar
         </a>
 
-        <button onclick="window.print()"
-                class="btn btn-print">
+        <button
+            onclick="window.print()"
+            class="btn btn-print"
+        >
             🖨 Cetak Invoice
         </button>
 
     </div>
 
+
     <div class="invoice-card">
 
-        {{-- MEMBERSIHKAN NAMA DAPUR --}}
+        {{-- ========================= --}}
+        {{-- NAMA KITCHEN --}}
+        {{-- ========================= --}}
+
         @php
-            $rawKitchenName = $invoice->kitchen?->name ?? 'Adikarto';
 
-            $cleanedName = trim(
-                str_ireplace(
-                    ['SPPG', 'DAPUR', 'KITCHEN'],
-                    '',
-                    $rawKitchenName
-                )
-            );
+            $rawKitchenName =
+                $invoice->kitchen?->name
+                ?? 'Adikarto';
 
-            $words = explode(' ', $cleanedName);
+            $cleanedName =
+                trim(
+                    str_ireplace(
+                        [
+                            'SPPG',
+                            'DAPUR',
+                            'KITCHEN'
+                        ],
+                        '',
+                        $rawKitchenName
+                    )
+                );
+
+            $words =
+                preg_split(
+                    '/\s+/',
+                    $cleanedName
+                );
 
             if (count($words) > 2) {
-                $kitchenRegion = implode(
-                    ' ',
-                    array_slice($words, -2)
-                );
+
+                $kitchenRegion =
+                    implode(
+                        ' ',
+                        array_slice(
+                            $words,
+                            -2
+                        )
+                    );
+
             } else {
-                $kitchenRegion = $cleanedName;
+
+                $kitchenRegion =
+                    $cleanedName;
             }
+
         @endphp
 
+
+        {{-- ========================= --}}
         {{-- HEADER --}}
+        {{-- ========================= --}}
+
         <div class="invoice-header">
 
             <div class="header-left">
@@ -327,195 +403,313 @@
                 </h1>
 
                 <div class="sppg-name">
-                    SPPG AGHITS STAR {{ strtoupper($kitchenRegion) }}
+
+                    SPPG AGHITS STAR
+                    {{ strtoupper($kitchenRegion) }}
+
                 </div>
 
                 <div class="date">
+
                     TANGGAL :
+
                     {{ strtoupper(
                         \Carbon\Carbon::parse(
                             $invoice->invoice_date
-                        )->translatedFormat('l, d F Y')
+                        )->translatedFormat(
+                            'l, d F Y'
+                        )
                     ) }}
+
                 </div>
 
             </div>
 
+
             <div class="header-right">
 
                 <div class="kitchen-box">
-                    {{ strtoupper($kitchenRegion) }}
+
+                    {{ strtoupper(
+                        $kitchenRegion
+                    ) }}
+
                 </div>
 
             </div>
 
         </div>
 
-        @php
-            $groupedDetails = $invoice->details->groupBy(
-                function ($detail) {
-                    return $detail->supplier_id ?? 0;
-                }
-            );
 
-            $rowNumber = 1;
-        @endphp
+        {{-- ========================= --}}
+        {{-- DETAIL INVOICE --}}
+        {{-- ========================= --}}
 
-        {{-- TABEL PER SUPPLIER --}}
-        @foreach($groupedDetails as $supplierId => $details)
+        @if($invoice->details->count() > 0)
 
             @php
-                $supplierSubtotal = $details->sum('subtotal');
+
+                $groupedDetails =
+                    $invoice->details
+                        ->groupBy(
+                            function ($detail) {
+                                return
+                                    $detail->supplier_id
+                                    ?? 0;
+                            }
+                        );
+
+                $rowNumber = 1;
+
             @endphp
 
-            <div class="supplier-section">
 
-                <table class="invoice-table">
+            {{-- ========================= --}}
+            {{-- PER SUPPLIER --}}
+            {{-- ========================= --}}
 
-                    <thead>
-                        <tr>
+            @foreach(
+                $groupedDetails
+                as $supplierId => $details
+            )
 
-                            <th style="width: 35px;">
-                                NO
-                            </th>
+                @php
 
-                            <th style="width: 180px;">
-                                SUPPLIER
-                            </th>
+                    $supplierSubtotal =
+                        $details->sum(
+                            'subtotal'
+                        );
 
-                            <th style="width: 110px;">
-                                KODE BARANG
-                            </th>
+                @endphp
 
-                            <th>
-                                JENIS BARANG
-                            </th>
 
-                            <th style="width: 50px;">
-                                QTY
-                            </th>
+                <div class="supplier-section">
 
-                            <th style="width: 60px;">
-                                SATUAN
-                            </th>
+                    <table class="invoice-table">
 
-                            <th style="width: 90px;">
-                                HARGA
-                            </th>
-
-                            <th style="width: 110px;">
-                                JUMLAH
-                            </th>
-
-                        </tr>
-                    </thead>
-
-                    <tbody>
-
-                        @foreach($details as $detail)
+                        <thead>
 
                             <tr>
 
-                                <td class="text-center">
-                                    {{ $rowNumber++ }}
-                                </td>
+                                <th style="width:35px;">
+                                    NO
+                                </th>
 
-                                <td>
-                                    {{ strtoupper(
-                                        $detail->supplier?->name ?? '-'
-                                    ) }}
-                                </td>
+                                <th style="width:180px;">
+                                    SUPPLIER
+                                </th>
 
-                                <td class="text-center">
-                                    {{ $detail->item?->code ?? '-' }}
-                                </td>
+                                <th style="width:110px;">
+                                    KODE BARANG
+                                </th>
 
-                                <td>
-                                    {{ $detail->item?->name ?? '-' }}
-                                </td>
+                                <th>
+                                    JENIS BARANG
+                                </th>
 
-                                <td class="text-center">
-                                    {{ rtrim(
-                                        rtrim(
-                                            number_format(
-                                                $detail->quantity,
-                                                2,
-                                                ',',
-                                                '.'
-                                            ),
-                                            '0'
-                                        ),
-                                        ','
-                                    ) }}
-                                </td>
+                                <th style="width:50px;">
+                                    QTY
+                                </th>
 
-                                <td class="text-center">
-                                    {{ $detail->unit }}
-                                </td>
+                                <th style="width:60px;">
+                                    SATUAN
+                                </th>
 
-                                <td class="text-right">
-                                    Rp
-                                    {{ number_format(
-                                        $detail->unit_price,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) }}
-                                </td>
+                                <th style="width:90px;">
+                                    HARGA
+                                </th>
 
-                                <td class="text-right">
-                                    Rp
-                                    {{ number_format(
-                                        $detail->subtotal,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) }}
-                                </td>
+                                <th style="width:110px;">
+                                    JUMLAH
+                                </th>
 
                             </tr>
 
-                        @endforeach
+                        </thead>
 
-                    </tbody>
 
-                </table>
+                        <tbody>
 
-                {{-- STATUS APPROVAL & SUBTOTAL --}}
-                <div class="supplier-footer">
+                            @foreach(
+                                $details
+                                as $detail
+                            )
 
-                    <div class="approval-text">
-                        ☐ Approved &nbsp;&nbsp;
-                        ☐ Not Approved &nbsp;&nbsp;
-                        ☐ Pen
-                        &nbsp; | &nbsp;
-                        Date Approval :
-                        ____________________
-                    </div>
+                                <tr>
 
-                    <div class="subtotal-wrapper">
+                                    <td class="text-center">
 
-                        <span class="subtotal-label">
-                            SUBTOTAL
-                        </span>
+                                        {{ $rowNumber++ }}
 
-                        <span class="subtotal-val">
-                            Rp
-                            {{ number_format(
-                                $supplierSubtotal,
-                                0,
-                                ',',
-                                '.'
-                            ) }}
-                        </span>
+                                    </td>
+
+
+                                    <td>
+
+                                        {{ strtoupper(
+                                            $detail
+                                                ->supplier
+                                                ?->name
+                                                ?? '-'
+                                        ) }}
+
+                                    </td>
+
+
+                                    <td class="text-center">
+
+                                        {{ $detail
+                                            ->item
+                                            ?->code
+                                            ?? '-' }}
+
+                                    </td>
+
+
+                                    <td>
+
+                                        {{ $detail
+                                            ->item
+                                            ?->name
+                                            ?? '-' }}
+
+                                    </td>
+
+
+                                    <td class="text-center">
+
+                                        {{ rtrim(
+                                            rtrim(
+                                                number_format(
+                                                    $detail
+                                                        ->quantity,
+                                                    2,
+                                                    ',',
+                                                    '.'
+                                                ),
+                                                '0'
+                                            ),
+                                            ','
+                                        ) }}
+
+                                    </td>
+
+
+                                    <td class="text-center">
+
+                                        {{ $detail->unit }}
+
+                                    </td>
+
+
+                                    <td class="text-right">
+
+                                        Rp
+
+                                        {{ number_format(
+                                            $detail
+                                                ->unit_price,
+                                            0,
+                                            ',',
+                                            '.'
+                                        ) }}
+
+                                    </td>
+
+
+                                    <td class="text-right">
+
+                                        Rp
+
+                                        {{ number_format(
+                                            $detail
+                                                ->subtotal,
+                                            0,
+                                            ',',
+                                            '.'
+                                        ) }}
+
+                                    </td>
+
+                                </tr>
+
+                            @endforeach
+
+                        </tbody>
+
+                    </table>
+
+
+                    {{-- FOOTER SUPPLIER --}}
+
+                    <div class="supplier-footer">
+
+                        <div class="approval-text">
+
+                            ☐ Approved
+                            &nbsp;&nbsp;
+
+                            ☐ Not Approved
+                            &nbsp;&nbsp;
+
+                            ☐ Pen
+
+                            &nbsp; | &nbsp;
+
+                            Date Approval :
+                            ____________________
+
+                        </div>
+
+
+                        <div class="subtotal-wrapper">
+
+                            <span class="subtotal-label">
+
+                                SUBTOTAL
+
+                            </span>
+
+
+                            <span class="subtotal-val">
+
+                                Rp
+
+                                {{ number_format(
+                                    $supplierSubtotal,
+                                    0,
+                                    ',',
+                                    '.'
+                                ) }}
+
+                            </span>
+
+                        </div>
 
                     </div>
 
                 </div>
 
-        @endforeach
+            @endforeach
 
-        {{-- TOTAL KESELURUHAN --}}
+
+        @else
+
+            {{-- JIKA TIDAK ADA DETAIL --}}
+
+            <div class="empty-data">
+
+                ⚠️ DETAIL BARANG INVOICE TIDAK DITEMUKAN
+
+            </div>
+
+        @endif
+
+
+        {{-- ========================= --}}
+        {{-- TOTAL --}}
+        {{-- ========================= --}}
+
         <div class="grand-total-container">
 
             <div class="grand-total-box">
@@ -525,23 +719,29 @@
                 </span>
 
                 <span>
+
                     Rp
+
                     {{ number_format(
                         $invoice->total_amount,
                         0,
                         ',',
                         '.'
                     ) }}
+
                 </span>
 
             </div>
 
         </div>
 
+
+        {{-- ========================= --}}
         {{-- TANDA TANGAN --}}
+        {{-- ========================= --}}
+
         <div class="signature-section">
 
-            {{-- BARIS ATAS --}}
             <div class="signature-grid-top">
 
                 <div class="signature-box">
@@ -556,6 +756,7 @@
 
                 </div>
 
+
                 <div class="signature-box">
 
                     <div>
@@ -563,8 +764,14 @@
                     </div>
 
                     <div>
+
                         SPPG Aghits Star
-                        {{ ucfirst(strtolower($kitchenRegion)) }}
+                        {{ ucfirst(
+                            strtolower(
+                                $kitchenRegion
+                            )
+                        ) }}
+
                     </div>
 
                     <div class="signature-space"></div>
@@ -575,12 +782,14 @@
 
             </div>
 
-            {{-- MENGETAHUI --}}
+
             <div class="knowing-title">
+
                 Mengetahui,
+
             </div>
 
-            {{-- BARIS BAWAH --}}
+
             <div class="signature-grid-bottom">
 
                 <div class="signature-box">
@@ -598,10 +807,13 @@
                     <div class="signature-line"></div>
 
                     <div class="signature-name-bold">
+
                         Teguh Hadi Susilo
+
                     </div>
 
                 </div>
+
 
                 <div class="signature-box">
 
@@ -610,7 +822,13 @@
                     </div>
 
                     <div>
-                        {{ ucfirst(strtolower($kitchenRegion)) }}
+
+                        {{ ucfirst(
+                            strtolower(
+                                $kitchenRegion
+                            )
+                        ) }}
+
                     </div>
 
                     <div class="signature-space"></div>
@@ -619,6 +837,7 @@
 
                 </div>
 
+
                 <div class="signature-box">
 
                     <div>
@@ -626,7 +845,13 @@
                     </div>
 
                     <div>
-                        {{ ucfirst(strtolower($kitchenRegion)) }}
+
+                        {{ ucfirst(
+                            strtolower(
+                                $kitchenRegion
+                            )
+                        ) }}
+
                     </div>
 
                     <div class="signature-space"></div>
@@ -644,4 +869,5 @@
 </div>
 
 </body>
+
 </html>

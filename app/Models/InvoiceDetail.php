@@ -27,18 +27,33 @@ class InvoiceDetail extends Model
         'subtotal' => 'decimal:2',
     ];
 
+    /**
+     * Invoice
+     */
     public function invoice(): BelongsTo
     {
-        return $this->belongsTo(Invoice::class);
+        return $this->belongsTo(
+            Invoice::class
+        );
     }
 
+    /**
+     * Supplier
+     */
     public function supplier(): BelongsTo
     {
-        return $this->belongsTo(Supplier::class);
+        return $this->belongsTo(
+            Supplier::class
+        );
     }
 
+    /**
+     * Barang
+     */
     public function item(): BelongsTo
     {
-        return $this->belongsTo(Item::class);
+        return $this->belongsTo(
+            Item::class
+        );
     }
 }

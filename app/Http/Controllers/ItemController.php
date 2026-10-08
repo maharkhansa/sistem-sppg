@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Item;
-use App\Models\Supplier;
+use App\Models\Supplier; 
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Imports\ItemImport;
@@ -12,14 +12,73 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ItemController extends Controller
 {
-    public function index()
+    /*
+    |--------------------------------------------------------------------------
+    | DAFTAR BARANG
+    |--------------------------------------------------------------------------
+    */
+
+    public function index(Request $request)
     {
-        $items = Item::with(['category', 'supplier'])
+        $query = Item::with(['category', 'supplier']);
+
+        // ==============================
+        // PENCARIAN
+        // ==============================
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->where('code', 'like', '%' . $search . '%')
+                    ->orWhere('name', 'like', '%' . $search . '%');
+            });
+        }
+
+        // ==============================
+        // FILTER KATEGORI
+        // ==============================
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // ==============================
+        // FILTER SUPPLIER
+        // ==============================
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+
+        // ==============================
+        // DATA BARANG
+        // ==============================
+        $items = $query
             ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        // ==============================
+        // DATA UNTUK FILTER
+        // ==============================
+        $categories = Category::where('status', true)
+            ->orderBy('name')
             ->get();
 
-        return view('items.index', compact('items'));
+        $suppliers = Supplier::where('status', true)
+            ->orderBy('name')
+            ->get();
+
+        return view('items.index', compact(
+            'items',
+            'categories',
+            'suppliers'
+        ));
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORM TAMBAH BARANG
+    |--------------------------------------------------------------------------
+    */
 
     public function create()
     {
@@ -31,8 +90,17 @@ class ItemController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('items.create', compact('categories', 'suppliers'));
+        return view('items.create', compact(
+            'categories',
+            'suppliers'
+        ));
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SIMPAN BARANG
+    |--------------------------------------------------------------------------
+    */
 
     public function store(Request $request)
     {
@@ -83,6 +151,12 @@ class ItemController extends Controller
             ->with('success', 'Barang berhasil ditambahkan.');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | FORM EDIT BARANG
+    |--------------------------------------------------------------------------
+    */
+
     public function edit(Item $item)
     {
         $categories = Category::where('status', true)
@@ -99,6 +173,12 @@ class ItemController extends Controller
             'suppliers'
         ));
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE BARANG
+    |--------------------------------------------------------------------------
+    */
 
     public function update(Request $request, Item $item)
     {
@@ -148,25 +228,40 @@ class ItemController extends Controller
             ->with('success', 'Barang berhasil diperbarui.');
     }
 
-    public function toggleStatus(Item $item)
+    /*
+    |--------------------------------------------------------------------------
+    | HAPUS BARANG
+    |--------------------------------------------------------------------------
+    */
+
+    public function destroy(Item $item)
     {
-        $item->update([
-            'status' => !$item->status,
-        ]);
+        $item->delete();
 
         return redirect()
             ->route('items.index')
-            ->with('success', 'Status barang berhasil diperbarui.');
+            ->with('success', 'Barang berhasil dihapus.');
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IMPORT EXCEL
+    |--------------------------------------------------------------------------
+    */
 
     public function import(Request $request)
     {
-    $request->validate([
-        'file' => 'required|mimes:xlsx,xls,csv|max:2048',
-    ]);
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv|max:2048',
+        ]);
 
-    Excel::import(new ItemImport, $request->file('file'));
+        Excel::import(
+            new ItemImport,
+            $request->file('file')
+        );
 
-    return redirect()->back()->with('success', 'Data barang berhasil diimport!');
+        return redirect()
+            ->back()
+            ->with('success', 'Data barang berhasil diimport!');
     }
 }
