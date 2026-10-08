@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,18 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Item extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'category_id',
-        'supplier_id',
-        'code',
-        'name',
-        'unit',
-        'minimum_stock',
-        'status',
-    ];
+        'category_id', 'supplier_id', 'code', 'name', 'unit', 'price', 'minimum_stock', 'status', ];
 
     protected $casts = [
         'status' => 'boolean',
+        'price' => 'decimal:2',
         'minimum_stock' => 'decimal:2',
     ];
 
@@ -36,15 +33,22 @@ class Item extends Model
 
     public function purchaseOrderDetails(): HasMany
     {
-    return $this->hasMany(PurchaseOrderDetail::class);
+        return $this->hasMany(
+            PurchaseOrderDetail::class
+        );
     }
 
     public function stockTransactionDetails(): HasMany
     {
-        return $this->hasMany(StockTransactionDetail::class);
+        return $this->hasMany(
+            StockTransactionDetail::class
+        );
     }
+
     public function stock(): HasOne
     {
-    return $this->hasOne(Stock::class);
+        return $this->hasOne(
+            Stock::class
+        );
     }
 }

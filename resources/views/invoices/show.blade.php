@@ -206,68 +206,69 @@
             margin-bottom: 15px;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | TANDA TANGAN
+        |--------------------------------------------------------------------------
+        */
+
         .signature-section {
-    margin-top: 25px;
-    page-break-inside: avoid;
-    break-inside: avoid;
-}
+            margin-top: 25px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
 
-.signature-grid-top {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-    margin-bottom: 20px;
-}
+        .signature-grid-top {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+            margin-bottom: 20px;
+        }
 
-.signature-grid-top .signature-box {
-    display: table-cell;
-    width: 50%;
-    text-align: center;
-    vertical-align: top;
-}
-
-.signature-grid-bottom {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-}
-
-.signature-grid-bottom .signature-box {
-    display: table-cell;
-    width: 33.333%;
-    text-align: center;
-    vertical-align: top;
-}
-
-.signature-box {
-    text-align: center;
-}
-
-.signature-space {
-    height: 60px;
-}
-
-.signature-line {
-    border-bottom: 1px dashed #000;
-    margin: 0 auto;
-    width: 80%;
-    height: 1px;
-}
-
-.signature-name-bold {
-    font-weight: bold;
-    margin-top: 10px;
-}
-
-.knowing-title {
-    text-align: center;
-    font-size: 12px;
-    margin-bottom: 15px;
-}
+        .signature-grid-top .signature-box {
+            display: table-cell;
+            width: 50%;
+            text-align: center;
+            vertical-align: top;
+        }
 
         .signature-grid-bottom {
-            display: flex;
-            justify-content: space-between;
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .signature-grid-bottom .signature-box {
+            display: table-cell;
+            width: 33.333%;
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .signature-box {
+            text-align: center;
+        }
+
+        .signature-space {
+            height: 60px;
+        }
+
+        .signature-line {
+            border-bottom: 1px dashed #000;
+            margin: 0 auto;
+            width: 80%;
+            height: 1px;
+        }
+
+        .signature-name-bold {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .knowing-title {
+            text-align: center;
+            font-size: 12px;
+            margin-bottom: 15px;
         }
 
         @media print {
@@ -319,7 +320,10 @@
 
 <div class="invoice-container">
 
+    {{-- ========================================================= --}}
     {{-- ACTION --}}
+    {{-- ========================================================= --}}
+
     <div class="top-actions">
 
         <a
@@ -341,15 +345,34 @@
 
     <div class="invoice-card">
 
-        {{-- ========================= --}}
-        {{-- NAMA KITCHEN --}}
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
+        {{-- DATA KITCHEN DAN YAYASAN --}}
+        {{-- ========================================================= --}}
 
         @php
 
+            /*
+            |--------------------------------------------------------------------------
+            | Nama SPPG dari database
+            |--------------------------------------------------------------------------
+            */
+
             $rawKitchenName =
                 $invoice->kitchen?->name
-                ?? 'Adikarto';
+                ?? '-';
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Nama wilayah untuk kotak kanan
+            |--------------------------------------------------------------------------
+            |
+            | Contoh:
+            | SPPG Magelang Muntilan Adikarto
+            | menjadi:
+            | MUNTILAN ADIKARTO
+            |
+            */
 
             $cleanedName =
                 trim(
@@ -387,12 +410,86 @@
                     $cleanedName;
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | NORMALISASI NAMA KITCHEN UNTUK MAPPING YAYASAN
+            |--------------------------------------------------------------------------
+            */
+
+            $normalizedKitchen =
+                strtoupper(
+                    trim(
+                        preg_replace(
+                            '/\s+/',
+                            ' ',
+                            $rawKitchenName
+                        )
+                    )
+                );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | MAPPING YAYASAN
+            |--------------------------------------------------------------------------
+            |
+            | Aghits Star International:
+            | - Pemalang
+            | - Kota Magelang
+            | - Muntilan
+            | - Tempuran
+            |
+            | La Tahzan Indonesia:
+            | - Mungkid
+            | - Klaten Polanharjo
+            | - Klaten Kebonarum
+            | - Kota Palembang
+            |
+            */
+
+            $yayasan =
+                'Yayasan Aghits Star International';
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | YAYASAN LA TAHZAN INDONESIA
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                str_contains(
+                    $normalizedKitchen,
+                    'MUNGKID'
+                )
+                ||
+                str_contains(
+                    $normalizedKitchen,
+                    'POLANHARJO'
+                )
+                ||
+                str_contains(
+                    $normalizedKitchen,
+                    'KEBONARUM'
+                )
+                ||
+                str_contains(
+                    $normalizedKitchen,
+                    'PALEMBANG'
+                )
+            ) {
+
+                $yayasan =
+                    'Yayasan La Tahzan Indonesia';
+            }
+
         @endphp
 
 
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
         {{-- HEADER --}}
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
 
         <div class="invoice-header">
 
@@ -404,8 +501,9 @@
 
                 <div class="sppg-name">
 
-                    SPPG AGHITS STAR
-                    {{ strtoupper($kitchenRegion) }}
+                    {{ strtoupper(
+                        $invoice->kitchen->name ?? '-'
+                    ) }}
 
                 </div>
 
@@ -441,9 +539,9 @@
         </div>
 
 
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
         {{-- DETAIL INVOICE --}}
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
 
         @if($invoice->details->count() > 0)
 
@@ -464,9 +562,9 @@
             @endphp
 
 
-            {{-- ========================= --}}
+            {{-- ===================================================== --}}
             {{-- PER SUPPLIER --}}
-            {{-- ========================= --}}
+            {{-- ===================================================== --}}
 
             @foreach(
                 $groupedDetails
@@ -640,7 +738,9 @@
                     </table>
 
 
+                    {{-- ================================================= --}}
                     {{-- FOOTER SUPPLIER --}}
+                    {{-- ================================================= --}}
 
                     <div class="supplier-footer">
 
@@ -665,11 +765,8 @@
                         <div class="subtotal-wrapper">
 
                             <span class="subtotal-label">
-
                                 SUBTOTAL
-
                             </span>
-
 
                             <span class="subtotal-val">
 
@@ -695,7 +792,9 @@
 
         @else
 
-            {{-- JIKA TIDAK ADA DETAIL --}}
+            {{-- ===================================================== --}}
+            {{-- TIDAK ADA DETAIL --}}
+            {{-- ===================================================== --}}
 
             <div class="empty-data">
 
@@ -706,9 +805,9 @@
         @endif
 
 
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
         {{-- TOTAL --}}
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
 
         <div class="grand-total-container">
 
@@ -736,11 +835,15 @@
         </div>
 
 
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
         {{-- TANDA TANGAN --}}
-        {{-- ========================= --}}
+        {{-- ========================================================= --}}
 
         <div class="signature-section">
+
+            {{-- ===================================================== --}}
+            {{-- SALES MANAGER + ASISTEN LAPANGAN --}}
+            {{-- ===================================================== --}}
 
             <div class="signature-grid-top">
 
@@ -763,17 +866,6 @@
                         Asisten Lapangan
                     </div>
 
-                    <div>
-
-                        SPPG Aghits Star
-                        {{ ucfirst(
-                            strtolower(
-                                $kitchenRegion
-                            )
-                        ) }}
-
-                    </div>
-
                     <div class="signature-space"></div>
 
                     <div class="signature-line"></div>
@@ -783,6 +875,10 @@
             </div>
 
 
+            {{-- ===================================================== --}}
+            {{-- MENGETAHUI --}}
+            {{-- ===================================================== --}}
+
             <div class="knowing-title">
 
                 Mengetahui,
@@ -790,16 +886,20 @@
             </div>
 
 
+            {{-- ===================================================== --}}
+            {{-- 3 TANDA TANGAN BAWAH --}}
+            {{-- ===================================================== --}}
+
             <div class="signature-grid-bottom">
+
+                {{-- ================================================= --}}
+                {{-- KETUA YAYASAN --}}
+                {{-- ================================================= --}}
 
                 <div class="signature-box">
 
                     <div>
-                        Ketua Yayasan Aghits Star
-                    </div>
-
-                    <div>
-                        International
+                        Ketua {{ $yayasan }}
                     </div>
 
                     <div class="signature-space"></div>
@@ -815,20 +915,14 @@
                 </div>
 
 
+                {{-- ================================================= --}}
+                {{-- AKUNTAN --}}
+                {{-- ================================================= --}}
+
                 <div class="signature-box">
 
                     <div>
-                        Akuntan SPPG Aghits Star
-                    </div>
-
-                    <div>
-
-                        {{ ucfirst(
-                            strtolower(
-                                $kitchenRegion
-                            )
-                        ) }}
-
+                        Akuntan SPPG
                     </div>
 
                     <div class="signature-space"></div>
@@ -838,20 +932,14 @@
                 </div>
 
 
+                {{-- ================================================= --}}
+                {{-- KA. SPPG --}}
+                {{-- ================================================= --}}
+
                 <div class="signature-box">
 
                     <div>
-                        Ka. SPPG Aghits Star
-                    </div>
-
-                    <div>
-
-                        {{ ucfirst(
-                            strtolower(
-                                $kitchenRegion
-                            )
-                        ) }}
-
+                        Ka. SPPG
                     </div>
 
                     <div class="signature-space"></div>

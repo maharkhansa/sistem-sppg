@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Item;
-use App\Models\Supplier; 
+use App\Models\Supplier;
+use App\Models\StockTransactionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Imports\ItemImport;
@@ -109,26 +110,31 @@ class ItemController extends Controller
                 'required',
                 'exists:categories,id',
             ],
+
             'supplier_id' => [
                 'required',
                 'exists:suppliers,id',
             ],
+
             'code' => [
                 'required',
                 'string',
                 'max:30',
                 'unique:items,code',
             ],
+
             'name' => [
                 'required',
                 'string',
                 'max:150',
             ],
+
             'unit' => [
                 'required',
                 'string',
                 'max:30',
             ],
+
             'minimum_stock' => [
                 'required',
                 'numeric',
@@ -187,26 +193,31 @@ class ItemController extends Controller
                 'required',
                 'exists:categories,id',
             ],
+
             'supplier_id' => [
                 'required',
                 'exists:suppliers,id',
             ],
+
             'code' => [
                 'required',
                 'string',
                 'max:30',
                 Rule::unique('items', 'code')->ignore($item->id),
             ],
+
             'name' => [
                 'required',
                 'string',
                 'max:150',
             ],
+
             'unit' => [
                 'required',
                 'string',
                 'max:30',
             ],
+
             'minimum_stock' => [
                 'required',
                 'numeric',
@@ -236,16 +247,47 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
+        // ==========================================================
+        // CEK APAKAH BARANG SUDAH DIGUNAKAN DALAM TRANSAKSI
+        // ==========================================================
+
+        $hasTransactions = StockTransactionDetail::where(
+            'item_id',
+            $item->id
+        )->exists();
+
+        // ==========================================================
+        // JIKA SUDAH DIGUNAKAN, JANGAN BOLEH DIHAPUS
+        // ==========================================================
+
+        if ($hasTransactions) {
+            return redirect()
+                ->route('items.index')
+                ->with(
+                    'error',
+                    'Barang "' . $item->name . '" tidak dapat dihapus karena sudah digunakan dalam transaksi stok.'
+                );
+        }
+
+        // ==========================================================
+        // HAPUS BARANG
+        // ==========================================================
+
+        $itemName = $item->name;
+
         $item->delete();
 
         return redirect()
             ->route('items.index')
-            ->with('success', 'Barang berhasil dihapus.');
+            ->with(
+                'success',
+                'Barang "' . $itemName . '" berhasil dihapus.'
+            );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | IMPORT EXCEL
+    | IMPORT BARANG
     |--------------------------------------------------------------------------
     */
 
@@ -262,6 +304,9 @@ class ItemController extends Controller
 
         return redirect()
             ->back()
-            ->with('success', 'Data barang berhasil diimport!');
+            ->with(
+                'success',
+                'Data barang berhasil diimport!'
+            );
     }
 }

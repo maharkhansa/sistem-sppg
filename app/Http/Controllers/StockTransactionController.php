@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockTransaction;
+use App\Models\Supplier;
+use App\Models\NotaKeluar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class StockTransactionController extends Controller
 {
@@ -16,16 +19,105 @@ class StockTransactionController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function index()
+    public function index(Request $request)
     {
-        $transactions = StockTransaction::with('supplier')
-            ->where('type', 'IN')
-            ->latest()
+        $query = StockTransaction::with([
+            'supplier',
+            'details.item',
+            'creator',
+        ])
+            ->where('type', 'IN');
+
+        // PENCARIAN
+        if ($request->filled('search')) {
+
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+
+                $q->where(
+                    'transaction_number',
+                    'like',
+                    '%' . $search . '%'
+                )
+                    ->orWhereHas('supplier', function ($supplierQuery) use ($search) {
+
+                        $supplierQuery->where(
+                            'name',
+                            'like',
+                            '%' . $search . '%'
+                        );
+
+                    });
+
+            });
+        }
+
+        // FILTER TANGGAL
+        if ($request->filled('date')) {
+
+            $query->whereDate(
+                'transaction_date',
+                $request->date
+            );
+        }
+
+        // FILTER SUPPLIER
+        if ($request->filled('supplier_id')) {
+
+            $query->where(
+                'supplier_id',
+                $request->supplier_id
+            );
+        }
+
+        $transactions = $query
+            ->latest('transaction_date')
+            ->latest('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $suppliers = Supplier::where('status', true)
+            ->orderBy('name')
             ->get();
 
         return view(
             'stock_transactions.index',
-            compact('transactions')
+            compact(
+                'transactions',
+                'suppliers'
+            )
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DETAIL TRANSAKSI BARANG MASUK
+    |--------------------------------------------------------------------------
+    */
+
+    public function show(StockTransaction $stockTransaction)
+    {
+        if ($stockTransaction->type !== 'IN') {
+
+            return redirect()
+                ->route('stock-transactions.index')
+                ->with(
+                    'error',
+                    'Transaksi yang dipilih bukan transaksi Barang Masuk.'
+                );
+        }
+
+        $stockTransaction->load([
+            'supplier',
+            'details.item',
+            'creator',
+        ]);
+
+        return view(
+            'stock_transactions.show',
+            compact('stockTransaction')
         );
     }
 
@@ -64,14 +156,34 @@ class StockTransactionController extends Controller
 
     public function create()
     {
-        $suppliers = \App\Models\Supplier::where('status', true)
+        /*
+        |--------------------------------------------------------------------------
+        | AMBIL SEMUA SUPPLIER AKTIF
+        |--------------------------------------------------------------------------
+        */
+
+        $suppliers = Supplier::where('status', true)
             ->orderBy('name')
             ->get();
 
-        $items = Item::with('category')
+
+        /*
+        |--------------------------------------------------------------------------
+        | AMBIL SEMUA BARANG AKTIF
+        |--------------------------------------------------------------------------
+        |
+        | Barang akan dikelompokkan di Blade berdasarkan supplier_id.
+        |
+        */
+
+        $items = Item::with([
+            'category',
+            'supplier',
+        ])
             ->where('status', true)
             ->orderBy('name')
             ->get();
+
 
         return view(
             'stock_transactions.create',
@@ -91,112 +203,305 @@ class StockTransactionController extends Controller
 
     public function store(Request $request)
     {
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDASI
+        |--------------------------------------------------------------------------
+        */
+
         $data = $request->validate([
-            'transaction_date' =>
-                'required|date',
 
-            'supplier_id' =>
-                'required|exists:suppliers,id',
+            'transaction_date' => [
+                'required',
+                'date',
+            ],
 
-            'notes' =>
-                'nullable|string',
+            'supplier_id' => [
+                'required',
+                'exists:suppliers,id',
+            ],
 
-            'items' =>
-                'required|array|min:1',
+            'notes' => [
+                'nullable',
+                'string',
+            ],
 
-            'items.*.item_id' =>
-                'required|exists:items,id',
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
 
-            'items.*.quantity' =>
-                'required|numeric|min:0.01',
+            'items.*.item_id' => [
+                'required',
+                'exists:items,id',
+            ],
 
-            'items.*.unit_price' =>
-                'required|numeric|min:0',
+            'items.*.quantity' => [
+                'required',
+                'numeric',
+                'min:0.01',
+            ],
+
+            'items.*.unit_price' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+
         ]);
 
 
-        DB::transaction(function () use ($data) {
+        try {
 
-            $transaction = StockTransaction::create([
-                'transaction_number' =>
-                    $this->generateTransactionNumber(),
+            DB::transaction(function () use ($data) {
 
-                'transaction_date' =>
-                    $data['transaction_date'],
+                /*
+                |--------------------------------------------------------------------------
+                | LOCK SUPPLIER
+                |--------------------------------------------------------------------------
+                */
 
-                'type' =>
-                    'IN',
-
-                'supplier_id' =>
-                    $data['supplier_id'],
-
-                'notes' =>
-                    $data['notes'] ?? null,
-
-                'created_by' =>
-                    auth()->id() ?? 1,
-            ]);
+                $supplier = Supplier::lockForUpdate()
+                    ->findOrFail(
+                        $data['supplier_id']
+                    );
 
 
-            foreach ($data['items'] as $detail) {
+                /*
+                |--------------------------------------------------------------------------
+                | BUAT NOMOR TRANSAKSI
+                |--------------------------------------------------------------------------
+                */
 
-                $item = Item::findOrFail(
-                    $detail['item_id']
+                $transactionNumber =
+                    $this->generateTransactionNumber(
+                        $data['transaction_date'],
+                        'IN'
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | BUAT HEADER TRANSAKSI
+                |--------------------------------------------------------------------------
+                */
+
+                $transaction =
+                    StockTransaction::create([
+
+                        'transaction_number' =>
+                            $transactionNumber,
+
+                        'transaction_date' =>
+                            $data['transaction_date'],
+
+                        'type' =>
+                            'IN',
+
+                        'supplier_id' =>
+                            $supplier->id,
+
+                        'notes' =>
+                            $data['notes'] ?? null,
+
+                        'created_by' =>
+                            auth()->id() ?? 1,
+
+                    ]);
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | CEK DUPLIKAT BARANG
+                |--------------------------------------------------------------------------
+                */
+
+                $itemIds = [];
+
+                foreach ($data['items'] as $detail) {
+
+                    $itemId =
+                        (int) $detail['item_id'];
+
+                    if (
+                        in_array(
+                            $itemId,
+                            $itemIds,
+                            true
+                        )
+                    ) {
+
+                        $item =
+                            Item::find($itemId);
+
+                        throw new \Exception(
+                            'Barang "' .
+                            ($item?->name ?? '-') .
+                            '" dipilih lebih dari satu kali.'
+                        );
+                    }
+
+                    $itemIds[] =
+                        $itemId;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SIMPAN DETAIL DAN TAMBAH STOK
+                |--------------------------------------------------------------------------
+                */
+
+                foreach ($data['items'] as $detail) {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | LOCK ITEM
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $item =
+                        Item::lockForUpdate()
+                            ->findOrFail(
+                                $detail['item_id']
+                            );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | PASTIKAN BARANG MEMANG MILIK SUPPLIER
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        (int) $item->supplier_id !==
+                        (int) $supplier->id
+                    ) {
+
+                        throw new \Exception(
+                            'Barang "' .
+                            $item->name .
+                            '" bukan milik supplier "' .
+                            $supplier->name .
+                            '".'
+                        );
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | NILAI TRANSAKSI
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $quantity =
+                        (float) $detail['quantity'];
+
+                    $unitPrice =
+                        (float) $detail['unit_price'];
+
+                    $subtotal =
+                        $quantity *
+                        $unitPrice;
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SIMPAN DETAIL
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $transaction
+                        ->details()
+                        ->create([
+
+                            'item_id' =>
+                                $item->id,
+
+                            'quantity' =>
+                                $quantity,
+
+                            'unit' =>
+                                $item->unit,
+
+                            'unit_price' =>
+                                $unitPrice,
+
+                            'subtotal' =>
+                                $subtotal,
+
+                        ]);
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | AMBIL / BUAT STOK
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $stock =
+                        Stock::lockForUpdate()
+                            ->where(
+                                'item_id',
+                                $item->id
+                            )
+                            ->first();
+
+
+                    if (!$stock) {
+
+                        $stock =
+                            Stock::create([
+
+                                'item_id' =>
+                                    $item->id,
+
+                                'quantity' =>
+                                    0,
+
+                            ]);
+
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | TAMBAH STOK
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $stock->increment(
+                        'quantity',
+                        $quantity
+                    );
+
+                }
+
+            });
+
+
+            return redirect()
+                ->route(
+                    'stock-transactions.index'
+                )
+                ->with(
+                    'success',
+                    'Stok supplier berhasil disimpan. Semua barang berhasil ditambahkan ke stok.'
                 );
 
 
-                $quantity =
-                    (float) $detail['quantity'];
+        } catch (\Throwable $e) {
 
-
-                $unitPrice =
-                    (float) $detail['unit_price'];
-
-
-                $transaction->details()->create([
-                    'item_id' =>
-                        $item->id,
-
-                    'quantity' =>
-                        $quantity,
-
-                    'unit' =>
-                        $item->unit,
-
-                    'unit_price' =>
-                        $unitPrice,
-
-                    'subtotal' =>
-                        $quantity * $unitPrice,
-                ]);
-
-
-                $stock = Stock::firstOrCreate(
-                    [
-                        'item_id' =>
-                            $item->id,
-                    ],
-                    [
-                        'quantity' =>
-                            0,
-                    ]
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with(
+                    'error',
+                    $e->getMessage()
                 );
 
-
-                $stock->increment(
-                    'quantity',
-                    $quantity
-                );
-            }
-        });
-
-
-        return redirect()
-            ->route('stock-transactions.index')
-            ->with(
-                'success',
-                'Barang masuk berhasil disimpan.'
-            );
+        }
     }
 
 
@@ -219,7 +524,6 @@ class StockTransactionController extends Controller
                 );
         }
 
-
         $stockTransaction->load([
             'details.item',
             'purchaseOrder',
@@ -227,43 +531,32 @@ class StockTransactionController extends Controller
             'invoice',
         ]);
 
+        $currentItemIds =
+            $stockTransaction
+                ->details
+                ->pluck('item_id')
+                ->filter()
+                ->unique()
+                ->values();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Ambil item yang sedang digunakan
-        |--------------------------------------------------------------------------
-        */
-
-        $currentItemIds = $stockTransaction
-            ->details
-            ->pluck('item_id')
-            ->filter()
-            ->unique()
-            ->values();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Item aktif + item lama
-        |--------------------------------------------------------------------------
-        |
-        | Item lama tetap ditampilkan meskipun statusnya tidak aktif.
-        |
-        */
-
-        $items = Item::where(function ($query) use ($currentItemIds) {
+        $items =
+            Item::where(function ($query) use (
+                $currentItemIds
+            ) {
 
                 $query
-                    ->where('status', true)
+                    ->where(
+                        'status',
+                        true
+                    )
                     ->orWhereIn(
                         'id',
                         $currentItemIds
                     );
 
             })
-            ->orderBy('name')
-            ->get();
-
+                ->orderBy('name')
+                ->get();
 
         return view(
             'stock_transactions.edit',
@@ -295,38 +588,46 @@ class StockTransactionController extends Controller
                 );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDASI
-        |--------------------------------------------------------------------------
-        |
-        | detail_id dibuat nullable karena barang baru yang ditambahkan
-        | dari tombol "Tambah Barang" belum mempunyai detail_id.
-        |
-        */
-
         $data = $request->validate([
-            'transaction_date' =>
-                'required|date',
 
-            'notes' =>
-                'nullable|string',
+            'transaction_date' => [
+                'required',
+                'date',
+            ],
 
-            'items' =>
-                'required|array|min:1',
+            'notes' => [
+                'nullable',
+                'string',
+            ],
 
-            'items.*.detail_id' =>
-                'nullable|integer',
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
 
-            'items.*.item_id' =>
-                'required|exists:items,id',
+            'items.*.detail_id' => [
+                'nullable',
+                'integer',
+            ],
 
-            'items.*.quantity' =>
-                'required|numeric|min:0.01',
+            'items.*.item_id' => [
+                'required',
+                'exists:items,id',
+            ],
 
-            'items.*.unit_price' =>
-                'required|numeric|min:0',
+            'items.*.quantity' => [
+                'required',
+                'numeric',
+                'min:0.01',
+            ],
+
+            'items.*.unit_price' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+
         ]);
 
 
@@ -339,19 +640,21 @@ class StockTransactionController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | Ambil transaksi + lock
+                | AMBIL TRANSAKSI + LOCK
                 |--------------------------------------------------------------------------
                 */
 
-                $transaction = StockTransaction::with([
-                    'details.item',
-                    'invoice.details',
-                    'purchaseOrder.details',
-                ])
-                    ->lockForUpdate()
-                    ->findOrFail(
-                        $stockTransaction->id
-                    );
+                $transaction =
+                    StockTransaction::with([
+                        'details.item',
+                        'invoice.details',
+                        'purchaseOrder.details',
+                        'kitchen',
+                    ])
+                        ->lockForUpdate()
+                        ->findOrFail(
+                            $stockTransaction->id
+                        );
 
 
                 /*
@@ -365,7 +668,6 @@ class StockTransactionController extends Controller
                         ->details()
                         ->get();
 
-
                 $oldDetailIds =
                     $oldDetails
                         ->pluck('id')
@@ -377,7 +679,7 @@ class StockTransactionController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | DETAIL YANG DIKIRIM DARI FORM
+                | DETAIL FORM
                 |--------------------------------------------------------------------------
                 */
 
@@ -393,7 +695,7 @@ class StockTransactionController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | Pastikan detail_id benar-benar milik transaksi ini
+                | VALIDASI DETAIL
                 |--------------------------------------------------------------------------
                 */
 
@@ -425,7 +727,6 @@ class StockTransactionController extends Controller
 
                 $usedItemIds = [];
 
-
                 foreach (
                     $data['items']
                     as $newDetail
@@ -433,7 +734,6 @@ class StockTransactionController extends Controller
 
                     $itemId =
                         (int) $newDetail['item_id'];
-
 
                     if (
                         in_array(
@@ -446,14 +746,12 @@ class StockTransactionController extends Controller
                         $item =
                             Item::find($itemId);
 
-
                         throw new \Exception(
                             'Barang "' .
                             ($item?->name ?? '-') .
                             '" dipilih lebih dari satu kali.'
                         );
                     }
-
 
                     $usedItemIds[] =
                         $itemId;
@@ -462,21 +760,8 @@ class StockTransactionController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | 1. KEMBALIKAN SEMUA STOK BARANG LAMA
+                | 1. KEMBALIKAN STOK LAMA
                 |--------------------------------------------------------------------------
-                |
-                | Contoh:
-                |
-                | Sebelum edit:
-                | Beras 10
-                | Minyak 5
-                |
-                | Stok dikembalikan dahulu:
-                | Beras +10
-                | Minyak +5
-                |
-                | Setelah itu baru stok versi baru dikurangi.
-                |
                 */
 
                 foreach (
@@ -492,7 +777,6 @@ class StockTransactionController extends Controller
                             ->lockForUpdate()
                             ->first();
 
-
                     if (!$stock) {
 
                         throw new \Exception(
@@ -501,7 +785,6 @@ class StockTransactionController extends Controller
                             '" tidak ditemukan.'
                         );
                     }
-
 
                     $stock->increment(
                         'quantity',
@@ -512,7 +795,7 @@ class StockTransactionController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | 2. HAPUS DETAIL LAMA YANG TIDAK ADA DI FORM
+                | 2. HAPUS DETAIL YANG DIHILANGKAN
                 |--------------------------------------------------------------------------
                 */
 
@@ -521,7 +804,6 @@ class StockTransactionController extends Controller
                         $oldDetailIds,
                         $submittedDetailIds
                     );
-
 
                 if (!empty($deletedDetailIds)) {
 
@@ -537,27 +819,16 @@ class StockTransactionController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | 3. TERAPKAN BARANG VERSI BARU
+                | 3. TERAPKAN BARANG BARU / PERUBAHAN
                 |--------------------------------------------------------------------------
                 */
 
                 $totalAmount = 0;
 
-
                 foreach (
                     $data['items']
                     as $newDetail
                 ) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Detail ID
-                    |--------------------------------------------------------------------------
-                    |
-                    | Jika ada = detail lama
-                    | Jika kosong = barang baru
-                    |
-                    */
 
                     $detailId =
                         !empty(
@@ -567,23 +838,14 @@ class StockTransactionController extends Controller
                                 $newDetail['detail_id']
                             : null;
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Ambil item
-                    |--------------------------------------------------------------------------
-                    */
-
                     $item =
                         Item::findOrFail(
                             $newDetail['item_id']
                         );
 
-
                     $quantity =
                         (float)
                         $newDetail['quantity'];
-
 
                     $unitPrice =
                         (float)
@@ -592,7 +854,7 @@ class StockTransactionController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Ambil stok
+                    | AMBIL STOK
                     |--------------------------------------------------------------------------
                     */
 
@@ -603,7 +865,6 @@ class StockTransactionController extends Controller
                         )
                             ->lockForUpdate()
                             ->first();
-
 
                     if (!$stock) {
 
@@ -656,7 +917,7 @@ class StockTransactionController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | HITUNG SUBTOTAL
+                    | SUBTOTAL
                     |--------------------------------------------------------------------------
                     */
 
@@ -680,7 +941,6 @@ class StockTransactionController extends Controller
                                     $detailId
                                 );
 
-
                         if (!$detail) {
 
                             throw new \Exception(
@@ -688,8 +948,8 @@ class StockTransactionController extends Controller
                             );
                         }
 
-
                         $detail->update([
+
                             'item_id' =>
                                 $item->id,
 
@@ -704,13 +964,15 @@ class StockTransactionController extends Controller
 
                             'subtotal' =>
                                 $subtotal,
+
                         ]);
+
                     }
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | BUAT DETAIL BARU
+                    | TAMBAH DETAIL BARU
                     |--------------------------------------------------------------------------
                     */
 
@@ -719,6 +981,7 @@ class StockTransactionController extends Controller
                         $transaction
                             ->details()
                             ->create([
+
                                 'item_id' =>
                                     $item->id,
 
@@ -733,9 +996,9 @@ class StockTransactionController extends Controller
 
                                 'subtotal' =>
                                     $subtotal,
+
                             ]);
                     }
-
 
                     $totalAmount +=
                         $subtotal;
@@ -744,16 +1007,18 @@ class StockTransactionController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | 4. UPDATE HEADER BARANG KELUAR
+                | 4. UPDATE HEADER
                 |--------------------------------------------------------------------------
                 */
 
                 $transaction->update([
+
                     'transaction_date' =>
                         $data['transaction_date'],
 
                     'notes' =>
                         $data['notes'] ?? null,
+
                 ]);
 
 
@@ -767,13 +1032,6 @@ class StockTransactionController extends Controller
 
                     $invoice =
                         $transaction->invoice;
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Ambil detail PO
-                    |--------------------------------------------------------------------------
-                    */
 
                     $poDetails =
                         $transaction
@@ -789,11 +1047,13 @@ class StockTransactionController extends Controller
                     */
 
                     $invoice->update([
+
                         'invoice_date' =>
                             $data['transaction_date'],
 
                         'total_amount' =>
                             $totalAmount,
+
                     ]);
 
 
@@ -806,13 +1066,14 @@ class StockTransactionController extends Controller
                     foreach (
                         $transaction
                             ->details()
+                            ->with('item')
                             ->get()
                         as $outDetail
                     ) {
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Cari supplier berdasarkan PO
+                        | CARI BARANG DI PO
                         |--------------------------------------------------------------------------
                         */
 
@@ -823,33 +1084,49 @@ class StockTransactionController extends Controller
                             );
 
 
-                        if (!$poDetail) {
+                        /*
+                        |--------------------------------------------------------------------------
+                        | TENTUKAN SUPPLIER
+                        |--------------------------------------------------------------------------
+                        */
 
-                            throw new \Exception(
-                                'Barang "' .
-                                ($outDetail->item?->name ?? 'tidak diketahui') .
-                                '" tidak ditemukan pada Purchase Order.'
-                            );
+                        if (
+                            $poDetail &&
+                            $poDetail->supplier_id
+                        ) {
+
+                            $supplierId =
+                                $poDetail->supplier_id;
+
+                        } else {
+
+                            $supplierId =
+                                $outDetail
+                                    ->item
+                                    ?->supplier_id;
                         }
 
 
-                        $supplierId =
-                            $poDetail->supplier_id;
-
+                        /*
+                        |--------------------------------------------------------------------------
+                        | VALIDASI SUPPLIER
+                        |--------------------------------------------------------------------------
+                        */
 
                         if (!$supplierId) {
 
                             throw new \Exception(
                                 'Supplier untuk barang "' .
                                 ($outDetail->item?->name ?? 'tidak diketahui') .
-                                '" tidak ditemukan pada Purchase Order.'
+                                '" belum ditentukan. ' .
+                                'Silakan tentukan supplier pada data Barang.'
                             );
                         }
 
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Cari detail invoice
+                        | CARI DETAIL INVOICE
                         |--------------------------------------------------------------------------
                         */
 
@@ -872,6 +1149,7 @@ class StockTransactionController extends Controller
                         if ($invoiceDetail) {
 
                             $invoiceDetail->update([
+
                                 'supplier_id' =>
                                     $supplierId,
 
@@ -889,13 +1167,15 @@ class StockTransactionController extends Controller
 
                                 'subtotal' =>
                                     $outDetail->subtotal,
+
                             ]);
+
                         }
 
 
                         /*
                         |--------------------------------------------------------------------------
-                        | TAMBAH DETAIL INVOICE BARU
+                        | TAMBAH DETAIL INVOICE
                         |--------------------------------------------------------------------------
                         */
 
@@ -904,6 +1184,7 @@ class StockTransactionController extends Controller
                             $invoice
                                 ->details()
                                 ->create([
+
                                     'supplier_id' =>
                                         $supplierId,
 
@@ -924,6 +1205,7 @@ class StockTransactionController extends Controller
 
                                     'notes' =>
                                         null,
+
                                 ]);
                         }
                     }
@@ -931,7 +1213,7 @@ class StockTransactionController extends Controller
 
                     /*
                     |--------------------------------------------------------------------------
-                    | HAPUS DETAIL INVOICE YANG SUDAH TIDAK ADA DI OUT
+                    | HAPUS DETAIL INVOICE YANG TIDAK ADA
                     |--------------------------------------------------------------------------
                     */
 
@@ -940,7 +1222,6 @@ class StockTransactionController extends Controller
                             ->details()
                             ->pluck('item_id')
                             ->toArray();
-
 
                     if (!empty($currentItemIds)) {
 
@@ -959,15 +1240,430 @@ class StockTransactionController extends Controller
                             ->delete();
                     }
                 }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | 6. SINKRONISASI NOTA KELUAR
+                |--------------------------------------------------------------------------
+                */
+
+                $existingNotas =
+                    NotaKeluar::where(
+                        'stock_transaction_id',
+                        $transaction->id
+                    )
+                        ->get();
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | CUSTOMER ORDER NUMBER
+                |--------------------------------------------------------------------------
+                */
+
+                $customerOrderNumber =
+                    $existingNotas
+                        ->first()?->customer_order_number;
+
+                if (
+                    empty(
+                        $customerOrderNumber
+                    )
+                ) {
+
+                    $customerOrderNumber =
+                        $this->generateCustomerOrderNumber(
+                            $transaction->kitchen_id,
+                            $transaction->id
+                        );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | KELOMPOKKAN BARANG BERDASARKAN SUPPLIER
+                |--------------------------------------------------------------------------
+                */
+
+                $supplierGroups = [];
+
+                foreach (
+                    $transaction
+                        ->details()
+                        ->with('item')
+                        ->get()
+                    as $outDetail
+                ) {
+
+                    $poDetail =
+                        $poDetails->firstWhere(
+                            'item_id',
+                            $outDetail->item_id
+                        );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SUPPLIER PO / ITEM
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $poDetail &&
+                        $poDetail->supplier_id
+                    ) {
+
+                        $supplierId =
+                            (int)
+                            $poDetail->supplier_id;
+
+                    } else {
+
+                        $supplierId =
+                            (int)
+                            (
+                                $outDetail
+                                    ->item
+                                    ?->supplier_id
+                                ?? 0
+                            );
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | VALIDASI
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (!$supplierId) {
+
+                        throw new \Exception(
+                            'Supplier untuk barang "' .
+                            ($outDetail->item?->name ?? 'tidak diketahui') .
+                            '" belum ditentukan. ' .
+                            'Silakan tentukan supplier pada data Barang.'
+                        );
+                    }
+
+
+                    if (
+                        !isset(
+                            $supplierGroups[$supplierId]
+                        )
+                    ) {
+
+                        $supplierGroups[$supplierId] = [];
+                    }
+
+                    $supplierGroups[$supplierId][] =
+                        $outDetail;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SUPPLIER YANG MASIH DIGUNAKAN
+                |--------------------------------------------------------------------------
+                */
+
+                $currentSupplierIds =
+                    array_map(
+                        'intval',
+                        array_keys(
+                            $supplierGroups
+                        )
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | HAPUS NOTA SUPPLIER LAMA
+                |--------------------------------------------------------------------------
+                */
+
+                foreach (
+                    $existingNotas
+                    as $existingNota
+                ) {
+
+                    if (
+                        !in_array(
+                            (int)
+                            $existingNota->supplier_id,
+                            $currentSupplierIds,
+                            true
+                        )
+                    ) {
+
+                        $existingNota
+                            ->details()
+                            ->delete();
+
+                        $existingNota->delete();
+                    }
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | BUAT / UPDATE NOTA PER SUPPLIER
+                |--------------------------------------------------------------------------
+                */
+
+                foreach (
+                    $supplierGroups
+                    as $supplierId => $details
+                ) {
+
+                    $supplier =
+                        Supplier::find(
+                            $supplierId
+                        );
+
+                    if (!$supplier) {
+
+                        throw new \Exception(
+                            'Supplier dengan ID ' .
+                            $supplierId .
+                            ' tidak ditemukan.'
+                        );
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | TOTAL NOTA
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $notaTotal = 0;
+
+                    foreach (
+                        $details
+                        as $outDetail
+                    ) {
+
+                        $notaTotal +=
+                            (float)
+                            (
+                                $outDetail->subtotal
+                                ?? 0
+                            );
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | CARI NOTA EXISTING
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $notaKeluar =
+                        $existingNotas
+                            ->firstWhere(
+                                'supplier_id',
+                                $supplierId
+                            );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | BUAT NOTA BARU
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (!$notaKeluar) {
+
+                        $notaKeluar =
+                            NotaKeluar::create([
+
+                                'stock_transaction_id' =>
+                                    $transaction->id,
+
+                                'purchase_order_id' =>
+                                    $transaction
+                                        ->purchase_order_id,
+
+                                'kitchen_id' =>
+                                    $transaction
+                                        ->kitchen_id,
+
+                                'supplier_id' =>
+                                    $supplierId,
+
+                                'nota_number' =>
+                                    $this->generateNotaNumber(
+                                        $transaction
+                                            ->transaction_date
+                                    ),
+
+                                'barcode_number' =>
+                                    null,
+
+                                'customer_order_number' =>
+                                    $customerOrderNumber,
+
+                                'nota_date' =>
+                                    $transaction
+                                        ->transaction_date,
+
+                                'total_amount' =>
+                                    $notaTotal,
+
+                            ]);
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | BARCODE NOTA
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $barcodeNumber =
+                            $this->generateBarcodeNumber(
+                                $supplier,
+                                $transaction
+                                    ->transaction_date,
+                                $notaKeluar->id
+                            );
+
+                        $notaKeluar->update([
+
+                            'barcode_number' =>
+                                $barcodeNumber,
+
+                        ]);
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | UPDATE NOTA
+                    |--------------------------------------------------------------------------
+                    */
+
+                    else {
+
+                        $notaKeluar->update([
+
+                            'purchase_order_id' =>
+                                $transaction
+                                    ->purchase_order_id,
+
+                            'kitchen_id' =>
+                                $transaction
+                                    ->kitchen_id,
+
+                            'customer_order_number' =>
+                                $customerOrderNumber,
+
+                            'nota_date' =>
+                                $transaction
+                                    ->transaction_date,
+
+                            'total_amount' =>
+                                $notaTotal,
+
+                        ]);
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | BARCODE
+                        |--------------------------------------------------------------------------
+                        */
+
+                        $barcodeNumber =
+                            $this->generateBarcodeNumber(
+                                $supplier,
+                                $transaction
+                                    ->transaction_date,
+                                $notaKeluar->id
+                            );
+
+                        if (
+                            $notaKeluar
+                                ->barcode_number
+                            !==
+                            $barcodeNumber
+                        ) {
+
+                            $notaKeluar->update([
+
+                                'barcode_number' =>
+                                    $barcodeNumber,
+
+                            ]);
+                        }
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | HAPUS DETAIL NOTA LAMA
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $notaKeluar
+                        ->details()
+                        ->delete();
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | ISI DETAIL NOTA
+                    |--------------------------------------------------------------------------
+                    */
+
+                    foreach (
+                        $details
+                        as $outDetail
+                    ) {
+
+                        $notaKeluar
+                            ->details()
+                            ->create([
+
+                                'item_id' =>
+                                    $outDetail
+                                        ->item_id,
+
+                                'supplier_id' =>
+                                    $supplierId,
+
+                                'quantity' =>
+                                    $outDetail
+                                        ->quantity,
+
+                                'unit' =>
+                                    $outDetail
+                                        ->unit,
+
+                                'unit_price' =>
+                                    $outDetail
+                                        ->unit_price,
+
+                                'subtotal' =>
+                                    $outDetail
+                                        ->subtotal,
+
+                            ]);
+                    }
+                }
             });
 
 
             return redirect()
-                ->route('stock-transactions.out')
+                ->route(
+                    'stock-transactions.out'
+                )
                 ->with(
                     'success',
-                    'Barang Keluar berhasil diperbarui dan Invoice berhasil disinkronkan.'
+                    'Barang Keluar berhasil diperbarui. Invoice dan Nota Keluar berhasil disinkronkan sesuai supplier.'
                 );
+
 
         } catch (\Throwable $e) {
 
@@ -984,48 +1680,323 @@ class StockTransactionController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | GENERATE CUSTOMER ORDER NUMBER
+    |--------------------------------------------------------------------------
+    */
+
+    private function generateCustomerOrderNumber(
+        $kitchenId,
+        $currentStockTransactionId = null
+    ) {
+
+        $kitchen =
+            \App\Models\Kitchen::find(
+                $kitchenId
+            );
+
+        $kitchenName =
+            $kitchen?->name ?? 'SPPG';
+
+        $query =
+            NotaKeluar::where(
+                'kitchen_id',
+                $kitchenId
+            )
+                ->whereNotNull(
+                    'customer_order_number'
+                );
+
+        if ($currentStockTransactionId) {
+
+            $query->where(
+                'stock_transaction_id',
+                '!=',
+                $currentStockTransactionId
+            );
+        }
+
+        $lastNota =
+            $query
+                ->orderByDesc('id')
+                ->first();
+
+        $nextNumber = 1;
+
+        if (
+            $lastNota &&
+            $lastNota->customer_order_number
+        ) {
+
+            $parts =
+                explode(
+                    ' - ',
+                    $lastNota->customer_order_number,
+                    2
+                );
+
+            if (
+                isset($parts[0]) &&
+                is_numeric(
+                    trim($parts[0])
+                )
+            ) {
+
+                $lastNumber =
+                    (int)
+                    trim(
+                        $parts[0]
+                    );
+
+                $nextNumber =
+                    $lastNumber + 1;
+            }
+        }
+
+        return sprintf(
+            '%03d - %s',
+            $nextNumber,
+            $kitchenName
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE BARCODE NOTA
+    |--------------------------------------------------------------------------
+    */
+
+    private function generateBarcodeNumber(
+        ?Supplier $supplier,
+        $notaDate,
+        ?int $notaId = null
+    ) {
+
+        $prefix = match (
+            $supplier?->nota_template
+        ) {
+
+            'gemilang' =>
+                'GM',
+
+            'zenzi' =>
+                'ZN',
+
+            'sumber_rejeki' =>
+                'SR',
+
+            'top_fast' =>
+                'TF',
+
+            default =>
+                'OT',
+        };
+
+
+        $date =
+            Carbon::parse(
+                $notaDate
+            );
+
+        $dateCode =
+            $date->format(
+                'Ymd'
+            );
+
+
+        $query =
+            NotaKeluar::where(
+                'supplier_id',
+                $supplier?->id
+            )
+                ->whereDate(
+                    'nota_date',
+                    $date->format(
+                        'Y-m-d'
+                    )
+                );
+
+        if ($notaId) {
+
+            $query->where(
+                'id',
+                '<=',
+                $notaId
+            );
+        }
+
+
+        $nextNumber =
+            $query->count();
+
+        if ($nextNumber < 1) {
+
+            $nextNumber = 1;
+
+        }
+
+
+        return sprintf(
+            '%s-%s-%03d',
+            $prefix,
+            $dateCode,
+            $nextNumber
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE NOMOR NOTA
+    |--------------------------------------------------------------------------
+    */
+
+    private function generateNotaNumber(
+        $date
+    ) {
+
+        $date =
+            Carbon::parse(
+                $date
+            );
+
+        $prefix =
+            'NK-' .
+            $date->format(
+                'Ymd'
+            );
+
+
+        $lastNota =
+            NotaKeluar::where(
+                'nota_number',
+                'like',
+                $prefix . '-%'
+            )
+                ->orderByDesc('id')
+                ->first();
+
+        $nextNumber = 1;
+
+        if ($lastNota) {
+
+            $parts =
+                explode(
+                    '-',
+                    $lastNota->nota_number
+                );
+
+            if (count($parts) >= 3) {
+
+                $lastNumber =
+                    (int)
+                    end($parts);
+
+                $nextNumber =
+                    $lastNumber + 1;
+            }
+        }
+
+
+        return sprintf(
+            '%s-%03d',
+            $prefix,
+            $nextNumber
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | GENERATE NOMOR BARANG MASUK
     |--------------------------------------------------------------------------
     */
 
-    private function generateTransactionNumber()
-    {
+    private function generateTransactionNumber(
+        $transactionDate,
+        string $type = 'IN'
+    ): string {
+
         $date =
-            now()->format('Ymd');
+            Carbon::parse(
+                $transactionDate
+            );
+
+        $dateCode =
+            $date->format(
+                'Ymd'
+            );
+
+        $type =
+            strtoupper(
+                $type
+            );
+
+        $prefix =
+            $type .
+            '-' .
+            $dateCode .
+            '-';
 
 
         $lastTransaction =
             StockTransaction::where(
                 'type',
-                'IN'
+                $type
             )
                 ->whereDate(
                     'transaction_date',
-                    now()->toDateString()
+                    $date->format(
+                        'Y-m-d'
+                    )
                 )
-                ->latest('id')
+                ->orderByDesc('id')
                 ->first();
 
+        $nextNumber = 1;
 
-        $number =
-            $lastTransaction
-                ? (
-                    (int) substr(
-                        $lastTransaction->transaction_number,
-                        -3
-                    )
-                ) + 1
-                : 1;
+        if ($lastTransaction) {
+
+            $lastNumber =
+                (int)
+                substr(
+                    $lastTransaction
+                        ->transaction_number,
+                    -3
+                );
+
+            $nextNumber =
+                $lastNumber + 1;
+        }
 
 
-        return 'IN-' .
-            $date .
-            '-' .
-            str_pad(
-                $number,
-                3,
-                '0',
-                STR_PAD_LEFT
-            );
+        do {
+
+            $transactionNumber =
+                $prefix .
+                str_pad(
+                    $nextNumber,
+                    3,
+                    '0',
+                    STR_PAD_LEFT
+                );
+
+            $exists =
+                StockTransaction::where(
+                    'transaction_number',
+                    $transactionNumber
+                )
+                    ->exists();
+
+            if ($exists) {
+
+                $nextNumber++;
+
+            }
+
+        } while ($exists);
+
+
+        return $transactionNumber;
     }
 }

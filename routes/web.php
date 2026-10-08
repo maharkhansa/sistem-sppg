@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ItemController;
@@ -12,6 +13,13 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\NotaKeluarController;
 use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\LPDHController;
+
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard / Welcome
+|--------------------------------------------------------------------------
+*/
 
 Route::get('/', function () {
     return view('welcome');
@@ -55,12 +63,17 @@ Route::patch(
 */
 
 Route::resource('items', ItemController::class)
-    ->except(['show', 'destroy']);
+    ->except(['show']);
 
 Route::patch(
     'items/{item}/toggle-status',
     [ItemController::class, 'toggleStatus']
 )->name('items.toggle-status');
+
+Route::post(
+    '/items/import',
+    [ItemController::class, 'import']
+)->name('items.import');
 
 
 /*
@@ -77,6 +90,7 @@ Route::patch(
     [KitchenController::class, 'toggleStatus']
 )->name('kitchens.toggle-status');
 
+
 /*
 |--------------------------------------------------------------------------
 | Expense Types
@@ -91,25 +105,73 @@ Route::patch(
     [ExpenseTypeController::class, 'toggleStatus']
 )->name('expense-types.toggle-status');
 
+
 /*
 |--------------------------------------------------------------------------
 | Stock Transactions
 |--------------------------------------------------------------------------
+|
+| Barang Masuk:
+| - index  : daftar barang masuk
+| - create : form tambah barang masuk
+| - store  : simpan barang masuk
+| - show   : detail transaksi barang masuk
+|
+| Barang Keluar:
+| - outIndex : daftar barang keluar
+| - edit     : edit barang keluar
+| - update   : update barang keluar
+|
 */
 
-Route::resource('stock-transactions', StockTransactionController::class)
-    ->only([
-        'index',
-        'create',
-        'store',
-        'edit',
-        'update',
-    ]);
 
+// Daftar Barang Masuk
+Route::get(
+    '/stock-transactions',
+    [StockTransactionController::class, 'index']
+)->name('stock-transactions.index');
+
+
+// Form Tambah Barang Masuk
+Route::get(
+    '/stock-transactions/create',
+    [StockTransactionController::class, 'create']
+)->name('stock-transactions.create');
+
+
+// Simpan Barang Masuk
+Route::post(
+    '/stock-transactions',
+    [StockTransactionController::class, 'store']
+)->name('stock-transactions.store');
+
+
+// Daftar Barang Keluar
 Route::get(
     '/stock-transactions/out',
     [StockTransactionController::class, 'outIndex']
 )->name('stock-transactions.out');
+
+
+// Edit Barang Keluar
+Route::get(
+    '/stock-transactions/{stockTransaction}/edit',
+    [StockTransactionController::class, 'edit']
+)->name('stock-transactions.edit');
+
+
+// Update Barang Keluar
+Route::put(
+    '/stock-transactions/{stockTransaction}',
+    [StockTransactionController::class, 'update']
+)->name('stock-transactions.update');
+
+
+// Detail Transaksi Barang Masuk
+Route::get(
+    '/stock-transactions/{stockTransaction}',
+    [StockTransactionController::class, 'show']
+)->name('stock-transactions.show');
 
 
 /*
@@ -131,7 +193,11 @@ Route::get(
 */
 
 Route::resource('purchase-orders', PurchaseOrderController::class)
-    ->only(['index', 'create', 'store']);
+    ->only([
+        'index',
+        'create',
+        'store',
+    ]);
 
 Route::post(
     'purchase-orders/{purchaseOrder}/process',
@@ -151,17 +217,26 @@ Route::get(
     [InvoiceController::class, 'index']
 )->name('invoices.index');
 
+
 // Lihat satu Invoice
 Route::get(
     '/invoices/{invoice}',
     [InvoiceController::class, 'show']
 )->name('invoices.show');
 
-// Buat Invoice otomatis dari OUT
+
+// Buat Invoice otomatis dari Barang Keluar
 Route::post(
     '/stock-transactions/{stockTransaction}/create-invoice',
     [InvoiceController::class, 'createFromOut']
 )->name('stock-transactions.create-invoice');
+
+
+/*
+|--------------------------------------------------------------------------
+| Nota Keluar
+|--------------------------------------------------------------------------
+*/
 
 // Daftar Nota Keluar
 Route::get(
@@ -169,25 +244,36 @@ Route::get(
     [NotaKeluarController::class, 'index']
 )->name('nota-keluars.index');
 
+
 // Lihat Nota Keluar
 Route::get(
     '/nota-keluars/{notaKeluar}',
     [NotaKeluarController::class, 'show']
 )->name('nota-keluars.show');
 
-// Buat Nota Keluar otomatis dari OUT
+
+// Buat Nota Keluar otomatis dari Barang Keluar
 Route::post(
     '/stock-transactions/{stockTransaction}/create-nota',
     [NotaKeluarController::class, 'createFromOut']
 )->name('stock-transactions.create-nota');
 
-Route::post('/items/import', [ItemController::class, 'import'])->name('items.import');
 
-//LPDH
+/*
+|--------------------------------------------------------------------------
+| LPDH
+|--------------------------------------------------------------------------
+*/
+
+// Total Invoice
 Route::get(
     'lpdhs/invoice-total',
     [LPDHController::class, 'invoiceTotal']
 )->name('lpdhs.invoice-total');
 
-Route::resource('lpdhs', LPDHController::class);
-Route::resource('lpdhs', LPDHController::class);
+
+// Resource LPDH
+Route::resource(
+    'lpdhs',
+    LPDHController::class
+);
