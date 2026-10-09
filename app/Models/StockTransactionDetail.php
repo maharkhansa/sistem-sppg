@@ -13,6 +13,7 @@ class StockTransactionDetail extends Model
     protected $fillable = [
         'stock_transaction_id',
         'item_id',
+        'supplier_id',
         'quantity',
         'unit',
         'unit_price',
@@ -33,5 +34,10 @@ class StockTransactionDetail extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 }

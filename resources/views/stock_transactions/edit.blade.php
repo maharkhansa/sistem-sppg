@@ -2,1352 +2,793 @@
 <html lang="id">
 
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <title>Edit Barang Keluar</title>
 
-    <title>
-        Edit Barang Keluar
-    </title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
 
     <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
         body {
+            background-color: #f5f7fb;
             font-family: Arial, sans-serif;
-            margin: 30px;
-            background: #f8f9fa;
-            color: #333;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: auto;
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        .page-container {
+            max-width: 1500px;
+            margin: 30px auto;
+            padding: 0 15px;
         }
 
-        h1 {
-            margin-top: 0;
-            margin-bottom: 25px;
+        .main-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.07);
         }
 
-        h3 {
-            margin-top: 25px;
+        .page-title {
+            font-weight: 700;
+            margin-bottom: 5px;
         }
 
-        .info {
-            background: #f1f3f5;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 25px;
-        }
-
-        .info table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .info td {
-            padding: 6px;
-        }
-
-        .label {
-            width: 180px;
-            font-weight: bold;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 7px;
-        }
-
-        input,
-        select,
-        textarea {
-            width: 100%;
-            padding: 9px 10px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-        }
-
-        select {
-            background: white;
-            cursor: pointer;
-        }
-
-        textarea {
-            resize: vertical;
-        }
-
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
-        }
-
-        table.detail-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            min-width: 900px;
-        }
-
-        .detail-table th,
-        .detail-table td {
-            border: 1px solid #ddd;
-            padding: 10px;
+        .table th {
+            background-color: #f0f3f8;
+            white-space: nowrap;
             vertical-align: middle;
         }
 
-        .detail-table th {
-            background: #f8f9fa;
-            text-align: center;
+        .table td {
+            vertical-align: middle;
         }
 
-        .detail-table th:nth-child(1) {
-            width: 50px;
+        .form-control,
+        .form-select {
+            min-height: 38px;
         }
 
-        .detail-table th:nth-child(2) {
-            width: 150px;
+        .item-select {
+            min-width: 200px;
         }
 
-        .detail-table th:nth-child(4) {
-            width: 130px;
-        }
-
-        .detail-table th:nth-child(5) {
-            width: 160px;
-        }
-
-        .detail-table th:nth-child(6) {
-            width: 160px;
-        }
-
-        .detail-table th:nth-child(7) {
-            width: 80px;
-        }
-
-        .number {
-            text-align: right;
-        }
-
-        .total {
-            text-align: right;
-            font-weight: bold;
-            background: #f8f9fa;
-        }
-
-        .actions {
-            margin-top: 25px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 10px 18px;
-            border-radius: 5px;
-            border: none;
-            cursor: pointer;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .btn-primary {
-            background: #0d6efd;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #0b5ed7;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5c636a;
-        }
-
-        .btn-success {
-            background: #198754;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #157347;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-            padding: 7px 11px;
-        }
-
-        .btn-danger:hover {
-            background: #bb2d3b;
-        }
-
-        .alert {
-            padding: 12px 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-
-        .alert-error {
-            background: #f8d7da;
-            color: #842029;
-        }
-
-        .alert-success {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-
-        .warning {
-            background: #fff3cd;
-            color: #664d03;
-            padding: 12px 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+        .item-supplier {
+            min-width: 180px;
         }
 
         .item-code {
-            font-weight: bold;
+            min-width: 130px;
         }
 
         .item-unit {
-            display: block;
-            margin-top: 4px;
-            font-size: 12px;
-            color: #6c757d;
+            min-width: 100px;
         }
 
-        .subtotal {
-            font-weight: bold;
+        .item-quantity,
+        .item-price {
+            min-width: 120px;
         }
 
-        .empty-row {
-            text-align: center;
-            color: #6c757d;
-            padding: 20px !important;
+        .item-subtotal {
+            min-width: 130px;
         }
 
+        .total-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px 20px;
+        }
+
+        .total-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #198754;
+        }
+
+        .required-mark {
+            color: #dc3545;
+        }
+
+        @media (max-width: 768px) {
+            .main-card {
+                padding: 15px;
+            }
+        }
     </style>
-
 </head>
-
 
 <body>
 
-<div class="container">
+<div class="page-container">
 
-    <h1>
-        Edit Barang Keluar
-    </h1>
-
-
-    {{-- ERROR VALIDASI --}}
-    @if ($errors->any())
-
-        <div class="alert alert-error">
-
-            <strong>
-                Terdapat kesalahan:
-            </strong>
-
-            <ul>
-
-                @foreach ($errors->all() as $error)
-
-                    <li>
-                        {{ $error }}
-                    </li>
-
-                @endforeach
-
-            </ul>
-
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="page-title">Edit Barang Keluar</h3>
+            <div class="text-muted">
+                Ubah tanggal transaksi, catatan, supplier, kode barang, satuan, dan rincian barang keluar.
+            </div>
         </div>
 
+        <a href="{{ route('stock-transactions.out') }}"
+           class="btn btn-outline-secondary">
+            Kembali
+        </a>
+    </div>
+
+    @if (session('success'))
+        <div class="alert alert-success alert-dismissible fade show">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     @endif
 
-
-    {{-- ERROR DARI CONTROLLER --}}
     @if (session('error'))
-
-        <div class="alert alert-error">
+        <div class="alert alert-danger">
             {{ session('error') }}
         </div>
-
     @endif
 
-
-    {{-- SUCCESS --}}
-    @if (session('success'))
-
-        <div class="alert alert-success">
-            {{ session('success') }}
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Terjadi kesalahan:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
         </div>
-
     @endif
 
+    <div class="main-card">
 
-    {{-- INFORMASI TRANSAKSI --}}
-    <div class="info">
+        <div class="mb-4">
+            <h5 class="fw-bold mb-3">Informasi Transaksi</h5>
 
-        <table>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label text-muted">Nomor Transaksi</label>
+                    <input type="text"
+                           class="form-control"
+                           value="{{ $stockTransaction->transaction_number }}"
+                           readonly>
+                </div>
 
-            <tr>
+                <div class="col-md-4">
+                    <label class="form-label text-muted">Nomor PO</label>
+                    <input type="text"
+                           class="form-control"
+                           value="{{ $stockTransaction->purchaseOrder?->po_number ?? '-' }}"
+                           readonly>
+                </div>
 
-                <td class="label">
-                    No. OUT
-                </td>
-
-                <td>
-                    <strong>
-                        {{ $stockTransaction->transaction_number }}
-                    </strong>
-                </td>
-
-            </tr>
-
-
-            <tr>
-
-                <td class="label">
-                    No. PO
-                </td>
-
-                <td>
-                    {{ $stockTransaction->purchaseOrder?->po_number ?? '-' }}
-                </td>
-
-            </tr>
-
-
-            <tr>
-
-                <td class="label">
-                    SPPG / Dapur
-                </td>
-
-                <td>
-
-                    {{ $stockTransaction->kitchen?->id_sppg ?? '-' }}
-
-                    -
-
-                    {{ $stockTransaction->kitchen?->name ?? '-' }}
-
-                </td>
-
-            </tr>
-
-        </table>
-
-    </div>
-
-
-    {{-- PERINGATAN --}}
-    <div class="warning">
-
-        <strong>Perhatian:</strong>
-
-        Perubahan barang, jumlah, atau harga akan otomatis
-        menyesuaikan data Barang Keluar dan stok gudang.
-
-        <br><br>
-
-        Jika barang dihapus, stok barang tersebut akan
-        dikembalikan.
-
-        Jika barang baru ditambahkan, stok barang tersebut
-        akan dikurangi.
-
-        Supplier barang akan mengikuti supplier yang
-        tercatat pada Purchase Order.
-
-    </div>
-
-
-    <form
-        action="{{ route(
-            'stock-transactions.update',
-            $stockTransaction->id
-        ) }}"
-        method="POST"
-        id="editForm"
-    >
-
-        @csrf
-
-        @method('PUT')
-
-
-        {{-- TANGGAL --}}
-        <div class="form-group">
-
-            <label for="transaction_date">
-                Tanggal Barang Keluar
-            </label>
-
-            <input
-                type="date"
-                id="transaction_date"
-                name="transaction_date"
-                value="{{ old(
-                    'transaction_date',
-                    optional(
-                        $stockTransaction->transaction_date
-                    )->format('Y-m-d')
-                ) }}"
-                required
-            >
-
+                <div class="col-md-4">
+                    <label class="form-label text-muted">Dapur SPPG</label>
+                    <input type="text"
+                           class="form-control"
+                           value="{{ $stockTransaction->kitchen?->name ?? '-' }}"
+                           readonly>
+                </div>
+            </div>
         </div>
 
+        <hr>
 
-        {{-- DETAIL BARANG --}}
-        <h3>
-            Detail Barang
-        </h3>
+        <form action="{{ route('stock-transactions.update', $stockTransaction->id) }}"
+              method="POST"
+              id="editTransactionForm">
 
+            @csrf
+            @method('PUT')
 
-        <button
-            type="button"
-            class="btn btn-success"
-            id="addItemBtn"
-        >
-            ➕ Tambah Barang
-        </button>
+            <h5 class="fw-bold mb-3">Detail Transaksi</h5>
 
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label for="transaction_date" class="form-label">
+                        Tanggal Transaksi <span class="required-mark">*</span>
+                    </label>
 
-        <div class="table-wrapper">
+                    <input type="date"
+                           name="transaction_date"
+                           id="transaction_date"
+                           class="form-control @error('transaction_date') is-invalid @enderror"
+                           value="{{ old('transaction_date', $stockTransaction->transaction_date ? \Illuminate\Support\Carbon::parse($stockTransaction->transaction_date)->format('Y-m-d') : '') }}"
+                           required>
 
-            <table class="detail-table">
+                    @error('transaction_date')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
 
-                <thead>
+                <div class="col-md-6">
+                    <label for="notes" class="form-label">Catatan</label>
 
-                    <tr>
+                    <input type="text"
+                           name="notes"
+                           id="notes"
+                           class="form-control"
+                           value="{{ old('notes', $stockTransaction->notes) }}"
+                           placeholder="Catatan transaksi">
+                </div>
+            </div>
 
-                        <th>
-                            No
-                        </th>
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                <h5 class="fw-bold mb-0">Daftar Barang Keluar</h5>
 
-                        <th>
-                            Kode
-                        </th>
+                <button type="button"
+                        class="btn btn-outline-primary"
+                        id="addItemButton">
+                    + Tambah Barang
+                </button>
+            </div>
 
-                        <th>
-                            Nama Barang
-                        </th>
+            @php
+                $oldItems = old('items');
 
-                        <th>
-                            Quantity
-                        </th>
+                if (is_array($oldItems)) {
+                    $displayItems = $oldItems;
+                } else {
+                    $displayItems = $stockTransaction->details->map(function ($detail) {
+                        return [
+                            'item_id' => $detail->item_id,
+                            'supplier_id' => $detail->supplier_id ?? $detail->item?->supplier_id ?? '',
+                            'code' => $detail->code ?? $detail->item?->code ?? '',
+                            'unit' => $detail->unit ?? $detail->item?->unit ?? '',
+                            'quantity' => $detail->quantity,
+                            'unit_price' => $detail->unit_price,
+                        ];
+                    })->toArray();
+                }
+            @endphp
 
-                        <th>
-                            Harga
-                        </th>
-
-                        <th>
-                            Subtotal
-                        </th>
-
-                        <th>
-                            Aksi
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-
-                <tbody id="itemsBody">
-
-                    @foreach (
-                        $stockTransaction->details
-                        as $index => $detail
-                    )
-
-                        <tr class="item-row">
-
-                            {{-- NO --}}
-                            <td class="row-number">
-                                {{ $index + 1 }}
-                            </td>
-
-
-                            {{-- KODE BARANG --}}
-                            <td>
-
-                                <span
-                                    class="item-code"
-                                    id="item-code-{{ $index }}"
-                                >
-                                    {{ $detail->item?->code ?? '-' }}
-                                </span>
-
-                                <span
-                                    class="item-unit"
-                                    id="item-unit-{{ $index }}"
-                                >
-                                    Satuan:
-                                    {{ $detail->item?->unit ?? '-' }}
-                                </span>
-
-
-                                <input
-                                    type="hidden"
-                                    name="items[{{ $index }}][detail_id]"
-                                    value="{{ $detail->id }}"
-                                    class="detail-id-input"
-                                >
-
-                            </td>
-
-
-                            {{-- NAMA BARANG --}}
-                            <td>
-
-                                <select
-                                    name="items[{{ $index }}][item_id]"
-                                    class="item-select"
-                                    data-index="{{ $index }}"
-                                    required
-                                >
-
-                                    <option value="">
-                                        -- Pilih Barang --
-                                    </option>
-
-
-                                    @foreach ($items as $item)
-
-                                        <option
-                                            value="{{ $item->id }}"
-                                            data-code="{{ $item->code }}"
-                                            data-unit="{{ $item->unit }}"
-
-                                            {{ old(
-                                                'items.' . $index . '.item_id',
-                                                $detail->item_id
-                                            ) == $item->id
-                                                ? 'selected'
-                                                : '' }}
-                                        >
-
-                                            {{ $item->name }}
-
-                                        </option>
-
-                                    @endforeach
-
-                                </select>
-
-                            </td>
-
-
-                            {{-- QUANTITY --}}
-                            <td>
-
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    name="items[{{ $index }}][quantity]"
-                                    class="quantity-input"
-                                    data-index="{{ $index }}"
-                                    value="{{ old(
-                                        'items.' . $index . '.quantity',
-                                        $detail->quantity
-                                    ) }}"
-                                    required
-                                >
-
-                            </td>
-
-
-                            {{-- HARGA --}}
-                            <td>
-
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    name="items[{{ $index }}][unit_price]"
-                                    class="price-input"
-                                    data-index="{{ $index }}"
-                                    value="{{ old(
-                                        'items.' . $index . '.unit_price',
-                                        $detail->unit_price
-                                    ) }}"
-                                    required
-                                >
-
-                            </td>
-
-
-                            {{-- SUBTOTAL --}}
-                            <td class="number">
-
-                                <span
-                                    class="subtotal"
-                                    id="subtotal-{{ $index }}"
-                                >
-                                    Rp 0
-                                </span>
-
-                            </td>
-
-
-                            {{-- AKSI --}}
-                            <td style="text-align: center;">
-
-                                <button
-                                    type="button"
-                                    class="btn btn-danger delete-item"
-                                >
-                                    🗑️ Hapus
-                                </button>
-
-                            </td>
-
+            <div class="table-responsive">
+                <table class="table table-bordered" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>Nama Barang</th>
+                            <th>Supplier</th>
+                            <th>Kode Barang</th>
+                            <th>Satuan</th>
+                            <th>Qty</th>
+                            <th>Harga Satuan (Rp)</th>
+                            <th>Subtotal (Rp)</th>
+                            <th style="width: 90px;">Aksi</th>
                         </tr>
+                    </thead>
 
-                    @endforeach
+                    <tbody id="itemsTableBody">
 
+                        @forelse ($displayItems as $index => $detail)
 
-                    {{-- TOTAL --}}
-                    <tr>
+                            @php
+                                $selectedItem = $items->firstWhere('id', $detail['item_id'] ?? null);
 
-                        <td
-                            colspan="5"
-                            class="total"
-                        >
-                            Total
-                        </td>
+                                $itemCode = $detail['code'] ?? ($selectedItem->code ?? '');
+                                $itemUnit = $detail['unit'] ?? ($selectedItem->unit ?? '');
 
-                        <td
-                            class="total"
-                            id="grand-total"
-                        >
-                            Rp 0
-                        </td>
+                                $selectedSupplierId = $detail['supplier_id']
+                                    ?? ($selectedItem->supplier_id ?? '');
+                            @endphp
 
-                        <td class="total">
-                        </td>
+                            <tr class="item-row">
 
-                    </tr>
+                                <td>
+                                    <select name="items[{{ $index }}][item_id]"
+                                            class="form-select item-select"
+                                            required>
 
-                </tbody>
+                                        <option value="">-- Pilih Barang --</option>
 
-            </table>
+                                        @foreach ($items as $item)
+                                            <option value="{{ $item->id }}"
+                                                    data-code="{{ $item->code }}"
+                                                    data-unit="{{ $item->unit }}"
+                                                    data-price="{{ $item->price ?? 0 }}"
+                                                    data-supplier="{{ $item->supplier_id ?? '' }}"
+                                                @selected((string) ($detail['item_id'] ?? '') === (string) $item->id)>
+                                                {{ $item->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
 
-        </div>
+                                <td>
+                                    <select name="items[{{ $index }}][supplier_id]"
+                                            class="form-select item-supplier"
+                                            required>
 
+                                        <option value="">-- Pilih Supplier --</option>
 
-        {{-- CATATAN --}}
-        <div
-            class="form-group"
-            style="margin-top: 25px;"
-        >
+                                        @foreach ($suppliers as $supplier)
+                                            <option value="{{ $supplier->id }}"
+                                                @selected((string) $selectedSupplierId === (string) $supplier->id)>
+                                                {{ $supplier->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
 
-            <label for="notes">
-                Catatan
-            </label>
+                                <td>
+                                    <input type="text"
+                                           name="items[{{ $index }}][code]"
+                                           class="form-control item-code"
+                                           value="{{ $itemCode }}"
+                                           placeholder="Kode barang">
+                                </td>
 
-            <textarea
-                id="notes"
-                name="notes"
-                rows="4"
-            >{{ old(
-                'notes',
-                $stockTransaction->notes
-            ) }}</textarea>
+                                <td>
+                                    <input type="text"
+                                           name="items[{{ $index }}][unit]"
+                                           class="form-control item-unit"
+                                           value="{{ $itemUnit }}"
+                                           placeholder="Satuan"
+                                           required>
+                                </td>
 
-        </div>
+                                <td>
+                                    <input type="number"
+                                           name="items[{{ $index }}][quantity]"
+                                           class="form-control item-quantity"
+                                           value="{{ $detail['quantity'] ?? 1 }}"
+                                           min="0.01"
+                                           step="0.01"
+                                           required>
+                                </td>
 
+                                <td>
+                                    <input type="number"
+                                           name="items[{{ $index }}][unit_price]"
+                                           class="form-control item-price"
+                                           value="{{ $detail['unit_price'] ?? 0 }}"
+                                           min="0"
+                                           step="0.01"
+                                           required>
+                                </td>
 
-        {{-- BUTTON --}}
-        <div class="actions">
+                                <td>
+                                    <input type="text"
+                                           class="form-control item-subtotal"
+                                           value="0"
+                                           readonly>
+                                </td>
 
-            <button
-                type="submit"
-                class="btn btn-primary"
-                onclick="
-                    return confirm(
-                        'Apakah Anda yakin ingin menyimpan perubahan Barang Keluar? Stok akan disesuaikan otomatis.'
-                    );
-                "
-            >
-                💾 Simpan Perubahan
-            </button>
+                                <td class="text-center">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger remove-item">
+                                        Hapus
+                                    </button>
+                                </td>
 
+                            </tr>
 
-            <a
-                href="{{ route(
-                    'stock-transactions.out'
-                ) }}"
-                class="btn btn-secondary"
-            >
-                ← Batal
-            </a>
+                        @empty
 
-        </div>
+                            <tr class="item-row">
 
-    </form>
+                                <td>
+                                    <select name="items[0][item_id]"
+                                            class="form-select item-select"
+                                            required>
+                                        <option value="">-- Pilih Barang --</option>
 
+                                        @foreach ($items as $item)
+                                            <option value="{{ $item->id }}"
+                                                    data-code="{{ $item->code }}"
+                                                    data-unit="{{ $item->unit }}"
+                                                    data-price="{{ $item->price ?? 0 }}"
+                                                    data-supplier="{{ $item->supplier_id ?? '' }}">
+                                                {{ $item->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
+
+                                <td>
+                                    <select name="items[0][supplier_id]"
+                                            class="form-select item-supplier"
+                                            required>
+                                        <option value="">-- Pilih Supplier --</option>
+
+                                        @foreach ($suppliers as $supplier)
+                                            <option value="{{ $supplier->id }}">
+                                                {{ $supplier->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
+
+                                <td>
+                                    <input type="text"
+                                           name="items[0][code]"
+                                           class="form-control item-code"
+                                           placeholder="Kode barang">
+                                </td>
+
+                                <td>
+                                    <input type="text"
+                                           name="items[0][unit]"
+                                           class="form-control item-unit"
+                                           placeholder="Satuan"
+                                           required>
+                                </td>
+
+                                <td>
+                                    <input type="number"
+                                           name="items[0][quantity]"
+                                           class="form-control item-quantity"
+                                           value="1"
+                                           min="0.01"
+                                           step="0.01"
+                                           required>
+                                </td>
+
+                                <td>
+                                    <input type="number"
+                                           name="items[0][unit_price]"
+                                           class="form-control item-price"
+                                           value="0"
+                                           min="0"
+                                           step="0.01"
+                                           required>
+                                </td>
+
+                                <td>
+                                    <input type="text"
+                                           class="form-control item-subtotal"
+                                           value="0"
+                                           readonly>
+                                </td>
+
+                                <td class="text-center">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger remove-item">
+                                        Hapus
+                                    </button>
+                                </td>
+
+                            </tr>
+
+                        @endforelse
+
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="total-box mt-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">TOTAL BARANG KELUAR</span>
+
+                    <span class="total-value">
+                        Rp <span id="grandTotal">0</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap justify-content-end gap-2">
+                <a href="{{ route('stock-transactions.out') }}"
+                   class="btn btn-secondary">
+                    Batal
+                </a>
+
+                <button type="submit" class="btn btn-primary">
+                    Simpan Perubahan
+                </button>
+            </div>
+
+        </form>
+    </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-
-/*
-|--------------------------------------------------------------------------
-| Format Rupiah
-|--------------------------------------------------------------------------
-*/
-
-function formatRupiah(number) {
-
-    return new Intl.NumberFormat(
-        'id-ID'
-    ).format(number);
-
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Update Nomor Baris
-|--------------------------------------------------------------------------
-*/
-
-function updateRowNumbers() {
-
-    const rows =
-        document.querySelectorAll(
-            '#itemsBody .item-row'
-        );
-
-    rows.forEach(function(row, index) {
-
-        const number =
-            row.querySelector('.row-number');
-
-        if (number) {
-
-            number.innerText =
-                index + 1;
-
-        }
-
-    });
-
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Update Informasi Barang
-|--------------------------------------------------------------------------
-*/
-
-function updateItemInformation(select) {
-
-    const row =
-        select.closest('.item-row');
-
-    if (!row) {
-        return;
-    }
-
-
-    const selectedOption =
-        select.options[
-            select.selectedIndex
-        ];
-
-
-    const code =
-        selectedOption?.dataset.code || '-';
-
-
-    const unit =
-        selectedOption?.dataset.unit || '-';
-
-
-    const codeElement =
-        row.querySelector('.item-code');
-
-
-    const unitElement =
-        row.querySelector('.item-unit');
-
-
-    if (codeElement) {
-
-        codeElement.innerText =
-            code;
-
-    }
-
-
-    if (unitElement) {
-
-        unitElement.innerText =
-            'Satuan: ' + unit;
-
-    }
-
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Hitung Subtotal dan Total
-|--------------------------------------------------------------------------
-*/
-
-function calculateTotal() {
-
-    let total = 0;
-
-
-    document
-        .querySelectorAll(
-            '#itemsBody .item-row'
-        )
-        .forEach(function(row) {
-
-            const quantityInput =
-                row.querySelector(
-                    '.quantity-input'
-                );
-
-
-            const priceInput =
-                row.querySelector(
-                    '.price-input'
-                );
-
-
-            const quantity =
-                parseFloat(
-                    quantityInput?.value
-                ) || 0;
-
-
-            const price =
-                parseFloat(
-                    priceInput?.value
-                ) || 0;
-
-
-            const subtotal =
-                quantity * price;
-
-
-            const subtotalElement =
-                row.querySelector(
-                    '.subtotal'
-                );
-
-
-            if (subtotalElement) {
-
-                subtotalElement.innerText =
-                    'Rp ' +
-                    formatRupiah(
-                        subtotal
-                    );
-
-            }
-
-
-            total += subtotal;
-
-        });
-
-
-    const grandTotal =
-        document.getElementById(
-            'grand-total'
-        );
-
-
-    if (grandTotal) {
-
-        grandTotal.innerText =
-            'Rp ' +
-            formatRupiah(total);
-
-    }
-
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Cek Barang Duplikat
-|--------------------------------------------------------------------------
-*/
-
-function hasDuplicateItems() {
-
-    const selectedItems = [];
-
-    let duplicate = false;
-
-
-    document
-        .querySelectorAll(
-            '.item-select'
-        )
-        .forEach(function(select) {
-
-            const value =
-                select.value;
-
-
-            if (!value) {
-                return;
-            }
-
-
-            if (
-                selectedItems.includes(
-                    value
-                )
-            ) {
-
-                duplicate = true;
-
-            }
-
-
-            selectedItems.push(value);
-
-        });
-
-
-    return duplicate;
-
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Buat Baris Barang Baru
-|--------------------------------------------------------------------------
-*/
-
-function createItemRow(index) {
-
-    const tr =
-        document.createElement('tr');
-
-    tr.className =
-        'item-row';
-
-
-    let options =
-        '<option value="">-- Pilih Barang --</option>';
-
-
-    @foreach ($items as $item)
-
-        options +=
-            `<option
-                value="{{ $item->id }}"
-                data-code="{{ $item->code }}"
-                data-unit="{{ $item->unit }}"
-            >
-                {{ addslashes($item->name) }}
-            </option>`;
-
-    @endforeach
-
-
-    tr.innerHTML = `
-
-        <td class="row-number">
-            ${index + 1}
-        </td>
-
-
-        <td>
-
-            <span class="item-code">
-                -
-            </span>
-
-            <span class="item-unit">
-                Satuan: -
-            </span>
-
-            <input
-                type="hidden"
-                name="items[${index}][detail_id]"
-                value=""
-                class="detail-id-input"
-            >
-
-        </td>
-
-
-        <td>
-
-            <select
-                name="items[${index}][item_id]"
-                class="item-select"
-                data-index="${index}"
-                required
-            >
-
-                ${options}
-
-            </select>
-
-        </td>
-
-
-        <td>
-
-            <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                name="items[${index}][quantity]"
-                class="quantity-input"
-                data-index="${index}"
-                value="1"
-                required
-            >
-
-        </td>
-
-
-        <td>
-
-            <input
-                type="number"
-                step="0.01"
-                min="0"
-                name="items[${index}][unit_price]"
-                class="price-input"
-                data-index="${index}"
-                value="0"
-                required
-            >
-
-        </td>
-
-
-        <td class="number">
-
-            <span class="subtotal">
-                Rp 0
-            </span>
-
-        </td>
-
-
-        <td style="text-align: center;">
-
-            <button
-                type="button"
-                class="btn btn-danger delete-item"
-            >
-                🗑️ Hapus
-            </button>
-
-        </td>
-
+document.addEventListener('DOMContentLoaded', function () {
+    const tableBody = document.getElementById('itemsTableBody');
+    const addButton = document.getElementById('addItemButton');
+    const grandTotalElement = document.getElementById('grandTotal');
+    const form = document.getElementById('editTransactionForm');
+
+    let nextIndex = tableBody.querySelectorAll('.item-row').length;
+
+    const supplierOptions = `
+        <option value="">-- Pilih Supplier --</option>
+        @foreach ($suppliers as $supplier)
+            <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+        @endforeach
     `;
 
+    const itemOptions = `
+        <option value="">-- Pilih Barang --</option>
+        @foreach ($items as $item)
+            <option value="{{ $item->id }}"
+                    data-code="{{ $item->code }}"
+                    data-unit="{{ $item->unit }}"
+                    data-price="{{ $item->price ?? 0 }}"
+                    data-supplier="{{ $item->supplier_id ?? '' }}">
+                {{ $item->name }}
+            </option>
+        @endforeach
+    `;
 
-    return tr;
-
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Tombol Tambah Barang
-|--------------------------------------------------------------------------
-*/
-
-document
-    .getElementById('addItemBtn')
-    .addEventListener(
-        'click',
-        function() {
-
-            const tbody =
-                document.getElementById(
-                    'itemsBody'
-                );
-
-
-            const totalRow =
-                tbody.querySelector(
-                    'tr:last-child'
-                );
-
-
-            const currentRows =
-                tbody.querySelectorAll(
-                    '.item-row'
-                ).length;
-
-
-            const newRow =
-                createItemRow(
-                    currentRows
-                );
-
-
-            tbody.insertBefore(
-                newRow,
-                totalRow
-            );
-
-
-            updateRowNumbers();
-
-            calculateTotal();
-
-        }
-    );
-
-
-/*
-|--------------------------------------------------------------------------
-| Tombol Hapus Barang
-|--------------------------------------------------------------------------
-*/
-
-document.addEventListener(
-    'click',
-    function(event) {
-
-        const button =
-            event.target.closest(
-                '.delete-item'
-            );
-
-
-        if (!button) {
-            return;
-        }
-
-
-        const rows =
-            document.querySelectorAll(
-                '#itemsBody .item-row'
-            );
-
-
-        if (rows.length <= 1) {
-
-            alert(
-                'Minimal harus ada 1 barang.'
-            );
-
-            return;
-
-        }
-
-
-        const row =
-            button.closest(
-                '.item-row'
-            );
-
-
-        const select =
-            row.querySelector(
-                '.item-select'
-            );
-
-
-        const itemName =
-            select?.options[
-                select.selectedIndex
-            ]?.text || 'barang ini';
-
-
-        const confirmed =
-            confirm(
-                'Apakah Anda yakin ingin menghapus ' +
-                itemName +
-                '? Stok barang akan dikembalikan saat perubahan disimpan.'
-            );
-
-
-        if (!confirmed) {
-            return;
-        }
-
-
-        row.remove();
-
-
-        updateRowNumbers();
-
-        calculateTotal();
-
+    function formatNumber(number) {
+        return new Intl.NumberFormat('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }).format(number);
     }
-);
 
+    function updateRow(row, itemChanged = false) {
+        const select = row.querySelector('.item-select');
+        const selectedOption = select.options[select.selectedIndex];
 
-/*
-|--------------------------------------------------------------------------
-| Event Input Quantity dan Harga
-|--------------------------------------------------------------------------
-*/
+        const codeInput = row.querySelector('.item-code');
+        const unitInput = row.querySelector('.item-unit');
+        const quantityInput = row.querySelector('.item-quantity');
+        const priceInput = row.querySelector('.item-price');
+        const subtotalInput = row.querySelector('.item-subtotal');
+        const supplierSelect = row.querySelector('.item-supplier');
 
-document.addEventListener(
-    'input',
-    function(event) {
+        if (select.value && selectedOption) {
+            // Hanya isi otomatis ketika barang benar-benar diganti.
+            // Edit manual kode/satuan tidak akan tertimpa saat qty/harga berubah.
+            if (itemChanged) {
+                codeInput.value = selectedOption.dataset.code || '';
+                unitInput.value = selectedOption.dataset.unit || '';
 
-        if (
-            event.target.classList.contains(
-                'quantity-input'
-            ) ||
-            event.target.classList.contains(
-                'price-input'
-            )
-        ) {
+                // Isi harga dan supplier awal dari master barang.
+                priceInput.value = selectedOption.dataset.price || 0;
 
-            calculateTotal();
+                const masterSupplier = selectedOption.dataset.supplier || '';
 
-        }
-
-    }
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Event Dropdown Barang
-|--------------------------------------------------------------------------
-*/
-
-document.addEventListener(
-    'change',
-    function(event) {
-
-        if (
-            event.target.classList.contains(
-                'item-select'
-            )
-        ) {
-
-            updateItemInformation(
-                event.target
-            );
-
-        }
-
-    }
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Validasi Sebelum Submit
-|--------------------------------------------------------------------------
-*/
-
-document
-    .getElementById('editForm')
-    .addEventListener(
-        'submit',
-        function(event) {
-
-            const rows =
-                document.querySelectorAll(
-                    '#itemsBody .item-row'
-                );
-
-
-            if (rows.length === 0) {
-
-                event.preventDefault();
-
-                alert(
-                    'Minimal harus ada 1 barang.'
-                );
-
-                return;
-
+                if (masterSupplier) {
+                    supplierSelect.value = masterSupplier;
+                }
             }
-
-
-            if (hasDuplicateItems()) {
-
-                event.preventDefault();
-
-                alert(
-                    'Tidak boleh memilih barang yang sama lebih dari satu kali.'
-                );
-
-                return;
-
-            }
-
+        } else if (!select.value && itemChanged) {
+            codeInput.value = '';
+            unitInput.value = '';
         }
-    );
 
+        const quantity = parseFloat(quantityInput.value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
 
-/*
-|--------------------------------------------------------------------------
-| Jalankan Saat Halaman Dibuka
-|--------------------------------------------------------------------------
-*/
+        subtotalInput.value = formatNumber(quantity * price);
 
-document
-    .querySelectorAll('.item-select')
-    .forEach(function(select) {
+        updateGrandTotal();
+    }
 
-        updateItemInformation(
-            select
-        );
+    function updateGrandTotal() {
+        let total = 0;
 
+        tableBody.querySelectorAll('.item-row').forEach(function (row) {
+            const quantity = parseFloat(
+                row.querySelector('.item-quantity').value
+            ) || 0;
+
+            const price = parseFloat(
+                row.querySelector('.item-price').value
+            ) || 0;
+
+            const subtotal = quantity * price;
+
+            row.querySelector('.item-subtotal').value = formatNumber(subtotal);
+
+            total += subtotal;
+        });
+
+        grandTotalElement.textContent = formatNumber(total);
+    }
+
+    function renumberRows() {
+        tableBody.querySelectorAll('.item-row').forEach(function (row, index) {
+            row.querySelectorAll('[name]').forEach(function (input) {
+                const name = input.getAttribute('name');
+
+                if (name) {
+                    input.setAttribute(
+                        'name',
+                        name.replace(/items\[\d+\]/, 'items[' + index + ']')
+                    );
+                }
+            });
+        });
+
+        nextIndex = tableBody.querySelectorAll('.item-row').length;
+    }
+
+    function createRow(index) {
+        const row = document.createElement('tr');
+        row.className = 'item-row';
+
+        row.innerHTML = `
+            <td>
+                <select name="items[${index}][item_id]"
+                        class="form-select item-select"
+                        required>
+                    ${itemOptions}
+                </select>
+            </td>
+
+            <td>
+                <select name="items[${index}][supplier_id]"
+                        class="form-select item-supplier"
+                        required>
+                    ${supplierOptions}
+                </select>
+            </td>
+
+            <td>
+                <input type="text"
+                       name="items[${index}][code]"
+                       class="form-control item-code"
+                       placeholder="Kode barang">
+            </td>
+
+            <td>
+                <input type="text"
+                       name="items[${index}][unit]"
+                       class="form-control item-unit"
+                       placeholder="Satuan"
+                       required>
+            </td>
+
+            <td>
+                <input type="number"
+                       name="items[${index}][quantity]"
+                       class="form-control item-quantity"
+                       value="1"
+                       min="0.01"
+                       step="0.01"
+                       required>
+            </td>
+
+            <td>
+                <input type="number"
+                       name="items[${index}][unit_price]"
+                       class="form-control item-price"
+                       value="0"
+                       min="0"
+                       step="0.01"
+                       required>
+            </td>
+
+            <td>
+                <input type="text"
+                       class="form-control item-subtotal"
+                       value="0"
+                       readonly>
+            </td>
+
+            <td class="text-center">
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger remove-item">
+                    Hapus
+                </button>
+            </td>
+        `;
+
+        return row;
+    }
+
+    addButton.addEventListener('click', function () {
+        const row = createRow(nextIndex);
+
+        tableBody.appendChild(row);
+        nextIndex++;
+
+        updateRow(row);
     });
 
+    tableBody.addEventListener('change', function (event) {
+        if (event.target.classList.contains('item-select')) {
+            const row = event.target.closest('.item-row');
+            const selectedId = event.target.value;
 
-calculateTotal();
+            if (selectedId) {
+                const duplicate = Array.from(
+                    tableBody.querySelectorAll('.item-select')
+                ).some(function (select) {
+                    return select !== event.target && select.value === selectedId;
+                });
 
-updateRowNumbers();
+                if (duplicate) {
+                    alert('Barang tersebut sudah ada dalam daftar transaksi.');
+                    event.target.value = '';
+                    updateRow(row, true);
+                    return;
+                }
+            }
 
+            updateRow(row, true);
+        }
+    });
+
+    tableBody.addEventListener('input', function (event) {
+        if (
+            event.target.classList.contains('item-quantity') ||
+            event.target.classList.contains('item-price')
+        ) {
+            updateRow(event.target.closest('.item-row'));
+        }
+    });
+
+    tableBody.addEventListener('click', function (event) {
+        const removeButton = event.target.closest('.remove-item');
+
+        if (!removeButton) {
+            return;
+        }
+
+        const rows = tableBody.querySelectorAll('.item-row');
+
+        if (rows.length <= 1) {
+            alert('Minimal harus ada satu baris barang.');
+            return;
+        }
+
+        removeButton.closest('.item-row').remove();
+
+        renumberRows();
+        updateGrandTotal();
+    });
+
+    form.addEventListener('submit', function (event) {
+        const rows = tableBody.querySelectorAll('.item-row');
+
+        let hasValidItem = false;
+        let hasMissingSupplier = false;
+        let hasMissingUnit = false;
+
+        rows.forEach(function (row) {
+            const itemId = row.querySelector('.item-select').value;
+            const supplierId = row.querySelector('.item-supplier').value;
+            const unit = row.querySelector('.item-unit').value.trim();
+
+            const quantity = parseFloat(
+                row.querySelector('.item-quantity').value
+            ) || 0;
+
+            if (itemId && quantity > 0) {
+                hasValidItem = true;
+
+                if (!supplierId) {
+                    hasMissingSupplier = true;
+                }
+
+                if (!unit) {
+                    hasMissingUnit = true;
+                }
+            }
+        });
+
+        if (!hasValidItem) {
+            event.preventDefault();
+            alert('Pilih minimal satu barang dengan jumlah lebih dari nol.');
+            return;
+        }
+
+        if (hasMissingSupplier) {
+            event.preventDefault();
+            alert('Pilih supplier untuk setiap barang.');
+            return;
+        }
+
+        if (hasMissingUnit) {
+            event.preventDefault();
+            alert('Satuan barang wajib diisi.');
+        }
+    });
+
+    // Hitung subtotal awal tanpa menimpa kode dan satuan yang sudah tersimpan.
+    tableBody.querySelectorAll('.item-row').forEach(function (row) {
+        updateRow(row);
+    });
+
+    updateGrandTotal();
+});
 </script>
 
-
 </body>
-
 </html>

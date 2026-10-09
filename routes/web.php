@@ -14,7 +14,6 @@ use App\Http\Controllers\NotaKeluarController;
 use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\LPDHController;
 
-
 /*
 |--------------------------------------------------------------------------
 | Dashboard / Welcome
@@ -23,7 +22,7 @@ use App\Http\Controllers\LPDHController;
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->name('home');
 
 
 /*
@@ -108,22 +107,9 @@ Route::patch(
 
 /*
 |--------------------------------------------------------------------------
-| Stock Transactions
+| Stock Transactions - Barang Masuk
 |--------------------------------------------------------------------------
-|
-| Barang Masuk:
-| - index  : daftar barang masuk
-| - create : form tambah barang masuk
-| - store  : simpan barang masuk
-| - show   : detail transaksi barang masuk
-|
-| Barang Keluar:
-| - outIndex : daftar barang keluar
-| - edit     : edit barang keluar
-| - update   : update barang keluar
-|
 */
-
 
 // Daftar Barang Masuk
 Route::get(
@@ -131,13 +117,11 @@ Route::get(
     [StockTransactionController::class, 'index']
 )->name('stock-transactions.index');
 
-
 // Form Tambah Barang Masuk
 Route::get(
     '/stock-transactions/create',
     [StockTransactionController::class, 'create']
 )->name('stock-transactions.create');
-
 
 // Simpan Barang Masuk
 Route::post(
@@ -146,12 +130,17 @@ Route::post(
 )->name('stock-transactions.store');
 
 
+/*
+|--------------------------------------------------------------------------
+| Stock Transactions - Barang Keluar
+|--------------------------------------------------------------------------
+*/
+
 // Daftar Barang Keluar
 Route::get(
     '/stock-transactions/out',
     [StockTransactionController::class, 'outIndex']
 )->name('stock-transactions.out');
-
 
 // Edit Barang Keluar
 Route::get(
@@ -159,15 +148,26 @@ Route::get(
     [StockTransactionController::class, 'edit']
 )->name('stock-transactions.edit');
 
-
-// Update Barang Keluar
+// Simpan Perubahan Barang Keluar
 Route::put(
     '/stock-transactions/{stockTransaction}',
     [StockTransactionController::class, 'update']
 )->name('stock-transactions.update');
 
+// Hapus Barang Keluar
+Route::delete(
+    '/stock-transactions/{stockTransaction}',
+    [StockTransactionController::class, 'destroy']
+)->name('stock-transactions.destroy');
 
-// Detail Transaksi Barang Masuk
+
+/*
+|--------------------------------------------------------------------------
+| Detail Transaksi
+|--------------------------------------------------------------------------
+*/
+
+// Detail Transaksi
 Route::get(
     '/stock-transactions/{stockTransaction}',
     [StockTransactionController::class, 'show']
@@ -217,15 +217,13 @@ Route::get(
     [InvoiceController::class, 'index']
 )->name('invoices.index');
 
-
-// Lihat satu Invoice
+// Detail Invoice
 Route::get(
     '/invoices/{invoice}',
     [InvoiceController::class, 'show']
 )->name('invoices.show');
 
-
-// Buat Invoice otomatis dari Barang Keluar
+// Buat Invoice dari Barang Keluar
 Route::post(
     '/stock-transactions/{stockTransaction}/create-invoice',
     [InvoiceController::class, 'createFromOut']
@@ -244,15 +242,13 @@ Route::get(
     [NotaKeluarController::class, 'index']
 )->name('nota-keluars.index');
 
-
-// Lihat Nota Keluar
+// Detail Nota Keluar
 Route::get(
     '/nota-keluars/{notaKeluar}',
     [NotaKeluarController::class, 'show']
 )->name('nota-keluars.show');
 
-
-// Buat Nota Keluar otomatis dari Barang Keluar
+// Buat Nota Keluar dari Barang Keluar
 Route::post(
     '/stock-transactions/{stockTransaction}/create-nota',
     [NotaKeluarController::class, 'createFromOut']
@@ -265,15 +261,11 @@ Route::post(
 |--------------------------------------------------------------------------
 */
 
-// Total Invoice
+// Total Invoice untuk LPDH
 Route::get(
-    'lpdhs/invoice-total',
+    '/lpdhs/invoice-total',
     [LPDHController::class, 'invoiceTotal']
 )->name('lpdhs.invoice-total');
 
-
 // Resource LPDH
-Route::resource(
-    'lpdhs',
-    LPDHController::class
-);
+Route::resource('lpdhs', LPDHController::class);

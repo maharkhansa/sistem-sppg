@@ -32,12 +32,8 @@ class NotaKeluarController extends Controller
             ->latest()
             ->get();
 
-        return view(
-            'nota_keluars.index',
-            compact('notaKeluars')
-        );
+        return view('nota_keluars.index', compact('notaKeluars'));
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -47,12 +43,6 @@ class NotaKeluarController extends Controller
 
     public function show(NotaKeluar $notaKeluar)
     {
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD RELATIONSHIP NOTA
-        |--------------------------------------------------------------------------
-        */
-
         $notaKeluar->load([
             'stockTransaction',
             'purchaseOrder',
@@ -62,10 +52,9 @@ class NotaKeluarController extends Controller
             'details.supplier',
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
-        | AMBIL INVOICE BERDASARKAN STOCK TRANSACTION
+        | AMBIL INVOICE DARI TRANSAKSI BARANG KELUAR
         |--------------------------------------------------------------------------
         */
 
@@ -80,28 +69,22 @@ class NotaKeluarController extends Controller
             )
             ->first();
 
-
         /*
         |--------------------------------------------------------------------------
-        | DETAIL INVOICE UNTUK SUPPLIER NOTA INI
+        | DETAIL INVOICE SESUAI SUPPLIER NOTA
         |--------------------------------------------------------------------------
         */
 
         $invoiceDetails = collect();
 
-
         if ($invoice && $notaKeluar->supplier_id) {
-
             $invoiceDetails = $invoice->details
                 ->filter(function ($detail) use ($notaKeluar) {
-
-                    return (int) $detail->supplier_id ===
-                        (int) $notaKeluar->supplier_id;
-
+                    return (int) $detail->supplier_id
+                        === (int) $notaKeluar->supplier_id;
                 })
                 ->values();
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -109,83 +92,50 @@ class NotaKeluarController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $notaTotalAmount = $invoiceDetails->sum(
-            function ($detail) {
-
-                return (float) (
-                    $detail->subtotal ?? 0
-                );
-
-            }
-        );
-
+        $notaTotalAmount = $invoiceDetails->sum(function ($detail) {
+            return (float) ($detail->subtotal ?? 0);
+        });
 
         /*
         |--------------------------------------------------------------------------
-        | GENERATE ULANG BARCODE SESUAI SUPPLIER
+        | BARCODE
         |--------------------------------------------------------------------------
+        |
+        | Barcode tetap menggunakan tanggal nota tersimpan.
+        | Perubahan tanggal invoice tidak mengubah barcode yang sudah ada.
         */
 
-        $barcodeRaw = $this->generateBarcodeNumber(
-            $notaKeluar->supplier,
-            $notaKeluar->nota_date,
-            $notaKeluar->id
-        );
+        $barcodeRaw = $notaKeluar->barcode_number;
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | SIMPAN BARCODE BARU KE DATABASE
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $notaKeluar->barcode_number !==
-            $barcodeRaw
-        ) {
+        if (empty($barcodeRaw)) {
+            $barcodeRaw = $this->generateBarcodeNumber(
+                $notaKeluar->supplier,
+                $notaKeluar->nota_date,
+                $notaKeluar->id
+            );
 
             $notaKeluar->update([
                 'barcode_number' => $barcodeRaw,
             ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | JIKA ID ORDER BELUM ADA
+        | ID ORDER UNTUK NOTA LAMA
         |--------------------------------------------------------------------------
-        |
-        | Ini berguna untuk Nota lama yang dibuat sebelum kolom
-        | customer_order_number ditambahkan.
-        |
         */
 
-        if (
-            empty(
-                $notaKeluar->customer_order_number
-            )
-        ) {
-
-            $customerOrderNumber =
-                $this->generateCustomerOrderNumber(
-                    $notaKeluar->kitchen_id,
-                    $notaKeluar->stock_transaction_id
-                );
+        if (empty($notaKeluar->customer_order_number)) {
+            $customerOrderNumber = $this->generateCustomerOrderNumber(
+                $notaKeluar->kitchen_id,
+                $notaKeluar->stock_transaction_id
+            );
 
             $notaKeluar->update([
-                'customer_order_number' =>
-                    $customerOrderNumber,
+                'customer_order_number' => $customerOrderNumber,
             ]);
 
-            /*
-            | Refresh agar data terbaru masuk ke object.
-            */
-
             $notaKeluar->refresh();
-
-            /*
-            | Load kembali relationship.
-            */
 
             $notaKeluar->load([
                 'stockTransaction',
@@ -197,25 +147,28 @@ class NotaKeluarController extends Controller
             ]);
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | KIRIM DATA KE VIEW
+        | TANGGAL INVOICE SEBAGAI SUMBER TANGGAL NOTA
         |--------------------------------------------------------------------------
+        |
+        | Variabel $invoice dikirim ke Blade.
+        | Blade menggunakan $invoice->invoice_date terlebih dahulu.
         */
 
-        return view(
-            'nota_keluars.show',
-            compact(
-                'notaKeluar',
-                'invoice',
-                'invoiceDetails',
-                'notaTotalAmount',
-                'barcodeRaw'
-            )
-        );
-    }
+        $deliveryDate = $invoice?->invoice_date
+            ?? $notaKeluar->nota_date
+            ?? $notaKeluar->created_at;
 
+        return view('nota_keluars.show', compact(
+            'notaKeluar',
+            'invoice',
+            'invoiceDetails',
+            'notaTotalAmount',
+            'barcodeRaw',
+            'deliveryDate'
+        ));
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -223,30 +176,14 @@ class NotaKeluarController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function createFromOut(
-        StockTransaction $stockTransaction
-    ) {
-
-        /*
-        |--------------------------------------------------------------------------
-        | PASTIKAN TRANSAKSI BARANG KELUAR
-        |--------------------------------------------------------------------------
-        */
-
+    public function createFromOut(StockTransaction $stockTransaction)
+    {
         if ($stockTransaction->type !== 'OUT') {
-
             return back()->with(
                 'error',
                 'Transaksi bukan merupakan Barang Keluar.'
             );
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOAD DATA
-        |--------------------------------------------------------------------------
-        */
 
         $stockTransaction->load([
             'details.item',
@@ -255,396 +192,181 @@ class NotaKeluarController extends Controller
             'kitchen',
         ]);
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | PASTIKAN PURCHASE ORDER ADA
-        |--------------------------------------------------------------------------
-        */
-
         if (!$stockTransaction->purchaseOrder) {
-
             return back()->with(
                 'error',
                 'Barang Keluar belum memiliki Purchase Order.'
             );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | PASTIKAN DETAIL BARANG ADA
-        |--------------------------------------------------------------------------
-        */
-
         if ($stockTransaction->details->isEmpty()) {
-
             return back()->with(
                 'error',
                 'Barang Keluar belum memiliki detail barang.'
             );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | CEK APAKAH SUDAH ADA NOTA
-        |--------------------------------------------------------------------------
-        */
-
         $existingNota = NotaKeluar::where(
             'stock_transaction_id',
             $stockTransaction->id
         )->exists();
 
-
         if ($existingNota) {
-
             return back()->with(
                 'error',
                 'Nota untuk Barang Keluar ini sudah dibuat.'
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
-        | KELOMPOKKAN BARANG BERDASARKAN SUPPLIER
+        | KELOMPOKKAN DETAIL BERDASARKAN SUPPLIER DARI PURCHASE ORDER
         |--------------------------------------------------------------------------
         */
 
         $supplierGroups = [];
 
-
-        foreach (
-            $stockTransaction->details
-            as $outDetail
-        ) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | CARI DETAIL PO BERDASARKAN ITEM
-            |--------------------------------------------------------------------------
-            */
-
-            $poDetail = $stockTransaction
-                ->purchaseOrder
+        foreach ($stockTransaction->details as $outDetail) {
+            $poDetail = $stockTransaction->purchaseOrder
                 ->details
-                ->first(
-                    function ($detail) use ($outDetail) {
+                ->first(function ($detail) use ($outDetail) {
+                    return (int) $detail->item_id
+                        === (int) $outDetail->item_id;
+                });
 
-                        return (int) $detail->item_id ===
-                            (int) $outDetail->item_id;
-
-                    }
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | SUPPLIER WAJIB ADA
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                !$poDetail ||
-                !$poDetail->supplier_id
-            ) {
-
+            if (!$poDetail || !$poDetail->supplier_id) {
                 return back()->with(
                     'error',
-                    'Supplier untuk barang "' .
-                    ($outDetail->item?->name ?? '-') .
-                    '" tidak ditemukan pada Purchase Order.'
+                    'Supplier untuk barang "'
+                    . ($outDetail->item?->name ?? '-')
+                    . '" tidak ditemukan pada Purchase Order.'
                 );
             }
 
+            $supplierId = $poDetail->supplier_id;
 
-            $supplierId =
-                $poDetail->supplier_id;
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | BUAT GROUP SUPPLIER
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                !isset(
-                    $supplierGroups[$supplierId]
-                )
-            ) {
-
+            if (!isset($supplierGroups[$supplierId])) {
                 $supplierGroups[$supplierId] = [];
-
             }
 
-
             $supplierGroups[$supplierId][] = [
-
-                'out_detail' =>
-                    $outDetail,
-
-                'po_detail' =>
-                    $poDetail,
-
+                'out_detail' => $outDetail,
+                'po_detail' => $poDetail,
             ];
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUAT ID ORDER SATU KALI UNTUK SATU BARANG KELUAR
-        |--------------------------------------------------------------------------
-        |
-        | Semua supplier dalam satu Barang Keluar mendapatkan ID Order
-        | yang sama.
-        |
-        | Contoh:
-        |
-        | 001 - SPPG Jogonegoro
-        |
-        |--------------------------------------------------------------------------
-        */
-
-        $customerOrderNumber =
-            $this->generateCustomerOrderNumber(
-                $stockTransaction->kitchen_id,
-                $stockTransaction->id
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUAT NOTA UNTUK SETIAP SUPPLIER
-        |--------------------------------------------------------------------------
-        */
+        $customerOrderNumber = $this->generateCustomerOrderNumber(
+            $stockTransaction->kitchen_id,
+            $stockTransaction->id
+        );
 
         $createdNotas = [];
 
+        DB::transaction(function () use (
+            $supplierGroups,
+            $stockTransaction,
+            $customerOrderNumber,
+            &$createdNotas
+        ) {
+            foreach ($supplierGroups as $supplierId => $details) {
+                $supplier = Supplier::find($supplierId);
 
-        DB::transaction(
-            function () use (
-                $supplierGroups,
-                $stockTransaction,
-                $customerOrderNumber,
-                &$createdNotas
-            ) {
-
-                foreach (
-                    $supplierGroups
-                    as $supplierId => $details
-                ) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | AMBIL SUPPLIER
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $supplier =
-                        Supplier::find($supplierId);
-
-
-                    if (!$supplier) {
-
-                        throw new \Exception(
-                            'Supplier tidak ditemukan.'
-                        );
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | NOMOR NOTA
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $notaNumber =
-                        $this->generateNotaNumber(
-                            $stockTransaction
-                                ->transaction_date
-                        );
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | TOTAL NOTA
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $totalAmount = 0;
-
-
-                    foreach (
-                        $details
-                        as $row
-                    ) {
-
-                        $outDetail =
-                            $row['out_detail'];
-
-
-                        $totalAmount +=
-                            (float) (
-                                $outDetail
-                                    ->subtotal ?? 0
-                            );
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | BUAT NOTA
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $notaKeluar =
-                        NotaKeluar::create([
-
-                            'stock_transaction_id' =>
-                                $stockTransaction->id,
-
-                            'purchase_order_id' =>
-                                $stockTransaction
-                                    ->purchase_order_id,
-
-                            'kitchen_id' =>
-                                $stockTransaction
-                                    ->kitchen_id,
-
-                            'supplier_id' =>
-                                $supplierId,
-
-                            'nota_number' =>
-                                $notaNumber,
-
-                            'barcode_number' =>
-                                null,
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | ID ORDER
-                            |--------------------------------------------------------------------------
-                            */
-
-                            'customer_order_number' =>
-                                $customerOrderNumber,
-
-                            'nota_date' =>
-                                $stockTransaction
-                                    ->transaction_date,
-
-                            'total_amount' =>
-                                $totalAmount,
-
-                        ]);
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | BUAT BARCODE SETELAH ID NOTA TERSEDIA
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $barcodeNumber =
-                        $this->generateBarcodeNumber(
-                            $supplier,
-                            $stockTransaction
-                                ->transaction_date,
-                            $notaKeluar->id
-                        );
-
-
-                    $notaKeluar->update([
-
-                        'barcode_number' =>
-                            $barcodeNumber,
-
-                    ]);
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SIMPAN DETAIL NOTA
-                    |--------------------------------------------------------------------------
-                    */
-
-                    foreach (
-                        $details
-                        as $row
-                    ) {
-
-                        $outDetail =
-                            $row['out_detail'];
-
-                        $poDetail =
-                            $row['po_detail'];
-
-
-                        $notaKeluar
-                            ->details()
-                            ->create([
-
-                                'item_id' =>
-                                    $outDetail
-                                        ->item_id,
-
-                                'supplier_id' =>
-                                    $poDetail
-                                        ->supplier_id,
-
-                                'quantity' =>
-                                    $outDetail
-                                        ->quantity,
-
-                                'unit' =>
-                                    $outDetail
-                                        ->unit,
-
-                                'unit_price' =>
-                                    $outDetail
-                                        ->unit_price,
-
-                                'subtotal' =>
-                                    $outDetail
-                                        ->subtotal,
-
-                            ]);
-                    }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SIMPAN KE ARRAY
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $createdNotas[] =
-                        $notaKeluar;
+                if (!$supplier) {
+                    throw new \RuntimeException(
+                        'Supplier tidak ditemukan.'
+                    );
                 }
+
+                $transactionDate = $stockTransaction->transaction_date
+                    ?? now()->toDateString();
+
+                $notaNumber = $this->generateNotaNumber(
+                    $transactionDate
+                );
+
+                $totalAmount = 0;
+
+                foreach ($details as $row) {
+                    $outDetail = $row['out_detail'];
+
+                    $totalAmount += (float) (
+                        $outDetail->subtotal ?? 0
+                    );
+                }
+
+                $notaKeluar = NotaKeluar::create([
+                    'stock_transaction_id' =>
+                        $stockTransaction->id,
+
+                    'purchase_order_id' =>
+                        $stockTransaction->purchase_order_id,
+
+                    'kitchen_id' =>
+                        $stockTransaction->kitchen_id,
+
+                    'supplier_id' =>
+                        $supplierId,
+
+                    'nota_number' =>
+                        $notaNumber,
+
+                    'barcode_number' =>
+                        null,
+
+                    'customer_order_number' =>
+                        $customerOrderNumber,
+
+                    'nota_date' =>
+                        $transactionDate,
+
+                    'total_amount' =>
+                        $totalAmount,
+                ]);
+
+                $barcodeNumber = $this->generateBarcodeNumber(
+                    $supplier,
+                    $transactionDate,
+                    $notaKeluar->id
+                );
+
+                $notaKeluar->update([
+                    'barcode_number' => $barcodeNumber,
+                ]);
+
+                foreach ($details as $row) {
+                    $outDetail = $row['out_detail'];
+                    $poDetail = $row['po_detail'];
+
+                    $notaKeluar->details()->create([
+                        'item_id' =>
+                            $outDetail->item_id,
+
+                        'supplier_id' =>
+                            $poDetail->supplier_id,
+
+                        'quantity' =>
+                            $outDetail->quantity,
+
+                        'unit' =>
+                            $outDetail->unit,
+
+                        'unit_price' =>
+                            $outDetail->unit_price,
+
+                        'subtotal' =>
+                            $outDetail->subtotal,
+                    ]);
+                }
+
+                $createdNotas[] = $notaKeluar;
             }
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | REDIRECT KE NOTA PERTAMA
-        |--------------------------------------------------------------------------
-        */
+        });
 
         if (!empty($createdNotas)) {
-
-            return redirect()->route(
-                'nota-keluars.show',
-                $createdNotas[0]
-            )->with(
-                'success',
-                'Nota berhasil dibuat.'
-            );
+            return redirect()
+                ->route('nota-keluars.show', $createdNotas[0])
+                ->with('success', 'Nota berhasil dibuat.');
         }
-
 
         return back()->with(
             'error',
@@ -652,20 +374,49 @@ class NotaKeluarController extends Controller
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | EDIT INFORMASI NOTA
+    |--------------------------------------------------------------------------
+    |
+    | Tanggal tidak diedit di sini.
+    | Tanggal yang ditampilkan pada Nota mengikuti tanggal Invoice.
+    | Alamat pengiriman tetap bisa diperbarui.
+    |--------------------------------------------------------------------------
+    */
+
+    public function updateInformasi(
+        Request $request,
+        NotaKeluar $notaKeluar
+    ) {
+        $validated = $request->validate([
+            'delivery_address' => [
+                'required',
+                'string',
+                'max:2000',
+            ],
+        ], [
+            'delivery_address.required' =>
+                'Alamat pengiriman wajib diisi.',
+
+            'delivery_address.max' =>
+                'Alamat pengiriman maksimal 2000 karakter.',
+        ]);
+
+        $notaKeluar->delivery_address =
+            $validated['delivery_address'];
+
+        $notaKeluar->save();
+
+        return back()->with(
+            'success',
+            'Alamat pengiriman nota berhasil diperbarui.'
+        );
+    }
 
     /*
     |--------------------------------------------------------------------------
     | GENERATE ID PELANGGAN / ID ORDER
-    |--------------------------------------------------------------------------
-    |
-    | Format:
-    |
-    | 001 - SPPG Jogonegoro
-    | 002 - SPPG Jogonegoro
-    | 003 - SPPG Jogonegoro
-    |
-    | Nomor urut berdasarkan SPPG.
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -673,49 +424,16 @@ class NotaKeluarController extends Controller
         $kitchenId,
         $currentStockTransactionId = null
     ) {
+        $kitchen = Kitchen::find($kitchenId);
 
-        /*
-        |--------------------------------------------------------------------------
-        | AMBIL DATA SPPG
-        |--------------------------------------------------------------------------
-        */
-
-        $kitchen = Kitchen::find(
-            $kitchenId
-        );
-
-
-        $kitchenName =
-            $kitchen?->name ?? 'SPPG';
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CARI NOTA TERAKHIR PADA SPPG
-        |--------------------------------------------------------------------------
-        */
+        $kitchenName = $kitchen?->name ?? 'SPPG';
 
         $query = NotaKeluar::where(
             'kitchen_id',
             $kitchenId
-        )
-            ->whereNotNull(
-                'customer_order_number'
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | UNTUK DATA LAMA / SHOW
-        |--------------------------------------------------------------------------
-        |
-        | Jika sedang mencari ID Order untuk Nota yang sudah ada,
-        | jangan menghitung Nota dari transaksi yang sama.
-        |
-        */
+        )->whereNotNull('customer_order_number');
 
         if ($currentStockTransactionId) {
-
             $query->where(
                 'stock_transaction_id',
                 '!=',
@@ -723,68 +441,23 @@ class NotaKeluarController extends Controller
             );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | AMBIL ID ORDER TERAKHIR
-        |--------------------------------------------------------------------------
-        */
-
-        $lastNota =
-            $query
-                ->orderByDesc('id')
-                ->first();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | NOMOR AWAL
-        |--------------------------------------------------------------------------
-        */
+        $lastNota = $query
+            ->orderByDesc('id')
+            ->first();
 
         $nextNumber = 1;
 
-
-        if (
-            $lastNota &&
-            $lastNota->customer_order_number
-        ) {
-
-            /*
-            | Contoh:
-            |
-            | 005 - SPPG Jogonegoro
-            */
-
+        if ($lastNota && $lastNota->customer_order_number) {
             $parts = explode(
                 ' - ',
                 $lastNota->customer_order_number,
                 2
             );
 
-
-            if (
-                isset($parts[0]) &&
-                is_numeric(trim($parts[0]))
-            ) {
-
-                $lastNumber =
-                    (int) trim(
-                        $parts[0]
-                    );
-
-
-                $nextNumber =
-                    $lastNumber + 1;
+            if (isset($parts[0]) && is_numeric(trim($parts[0]))) {
+                $nextNumber = (int) trim($parts[0]) + 1;
             }
         }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | HASIL AKHIR
-        |--------------------------------------------------------------------------
-        */
 
         return sprintf(
             '%03d - %s',
@@ -793,19 +466,9 @@ class NotaKeluarController extends Controller
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | GENERATE BARCODE NOTA
-    |--------------------------------------------------------------------------
-    |
-    | Format:
-    |
-    | GM-20261008-001
-    | ZN-20261008-001
-    | SR-20261008-001
-    | TF-20261008-001
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -814,102 +477,33 @@ class NotaKeluarController extends Controller
         $notaDate,
         ?int $notaId = null
     ) {
-
-        /*
-        |--------------------------------------------------------------------------
-        | PREFIX SUPPLIER
-        |--------------------------------------------------------------------------
-        */
-
-        $prefix = match (
-            $supplier?->nota_template
-        ) {
-
-            'gemilang' =>
-                'GM',
-
-            'zenzi' =>
-                'ZN',
-
-            'sumber_rejeki' =>
-                'SR',
-
-            'top_fast' =>
-                'TF',
-
-            default =>
-                'OT',
-
+        $prefix = match ($supplier?->nota_template) {
+            'gemilang' => 'GM',
+            'zenzi' => 'ZN',
+            'sumber_rejeki' => 'SR',
+            'top_fast' => 'TF',
+            default => 'OT',
         };
 
+        $date = Carbon::parse(
+            $notaDate ?? now()
+        );
 
-        /*
-        |--------------------------------------------------------------------------
-        | TANGGAL
-        |--------------------------------------------------------------------------
-        */
-
-        $date =
-            Carbon::parse($notaDate);
-
-
-        $dateCode =
-            $date->format('Ymd');
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CARI NOTA SUPPLIER PADA TANGGAL TERSEBUT
-        |--------------------------------------------------------------------------
-        */
+        $dateCode = $date->format('Ymd');
 
         $query = NotaKeluar::where(
             'supplier_id',
             $supplier?->id
-        )
-            ->whereDate(
-                'nota_date',
-                $date->format('Y-m-d')
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | NOTA YANG SEDANG DIBUAT / DIBUKA
-        |--------------------------------------------------------------------------
-        */
+        )->whereDate(
+            'nota_date',
+            $date->format('Y-m-d')
+        );
 
         if ($notaId) {
-
-            $query->where(
-                'id',
-                '<=',
-                $notaId
-            );
+            $query->where('id', '<=', $notaId);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | HITUNG NOMOR URUT
-        |--------------------------------------------------------------------------
-        */
-
-        $nextNumber =
-            $query->count();
-
-
-        if ($nextNumber < 1) {
-
-            $nextNumber = 1;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | HASIL BARCODE
-        |--------------------------------------------------------------------------
-        */
+        $nextNumber = max(1, $query->count());
 
         return sprintf(
             '%s-%s-%03d',
@@ -919,59 +513,35 @@ class NotaKeluarController extends Controller
         );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | GENERATE NOMOR NOTA
     |--------------------------------------------------------------------------
     */
 
-    private function generateNotaNumber(
-        $date
-    ) {
+    private function generateNotaNumber($date)
+    {
+        $date = Carbon::parse($date);
 
-        $date =
-            Carbon::parse($date);
+        $prefix = 'NK-' . $date->format('Ymd');
 
-
-        $prefix =
-            'NK-' .
-            $date->format('Ymd');
-
-
-        $lastNota =
-            NotaKeluar::where(
-                'nota_number',
-                'like',
-                $prefix . '-%'
-            )
-                ->orderByDesc('id')
-                ->first();
-
+        $lastNota = NotaKeluar::where(
+            'nota_number',
+            'like',
+            $prefix . '-%'
+        )
+            ->orderByDesc('id')
+            ->first();
 
         $nextNumber = 1;
 
-
         if ($lastNota) {
-
-            $parts =
-                explode(
-                    '-',
-                    $lastNota->nota_number
-                );
-
+            $parts = explode('-', $lastNota->nota_number);
 
             if (count($parts) >= 3) {
-
-                $lastNumber =
-                    (int) end($parts);
-
-
-                $nextNumber =
-                    $lastNumber + 1;
+                $nextNumber = (int) end($parts) + 1;
             }
         }
-
 
         return sprintf(
             '%s-%03d',

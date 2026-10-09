@@ -2,21 +2,12 @@
 <html lang="id">
 
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        {{ $invoice->invoice_number }}
-        - Invoice Belanja Program MBG
-    </title>
+    <title>{{ $invoice->invoice_number }} - Invoice Belanja Program MBG</title>
 
     <style>
-
         * {
             box-sizing: border-box;
         }
@@ -36,7 +27,7 @@
         }
 
         .invoice-card {
-            background: white;
+            background: #fff;
             padding: 25px 30px;
             border: 1px solid #d1d5db;
         }
@@ -60,19 +51,25 @@
 
         .btn-back {
             background: #6b7280;
-            color: white;
+            color: #fff;
         }
 
         .btn-print {
             background: #2563eb;
-            color: white;
+            color: #fff;
         }
 
         .invoice-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 15px;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .header-left {
+            flex: 1;
+            min-width: 0;
         }
 
         .header-left h1 {
@@ -83,50 +80,53 @@
         }
 
         .sppg-name {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
-            margin-top: 3px;
+            margin-top: 4px;
             text-transform: uppercase;
         }
 
         .date {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: bold;
-            margin-top: 8px;
+            margin-top: 7px;
             text-transform: uppercase;
+        }
+
+        .header-right {
+            flex-shrink: 0;
         }
 
         .kitchen-box {
             background-color: #1e7e34 !important;
-            color: #ffffff !important;
-            padding: 10px 20px;
+            color: #fff !important;
+            padding: 10px 18px;
             text-align: center;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 14px;
             text-transform: uppercase;
-            min-width: 140px;
+            min-width: 125px;
             display: inline-block;
-
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
 
         .supplier-section {
-            margin-bottom: 12px;
-            page-break-inside: avoid;
+            margin-bottom: 10px;
         }
 
         .invoice-table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
 
         .invoice-table th,
         .invoice-table td {
             border: 1px solid #000;
-            padding: 4px 6px;
+            padding: 5px;
             vertical-align: middle;
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .invoice-table th {
@@ -134,7 +134,6 @@
             text-align: center;
             font-weight: bold;
             text-transform: uppercase;
-
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
@@ -151,15 +150,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-
+            gap: 8px;
             border-left: 1px solid #000;
             border-right: 1px solid #000;
             border-bottom: 1px solid #000;
-
-            padding: 6px 8px;
-
-            font-size: 11px;
-            background: #fff;
+            padding: 6px 7px;
+            font-size: 9px;
         }
 
         .approval-text {
@@ -169,33 +165,31 @@
         .subtotal-wrapper {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
+            white-space: nowrap;
         }
 
-        .subtotal-label {
+        .subtotal-label,
+        .subtotal-val {
             font-weight: bold;
         }
 
         .subtotal-val {
-            font-weight: bold;
-            font-size: 12px;
+            font-size: 10px;
         }
 
         .grand-total-container {
             display: flex;
             justify-content: flex-end;
-            margin: 15px 0 30px;
+            margin: 12px 0 22px;
         }
 
         .grand-total-box {
             display: flex;
-            gap: 20px;
+            gap: 18px;
             align-items: center;
-
             font-weight: bold;
-            font-size: 13px;
-
-            padding-right: 10px;
+            font-size: 12px;
         }
 
         .empty-data {
@@ -203,26 +197,17 @@
             padding: 15px;
             text-align: center;
             font-weight: bold;
-            margin-bottom: 15px;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | TANDA TANGAN
-        |--------------------------------------------------------------------------
-        */
-
         .signature-section {
-            margin-top: 25px;
-            page-break-inside: avoid;
-            break-inside: avoid;
+            margin-top: 18px;
         }
 
         .signature-grid-top {
             display: table;
             width: 100%;
             table-layout: fixed;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .signature-grid-top .signature-box {
@@ -250,7 +235,7 @@
         }
 
         .signature-space {
-            height: 60px;
+            height: 48px;
         }
 
         .signature-line {
@@ -262,27 +247,31 @@
 
         .signature-name-bold {
             font-weight: bold;
-            margin-top: 10px;
+            margin-top: 7px;
         }
 
         .knowing-title {
             text-align: center;
-            font-size: 12px;
-            margin-bottom: 15px;
+            font-size: 11px;
+            margin-bottom: 10px;
         }
 
+        /* ==========================================
+           CETAK A4
+        ========================================== */
         @media print {
-
             @page {
-                margin: 10mm;
-                size: auto;
+                size: A4 portrait;
+                margin: 8mm;
             }
 
+            html,
             body {
-                background: white;
-                padding: 0;
-                margin: 0;
-
+                width: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                color: #000 !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
@@ -291,671 +280,481 @@
                 display: none !important;
             }
 
+            .invoice-container {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
             .invoice-card {
-                border: none;
-                padding: 0;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: #fff !important;
+            }
+
+            .invoice-header {
+                margin-bottom: 10px !important;
+            }
+
+            .header-left h1 {
+                font-size: 15px !important;
+            }
+
+            .sppg-name {
+                font-size: 12px !important;
+            }
+
+            .date {
+                font-size: 10px !important;
             }
 
             .kitchen-box {
-                background-color: #1e7e34 !important;
-                color: #ffffff !important;
+                font-size: 13px !important;
+                padding: 9px 14px !important;
+            }
 
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+            .supplier-section {
+                margin-bottom: 7px !important;
+            }
+
+            .invoice-table {
+                width: 100% !important;
+                table-layout: fixed !important;
+                border-collapse: collapse !important;
+            }
+
+            .invoice-table thead {
+                display: table-header-group;
+            }
+
+            .invoice-table th,
+            .invoice-table td {
+                padding: 4px !important;
+                font-size: 9px !important;
+                line-height: 1.15 !important;
             }
 
             .invoice-table th {
-                background-color: #e5e7eb !important;
+                padding: 5px 2px !important;
+                font-size: 8px !important;
+            }
 
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+            .invoice-table tr {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            .supplier-footer {
+                padding: 5px 6px !important;
+                font-size: 8px !important;
+            }
+
+            .subtotal-val {
+                font-size: 9px !important;
+            }
+
+            .grand-total-container {
+                margin: 9px 0 15px !important;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            .grand-total-box {
+                font-size: 12px !important;
+            }
+
+            .signature-section {
+                margin-top: 12px !important;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            .signature-grid-top {
+                margin-bottom: 10px !important;
+            }
+
+            .signature-space {
+                height: 36px !important;
+            }
+
+            .knowing-title {
+                margin-bottom: 7px !important;
+            }
+
+            .signature-name-bold {
+                margin-top: 5px !important;
+            }
+
+            /* Pemadatan pertama jika dibutuhkan */
+            .invoice-card.fit-compact-1 .invoice-table th,
+            .invoice-card.fit-compact-1 .invoice-table td {
+                padding: 3px !important;
+                font-size: 8px !important;
+            }
+
+            .invoice-card.fit-compact-1 .signature-space {
+                height: 28px !important;
+            }
+
+            .invoice-card.fit-compact-1 .supplier-section {
+                margin-bottom: 4px !important;
+            }
+
+            .invoice-card.fit-compact-1 .grand-total-container {
+                margin: 5px 0 8px !important;
+            }
+
+            /* Pemadatan kedua: tetap berusaha terbaca */
+            .invoice-card.fit-compact-2 .invoice-table th,
+            .invoice-card.fit-compact-2 .invoice-table td {
+                padding: 2px !important;
+                font-size: 7px !important;
+                line-height: 1.05 !important;
+            }
+
+            .invoice-card.fit-compact-2 .invoice-table th {
+                font-size: 6.5px !important;
+            }
+
+            .invoice-card.fit-compact-2 .signature-space {
+                height: 20px !important;
+            }
+
+            .invoice-card.fit-compact-2 .signature-section {
+                margin-top: 5px !important;
+            }
+
+            .invoice-card.fit-compact-2 .signature-grid-top {
+                margin-bottom: 5px !important;
+            }
+
+            .invoice-card.fit-compact-2 .grand-total-container {
+                margin: 3px 0 5px !important;
             }
         }
-
     </style>
-
 </head>
 
 <body>
+    <div class="invoice-container">
 
-<div class="invoice-container">
+        <div class="top-actions">
+            <a href="{{ route('stock-transactions.out') }}" class="btn btn-back">
+                ← Kembali ke Barang Keluar
+            </a>
 
-    {{-- ========================================================= --}}
-    {{-- ACTION --}}
-    {{-- ========================================================= --}}
-
-    <div class="top-actions">
-
-        <a
-            href="{{ route('stock-transactions.out') }}"
-            class="btn btn-back"
-        >
-            ← Kembali ke Barang Keluar
-        </a>
-
-        <button
-            onclick="window.print()"
-            class="btn btn-print"
-        >
-            🖨 Cetak Invoice
-        </button>
-
-    </div>
-
-
-    <div class="invoice-card">
-
-        {{-- ========================================================= --}}
-        {{-- DATA KITCHEN DAN YAYASAN --}}
-        {{-- ========================================================= --}}
-
-        @php
-
-            /*
-            |--------------------------------------------------------------------------
-            | Nama SPPG dari database
-            |--------------------------------------------------------------------------
-            */
-
-            $rawKitchenName =
-                $invoice->kitchen?->name
-                ?? '-';
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Nama wilayah untuk kotak kanan
-            |--------------------------------------------------------------------------
-            |
-            | Contoh:
-            | SPPG Magelang Muntilan Adikarto
-            | menjadi:
-            | MUNTILAN ADIKARTO
-            |
-            */
-
-            $cleanedName =
-                trim(
-                    str_ireplace(
-                        [
-                            'SPPG',
-                            'DAPUR',
-                            'KITCHEN'
-                        ],
-                        '',
-                        $rawKitchenName
-                    )
-                );
-
-            $words =
-                preg_split(
-                    '/\s+/',
-                    $cleanedName
-                );
-
-            if (count($words) > 2) {
-
-                $kitchenRegion =
-                    implode(
-                        ' ',
-                        array_slice(
-                            $words,
-                            -2
-                        )
-                    );
-
-            } else {
-
-                $kitchenRegion =
-                    $cleanedName;
-            }
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | NORMALISASI NAMA KITCHEN UNTUK MAPPING YAYASAN
-            |--------------------------------------------------------------------------
-            */
-
-            $normalizedKitchen =
-                strtoupper(
-                    trim(
-                        preg_replace(
-                            '/\s+/',
-                            ' ',
-                            $rawKitchenName
-                        )
-                    )
-                );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | MAPPING YAYASAN
-            |--------------------------------------------------------------------------
-            |
-            | Aghits Star International:
-            | - Pemalang
-            | - Kota Magelang
-            | - Muntilan
-            | - Tempuran
-            |
-            | La Tahzan Indonesia:
-            | - Mungkid
-            | - Klaten Polanharjo
-            | - Klaten Kebonarum
-            | - Kota Palembang
-            |
-            */
-
-            $yayasan =
-                'Yayasan Aghits Star International';
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | YAYASAN LA TAHZAN INDONESIA
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                str_contains(
-                    $normalizedKitchen,
-                    'MUNGKID'
-                )
-                ||
-                str_contains(
-                    $normalizedKitchen,
-                    'POLANHARJO'
-                )
-                ||
-                str_contains(
-                    $normalizedKitchen,
-                    'KEBONARUM'
-                )
-                ||
-                str_contains(
-                    $normalizedKitchen,
-                    'PALEMBANG'
-                )
-            ) {
-
-                $yayasan =
-                    'Yayasan La Tahzan Indonesia';
-            }
-
-        @endphp
-
-
-        {{-- ========================================================= --}}
-        {{-- HEADER --}}
-        {{-- ========================================================= --}}
-
-        <div class="invoice-header">
-
-            <div class="header-left">
-
-                <h1>
-                    INVOICE BELANJA PROGRAM MBG
-                </h1>
-
-                <div class="sppg-name">
-
-                    {{ strtoupper(
-                        $invoice->kitchen->name ?? '-'
-                    ) }}
-
-                </div>
-
-                <div class="date">
-
-                    TANGGAL :
-
-                    {{ strtoupper(
-                        \Carbon\Carbon::parse(
-                            $invoice->invoice_date
-                        )->translatedFormat(
-                            'l, d F Y'
-                        )
-                    ) }}
-
-                </div>
-
-            </div>
-
-
-            <div class="header-right">
-
-                <div class="kitchen-box">
-
-                    {{ strtoupper(
-                        $kitchenRegion
-                    ) }}
-
-                </div>
-
-            </div>
-
+            <button onclick="window.print()" class="btn btn-print">
+                🖨 Cetak Invoice
+            </button>
         </div>
 
+        <div class="invoice-card">
 
-        {{-- ========================================================= --}}
-        {{-- DETAIL INVOICE --}}
-        {{-- ========================================================= --}}
-
-        @if($invoice->details->count() > 0)
-
+            {{-- DATA KITCHEN DAN YAYASAN --}}
             @php
+                $rawKitchenName = $invoice->kitchen?->name ?? '-';
 
-                $groupedDetails =
-                    $invoice->details
-                        ->groupBy(
-                            function ($detail) {
-                                return
-                                    $detail->supplier_id
-                                    ?? 0;
-                            }
-                        );
+                $cleanedName = trim(str_ireplace(
+                    ['SPPG', 'DAPUR', 'KITCHEN'],
+                    '',
+                    $rawKitchenName
+                ));
 
-                $rowNumber = 1;
+                $words = preg_split('/\s+/', $cleanedName);
 
+                $kitchenRegion = count($words) > 2
+                    ? implode(' ', array_slice($words, -2))
+                    : $cleanedName;
+
+                $normalizedKitchen = strtoupper(
+                    trim(preg_replace('/\s+/', ' ', $rawKitchenName))
+                );
+
+                $yayasan = 'Yayasan Aghits Star International';
+
+                if (
+                    str_contains($normalizedKitchen, 'MUNGKID') ||
+                    str_contains($normalizedKitchen, 'POLANHARJO') ||
+                    str_contains($normalizedKitchen, 'KEBONARUM') ||
+                    str_contains($normalizedKitchen, 'PALEMBANG')
+                ) {
+                    $yayasan = 'Yayasan La Tahzan Indonesia';
+                }
             @endphp
 
+            {{-- HEADER --}}
+            <div class="invoice-header">
+                <div class="header-left">
+                    <h1>INVOICE BELANJA PROGRAM MBG</h1>
 
-            {{-- ===================================================== --}}
-            {{-- PER SUPPLIER --}}
-            {{-- ===================================================== --}}
+                    <div class="sppg-name">
+                        {{ strtoupper($rawKitchenName) }}
+                    </div>
 
-            @foreach(
-                $groupedDetails
-                as $supplierId => $details
-            )
+                    <div class="date">
+                        TANGGAL:
+                        {{ strtoupper(
+                            \Carbon\Carbon::parse($invoice->invoice_date)
+                                ->translatedFormat('l, d F Y')
+                        ) }}
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <div class="kitchen-box">
+                        {{ strtoupper($kitchenRegion) }}
+                    </div>
+                </div>
+            </div>
+
+            {{-- DETAIL INVOICE --}}
+            @if($invoice->details->count() > 0)
 
                 @php
+                    $groupedDetails = $invoice->details
+                        ->groupBy(function ($detail) {
+                            return $detail->supplier_id ?? 0;
+                        })
+                        ->sortBy(function ($details, $supplierId) {
+                            $supplierName = strtoupper(
+                                trim($details->first()?->supplier?->name ?? '')
+                            );
 
-                    $supplierSubtotal =
-                        $details->sum(
-                            'subtotal'
-                        );
+                            if (
+                                str_contains($supplierName, 'KOPERASI') ||
+                                str_contains($supplierName, 'SUMBER REJEKI')
+                            ) {
+                                return 1;
+                            }
 
+                            if (
+                                str_contains($supplierName, 'ZENZI') ||
+                                str_contains($supplierName, 'ZENZIE')
+                            ) {
+                                return 2;
+                            }
+
+                            if (str_contains($supplierName, 'GEMILANG')) {
+                                return 3;
+                            }
+
+                            if (
+                                str_contains($supplierName, 'TOPFAST') ||
+                                str_contains($supplierName, 'TOP FAST')
+                            ) {
+                                return 4;
+                            }
+
+                            return 5;
+                        });
+
+                    $rowNumber = 1;
                 @endphp
 
+                @foreach($groupedDetails as $supplierId => $details)
 
-                <div class="supplier-section">
+                    @php
+                        $supplierSubtotal = $details->sum('subtotal');
+                    @endphp
 
-                    <table class="invoice-table">
+                    <div class="supplier-section">
+                        <table class="invoice-table">
+                            <colgroup>
+                                <col style="width: 4%;">
+                                <col style="width: 17%;">
+                                <col style="width: 12%;">
+                                <col style="width: 24%;">
+                                <col style="width: 6%;">
+                                <col style="width: 7%;">
+                                <col style="width: 14%;">
+                                <col style="width: 16%;">
+                            </colgroup>
 
-                        <thead>
-
-                            <tr>
-
-                                <th style="width:35px;">
-                                    NO
-                                </th>
-
-                                <th style="width:180px;">
-                                    SUPPLIER
-                                </th>
-
-                                <th style="width:110px;">
-                                    KODE BARANG
-                                </th>
-
-                                <th>
-                                    JENIS BARANG
-                                </th>
-
-                                <th style="width:50px;">
-                                    QTY
-                                </th>
-
-                                <th style="width:60px;">
-                                    SATUAN
-                                </th>
-
-                                <th style="width:90px;">
-                                    HARGA
-                                </th>
-
-                                <th style="width:110px;">
-                                    JUMLAH
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-
-                        <tbody>
-
-                            @foreach(
-                                $details
-                                as $detail
-                            )
-
+                            <thead>
                                 <tr>
-
-                                    <td class="text-center">
-
-                                        {{ $rowNumber++ }}
-
-                                    </td>
-
-
-                                    <td>
-
-                                        {{ strtoupper(
-                                            $detail
-                                                ->supplier
-                                                ?->name
-                                                ?? '-'
-                                        ) }}
-
-                                    </td>
-
-
-                                    <td class="text-center">
-
-                                        {{ $detail
-                                            ->item
-                                            ?->code
-                                            ?? '-' }}
-
-                                    </td>
-
-
-                                    <td>
-
-                                        {{ $detail
-                                            ->item
-                                            ?->name
-                                            ?? '-' }}
-
-                                    </td>
-
-
-                                    <td class="text-center">
-
-                                        {{ rtrim(
-                                            rtrim(
-                                                number_format(
-                                                    $detail
-                                                        ->quantity,
-                                                    2,
-                                                    ',',
-                                                    '.'
-                                                ),
-                                                '0'
-                                            ),
-                                            ','
-                                        ) }}
-
-                                    </td>
-
-
-                                    <td class="text-center">
-
-                                        {{ $detail->unit }}
-
-                                    </td>
-
-
-                                    <td class="text-right">
-
-                                        Rp
-
-                                        {{ number_format(
-                                            $detail
-                                                ->unit_price,
-                                            0,
-                                            ',',
-                                            '.'
-                                        ) }}
-
-                                    </td>
-
-
-                                    <td class="text-right">
-
-                                        Rp
-
-                                        {{ number_format(
-                                            $detail
-                                                ->subtotal,
-                                            0,
-                                            ',',
-                                            '.'
-                                        ) }}
-
-                                    </td>
-
+                                    <th>NO</th>
+                                    <th>SUPPLIER</th>
+                                    <th>KODE BARANG</th>
+                                    <th>JENIS BARANG</th>
+                                    <th>QTY</th>
+                                    <th>SATUAN</th>
+                                    <th>HARGA</th>
+                                    <th>JUMLAH</th>
                                 </tr>
+                            </thead>
 
-                            @endforeach
+                            <tbody>
+                                @foreach($details as $detail)
+                                    <tr>
+                                        <td class="text-center">
+                                            {{ $rowNumber++ }}
+                                        </td>
 
-                        </tbody>
+                                        <td>
+                                            {{ strtoupper($detail->supplier?->name ?? '-') }}
+                                        </td>
 
-                    </table>
+                                        <td class="text-center">
+                                            {{ $detail->item?->code ?? '-' }}
+                                        </td>
 
+                                        <td>
+                                            {{ $detail->item?->name ?? '-' }}
+                                        </td>
 
-                    {{-- ================================================= --}}
-                    {{-- FOOTER SUPPLIER --}}
-                    {{-- ================================================= --}}
+                                        <td class="text-center">
+                                            {{ rtrim(rtrim(number_format((float) $detail->quantity, 2, ',', '.'), '0'), ',') }}
+                                        </td>
 
-                    <div class="supplier-footer">
+                                        <td class="text-center">
+                                            {{ $detail->unit ?? '-' }}
+                                        </td>
 
-                        <div class="approval-text">
+                                        <td class="text-right">
+                                            Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}
+                                        </td>
 
-                            ☐ Approved
-                            &nbsp;&nbsp;
+                                        <td class="text-right">
+                                            Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
 
-                            ☐ Not Approved
-                            &nbsp;&nbsp;
+                        <div class="supplier-footer">
+                            <div class="approval-text">
+                                ☐ Approved
+                                &nbsp; ☐ Not Approved
+                                &nbsp; ☐ Pen
+                                &nbsp; | &nbsp;
+                                Date Approval: ______________
+                            </div>
 
-                            ☐ Pen
+                            <div class="subtotal-wrapper">
+                                <span class="subtotal-label">SUBTOTAL</span>
 
-                            &nbsp; | &nbsp;
-
-                            Date Approval :
-                            ____________________
-
+                                <span class="subtotal-val">
+                                    Rp {{ number_format((float) $supplierSubtotal, 0, ',', '.') }}
+                                </span>
+                            </div>
                         </div>
+                    </div>
 
+                @endforeach
 
-                        <div class="subtotal-wrapper">
+            @else
+                <div class="empty-data">
+                    DETAIL BARANG INVOICE TIDAK DITEMUKAN
+                </div>
+            @endif
 
-                            <span class="subtotal-label">
-                                SUBTOTAL
-                            </span>
+            {{-- TOTAL --}}
+            <div class="grand-total-container">
+                <div class="grand-total-box">
+                    <span>TOTAL</span>
 
-                            <span class="subtotal-val">
+                    <span>
+                        Rp {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}
+                    </span>
+                </div>
+            </div>
 
-                                Rp
+            {{-- TANDA TANGAN --}}
+            <div class="signature-section">
 
-                                {{ number_format(
-                                    $supplierSubtotal,
-                                    0,
-                                    ',',
-                                    '.'
-                                ) }}
+                <div class="signature-grid-top">
+                    <div class="signature-box">
+                        <div>Sales Manager</div>
+                        <div class="signature-space"></div>
+                        <div class="signature-line"></div>
+                    </div>
 
-                            </span>
+                    <div class="signature-box">
+                        <div>Asisten Lapangan</div>
+                        <div class="signature-space"></div>
+                        <div class="signature-line"></div>
+                    </div>
+                </div>
 
+                <div class="knowing-title">
+                    Mengetahui,
+                </div>
+
+                <div class="signature-grid-bottom">
+
+                    <div class="signature-box">
+                        <div>Ketua {{ $yayasan }}</div>
+                        <div class="signature-space"></div>
+                        <div class="signature-line"></div>
+                        <div class="signature-name-bold">
+                            Teguh Hadi Susilo
                         </div>
+                    </div>
 
+                    <div class="signature-box">
+                        <div>Akuntan SPPG</div>
+                        <div class="signature-space"></div>
+                        <div class="signature-line"></div>
+                    </div>
+
+                    <div class="signature-box">
+                        <div>Ka. SPPG</div>
+                        <div class="signature-space"></div>
+                        <div class="signature-line"></div>
                     </div>
 
                 </div>
-
-            @endforeach
-
-
-        @else
-
-            {{-- ===================================================== --}}
-            {{-- TIDAK ADA DETAIL --}}
-            {{-- ===================================================== --}}
-
-            <div class="empty-data">
-
-                ⚠️ DETAIL BARANG INVOICE TIDAK DITEMUKAN
-
-            </div>
-
-        @endif
-
-
-        {{-- ========================================================= --}}
-        {{-- TOTAL --}}
-        {{-- ========================================================= --}}
-
-        <div class="grand-total-container">
-
-            <div class="grand-total-box">
-
-                <span>
-                    TOTAL
-                </span>
-
-                <span>
-
-                    Rp
-
-                    {{ number_format(
-                        $invoice->total_amount,
-                        0,
-                        ',',
-                        '.'
-                    ) }}
-
-                </span>
-
             </div>
 
         </div>
-
-
-        {{-- ========================================================= --}}
-        {{-- TANDA TANGAN --}}
-        {{-- ========================================================= --}}
-
-        <div class="signature-section">
-
-            {{-- ===================================================== --}}
-            {{-- SALES MANAGER + ASISTEN LAPANGAN --}}
-            {{-- ===================================================== --}}
-
-            <div class="signature-grid-top">
-
-                <div class="signature-box">
-
-                    <div>
-                        Sales Manager
-                    </div>
-
-                    <div class="signature-space"></div>
-
-                    <div class="signature-line"></div>
-
-                </div>
-
-
-                <div class="signature-box">
-
-                    <div>
-                        Asisten Lapangan
-                    </div>
-
-                    <div class="signature-space"></div>
-
-                    <div class="signature-line"></div>
-
-                </div>
-
-            </div>
-
-
-            {{-- ===================================================== --}}
-            {{-- MENGETAHUI --}}
-            {{-- ===================================================== --}}
-
-            <div class="knowing-title">
-
-                Mengetahui,
-
-            </div>
-
-
-            {{-- ===================================================== --}}
-            {{-- 3 TANDA TANGAN BAWAH --}}
-            {{-- ===================================================== --}}
-
-            <div class="signature-grid-bottom">
-
-                {{-- ================================================= --}}
-                {{-- KETUA YAYASAN --}}
-                {{-- ================================================= --}}
-
-                <div class="signature-box">
-
-                    <div>
-                        Ketua {{ $yayasan }}
-                    </div>
-
-                    <div class="signature-space"></div>
-
-                    <div class="signature-line"></div>
-
-                    <div class="signature-name-bold">
-
-                        Teguh Hadi Susilo
-
-                    </div>
-
-                </div>
-
-
-                {{-- ================================================= --}}
-                {{-- AKUNTAN --}}
-                {{-- ================================================= --}}
-
-                <div class="signature-box">
-
-                    <div>
-                        Akuntan SPPG
-                    </div>
-
-                    <div class="signature-space"></div>
-
-                    <div class="signature-line"></div>
-
-                </div>
-
-
-                {{-- ================================================= --}}
-                {{-- KA. SPPG --}}
-                {{-- ================================================= --}}
-
-                <div class="signature-box">
-
-                    <div>
-                        Ka. SPPG
-                    </div>
-
-                    <div class="signature-space"></div>
-
-                    <div class="signature-line"></div>
-
-                </div>
-
-            </div>
-
-        </div>
-
     </div>
 
-</div>
+    <script>
+        /*
+         * Persiapan sebelum cetak.
+         * Mengukur tinggi aktual setelah CSS cetak diterapkan
+         * tidak sepenuhnya akurat melalui scrollHeight, sehingga
+         * gunakan tinggi hasil pengukuran elemen sebagai perkiraan.
+         */
+        window.addEventListener('beforeprint', function () {
+            const invoice = document.querySelector('.invoice-card');
 
+            if (!invoice) {
+                return;
+            }
+
+            invoice.classList.remove(
+                'fit-compact-1',
+                'fit-compact-2'
+            );
+
+            const maxHeight = (297 - 16) * 96 / 25.4;
+
+            if (invoice.getBoundingClientRect().height > maxHeight) {
+                invoice.classList.add('fit-compact-1');
+            }
+
+            if (invoice.getBoundingClientRect().height > maxHeight) {
+                invoice.classList.add('fit-compact-2');
+            }
+        });
+
+        window.addEventListener('afterprint', function () {
+            const invoice = document.querySelector('.invoice-card');
+
+            if (invoice) {
+                invoice.classList.remove(
+                    'fit-compact-1',
+                    'fit-compact-2'
+                );
+            }
+        });
+    </script>
 </body>
 
 </html>

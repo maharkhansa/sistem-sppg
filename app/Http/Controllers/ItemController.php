@@ -23,9 +23,7 @@ class ItemController extends Controller
     {
         $query = Item::with(['category', 'supplier']);
 
-        // ==============================
         // PENCARIAN
-        // ==============================
         if ($request->filled('search')) {
             $search = $request->search;
 
@@ -35,31 +33,23 @@ class ItemController extends Controller
             });
         }
 
-        // ==============================
         // FILTER KATEGORI
-        // ==============================
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
 
-        // ==============================
         // FILTER SUPPLIER
-        // ==============================
         if ($request->filled('supplier_id')) {
             $query->where('supplier_id', $request->supplier_id);
         }
 
-        // ==============================
         // DATA BARANG
-        // ==============================
         $items = $query
-            ->latest()
+            ->orderBy('name', 'asc')
             ->paginate(10)
             ->withQueryString();
 
-        // ==============================
         // DATA UNTUK FILTER
-        // ==============================
         $categories = Category::where('status', true)
             ->orderBy('name')
             ->get();
@@ -225,6 +215,7 @@ class ItemController extends Controller
             ],
         ]);
 
+        // UPDATE DATA BARANG
         $item->update([
             'category_id' => $validated['category_id'],
             'supplier_id' => $validated['supplier_id'],
@@ -234,8 +225,22 @@ class ItemController extends Controller
             'minimum_stock' => $validated['minimum_stock'],
         ]);
 
+        // AMBIL FILTER YANG DIBAWA DARI HALAMAN EDIT
+        $filters = $request->only([
+            'search',
+            'category_id',
+            'supplier_id',
+            'page',
+        ]);
+
+        // HILANGKAN FILTER YANG KOSONG
+        $filters = array_filter($filters, function ($value) {
+            return $value !== null && $value !== '';
+        });
+
+        // KEMBALI KE DAFTAR BARANG DENGAN FILTER SEBELUMNYA
         return redirect()
-            ->route('items.index')
+            ->route('items.index', $filters)
             ->with('success', 'Barang berhasil diperbarui.');
     }
 
@@ -247,19 +252,13 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
-        // ==========================================================
         // CEK APAKAH BARANG SUDAH DIGUNAKAN DALAM TRANSAKSI
-        // ==========================================================
-
         $hasTransactions = StockTransactionDetail::where(
             'item_id',
             $item->id
         )->exists();
 
-        // ==========================================================
         // JIKA SUDAH DIGUNAKAN, JANGAN BOLEH DIHAPUS
-        // ==========================================================
-
         if ($hasTransactions) {
             return redirect()
                 ->route('items.index')
@@ -269,10 +268,7 @@ class ItemController extends Controller
                 );
         }
 
-        // ==========================================================
         // HAPUS BARANG
-        // ==========================================================
-
         $itemName = $item->name;
 
         $item->delete();
