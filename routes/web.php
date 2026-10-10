@@ -204,6 +204,16 @@ Route::post(
     [PurchaseOrderController::class, 'process']
 )->name('purchase-orders.process');
 
+Route::get(
+    '/purchase-orders/{purchaseOrder}/daftar-pesanan',
+    [PurchaseOrderController::class, 'daftarPesanan']
+)->name('purchase-orders.daftar-pesanan');
+
+Route::get(
+    '/purchase-orders/{purchaseOrder}/delivery-note',
+    [PurchaseOrderController::class, 'deliveryNote']
+)->name('purchase-orders.delivery-note');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -242,6 +252,12 @@ Route::get(
     [NotaKeluarController::class, 'index']
 )->name('nota-keluars.index');
 
+// Cetak Nota Keluar individual
+Route::get(
+    '/nota-keluars/{notaKeluar}/cetak',
+    [NotaKeluarController::class, 'print']
+)->name('nota-keluars.print');
+
 // Detail Nota Keluar
 Route::get(
     '/nota-keluars/{notaKeluar}',
@@ -253,7 +269,6 @@ Route::post(
     '/stock-transactions/{stockTransaction}/create-nota',
     [NotaKeluarController::class, 'createFromOut']
 )->name('stock-transactions.create-nota');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -269,3 +284,13 @@ Route::get(
 
 // Resource LPDH
 Route::resource('lpdhs', LPDHController::class);
+
+Route::get('/invoices/{invoice}/nota-allocation', [
+    InvoiceController::class,
+    'notaAllocation'
+])->name('invoices.nota-allocation');
+
+Route::post('/invoices/{invoice}/nota-allocation', [
+    InvoiceController::class,
+    'saveNotaAllocation'
+])->name('invoices.nota-allocation.save');

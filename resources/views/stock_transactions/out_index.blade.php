@@ -583,12 +583,31 @@
 
                                     {{-- NOTA KELUAR --}}
                                     @if ($transaction->notaKeluars->isNotEmpty())
-                                        @foreach ($transaction->notaKeluars as $nota)
+                                        @php
+                                            $notaList = $transaction->notaKeluars->values();
+                                        @endphp
+
+                                        @foreach ($notaList as $notaIndex => $nota)
+                                            @php
+                                                $supplierNotes = $notaList
+                                                    ->where('supplier_id', $nota->supplier_id)
+                                                    ->values();
+
+                                                $notaNumber = $supplierNotes->search(
+                                                    fn ($item) => (int) $item->id === (int) $nota->id
+                                                );
+
+                                                $notaNumber = $notaNumber === false
+                                                    ? 1
+                                                    : $notaNumber + 1;
+                                            @endphp
+
                                             <a
                                                 href="{{ route('nota-keluars.show', $nota->id) }}"
                                                 class="btn btn-nota-view"
                                             >
-                                                👁 Lihat Nota
+                                                <i class="bi bi-eye"></i>
+                                                Nota {{ $notaNumber }}
                                                 @if ($nota->supplier?->name)
                                                     - {{ $nota->supplier->name }}
                                                 @endif

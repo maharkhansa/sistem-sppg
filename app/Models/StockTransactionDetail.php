@@ -18,12 +18,15 @@ class StockTransactionDetail extends Model
         'unit',
         'unit_price',
         'subtotal',
+        'section_name',
+        'section_order',
     ];
 
     protected $casts = [
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'section_order' => 'integer',
     ];
 
     public function stockTransaction(): BelongsTo

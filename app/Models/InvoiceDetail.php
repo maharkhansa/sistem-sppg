@@ -19,12 +19,15 @@ class InvoiceDetail extends Model
         'unit_price',
         'subtotal',
         'notes',
+        'section_name',
+        'section_order',
     ];
 
     protected $casts = [
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
+         'section_order' => 'integer',
     ];
 
     /**

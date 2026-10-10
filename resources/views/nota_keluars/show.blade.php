@@ -422,13 +422,14 @@
         |--------------------------------------------------------------------------
         */
 
-        $kitchenName = $notaKeluar->kitchen?->name ?? '-';
+        $kitchen = $notaKeluar->kitchen;
 
-        $kitchenAddress = $notaKeluar->delivery_address
-            ?? $notaKeluar->kitchen?->address
-            ?? '-';
+        $kitchenName = $kitchen?->name ?? '-';
 
-        $kitchenPhone = $notaKeluar->kitchen?->phone ?? '-';
+        // Ambil alamat lengkap SPPG saja.
+        $kitchenAddress = $kitchen?->alamat ?: '-';
+
+        $kitchenPhone = $kitchen?->phone ?? '-';
 
         $customerOrderNumber = $notaKeluar->customer_order_number ?? '-';
 

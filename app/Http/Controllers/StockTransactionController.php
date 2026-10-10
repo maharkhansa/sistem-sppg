@@ -34,10 +34,10 @@ class StockTransactionController extends Controller
 
         $suppliers = Supplier::orderBy('name')->get();
 
-        return view(
-            'stock_transactions.index',
-            compact('transactions', 'suppliers')
-        );
+        return view('stock_transactions.index', compact(
+            'transactions',
+            'suppliers'
+        ));
     }
 
     /*
@@ -51,10 +51,10 @@ class StockTransactionController extends Controller
         $suppliers = Supplier::orderBy('name')->get();
         $items = Item::orderBy('name')->get();
 
-        return view(
-            'stock_transactions.create',
-            compact('suppliers', 'items')
-        );
+        return view('stock_transactions.create', compact(
+            'suppliers',
+            'items'
+        ));
     }
 
     /*
@@ -107,58 +107,32 @@ class StockTransactionController extends Controller
                 'max:50',
             ],
         ], [
-            'supplier_id.required' =>
-                'Supplier wajib dipilih.',
-            'supplier_id.exists' =>
-                'Supplier tidak ditemukan.',
-            'transaction_date.required' =>
-                'Tanggal barang masuk wajib diisi.',
-            'items.required' =>
-                'Minimal satu barang harus dipilih.',
-            'items.min' =>
-                'Minimal satu barang harus dipilih.',
-            'items.*.item_id.required' =>
-                'Barang wajib dipilih.',
+            'supplier_id.required' => 'Supplier wajib dipilih.',
+            'supplier_id.exists' => 'Supplier tidak ditemukan.',
+            'transaction_date.required' => 'Tanggal barang masuk wajib diisi.',
+            'items.required' => 'Minimal satu barang harus dipilih.',
+            'items.min' => 'Minimal satu barang harus dipilih.',
+            'items.*.item_id.required' => 'Barang wajib dipilih.',
             'items.*.item_id.distinct' =>
                 'Barang yang sama tidak boleh ditambahkan lebih dari satu kali.',
-            'items.*.quantity.required' =>
-                'Jumlah barang wajib diisi.',
-            'items.*.quantity.numeric' =>
-                'Jumlah barang harus berupa angka.',
-            'items.*.quantity.min' =>
-                'Jumlah barang tidak boleh negatif.',
-            'items.*.unit_price.numeric' =>
-                'Harga satuan harus berupa angka.',
-            'items.*.unit_price.min' =>
-                'Harga satuan tidak boleh negatif.',
+            'items.*.quantity.required' => 'Jumlah barang wajib diisi.',
+            'items.*.quantity.numeric' => 'Jumlah barang harus berupa angka.',
+            'items.*.quantity.min' => 'Jumlah barang tidak boleh negatif.',
+            'items.*.unit_price.numeric' => 'Harga satuan harus berupa angka.',
+            'items.*.unit_price.min' => 'Harga satuan tidak boleh negatif.',
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER BARANG DENGAN JUMLAH POSITIF
-        |--------------------------------------------------------------------------
-        */
-
         $itemsData = collect($validated['items'])
-            ->filter(function ($row) {
-                return (float) ($row['quantity'] ?? 0) > 0;
-            })
+            ->filter(fn ($row) => (float) ($row['quantity'] ?? 0) > 0)
             ->values();
 
         if ($itemsData->isEmpty()) {
             throw ValidationException::withMessages([
-                'items' =>
-                    'Isi jumlah minimal satu barang yang benar-benar masuk.',
+                'items' => 'Isi jumlah minimal satu barang yang benar-benar masuk.',
             ]);
         }
 
         $supplierId = (int) $validated['supplier_id'];
-
-        /*
-        |--------------------------------------------------------------------------
-        | SIMPAN TRANSAKSI DAN PERBARUI STOK
-        |--------------------------------------------------------------------------
-        */
 
         DB::transaction(function () use (
             $validated,
@@ -176,9 +150,6 @@ class StockTransactionController extends Controller
                 ->get()
                 ->keyBy('id');
 
-            /*
-             * Pastikan barang berasal dari supplier yang dipilih.
-             */
             foreach ($itemsData as $row) {
                 $item = $items->get((int) $row['item_id']);
 
@@ -190,25 +161,18 @@ class StockTransactionController extends Controller
 
                 if ((int) $item->supplier_id !== $supplierId) {
                     throw ValidationException::withMessages([
-                        'items' =>
-                            'Barang "' . $item->name .
+                        'items' => 'Barang "' . $item->name .
                             '" tidak sesuai dengan supplier yang dipilih.',
                     ]);
                 }
             }
 
-            /*
-             * Kunci catatan stok barang terkait.
-             */
             $stocks = Stock::whereIn('item_id', $itemIds)
                 ->orderBy('item_id')
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('item_id');
 
-            /*
-             * Buat catatan stok awal jika belum tersedia.
-             */
             foreach ($itemIds as $itemId) {
                 if (!$stocks->has($itemId)) {
                     $stock = Stock::create([
@@ -220,9 +184,6 @@ class StockTransactionController extends Controller
                 }
             }
 
-            /*
-             * Buat nomor transaksi unik.
-             */
             do {
                 $transactionNumber = 'IN-' .
                     now()->format('YmdHis') . '-' .
@@ -234,9 +195,6 @@ class StockTransactionController extends Controller
                 )->exists()
             );
 
-            /*
-             * Simpan header transaksi.
-             */
             $transaction = StockTransaction::create([
                 'transaction_number' => $transactionNumber,
                 'type' => 'IN',
@@ -246,17 +204,10 @@ class StockTransactionController extends Controller
                 'created_by' => auth()->id() ?? 1,
             ]);
 
-            /*
-             * Simpan detail dan tambahkan stok.
-             */
             foreach ($itemsData as $row) {
                 $itemId = (int) $row['item_id'];
                 $item = $items->get($itemId);
                 $quantity = (float) $row['quantity'];
-
-                if ($quantity <= 0) {
-                    continue;
-                }
 
                 $unitPrice = (
                     isset($row['unit_price']) &&
@@ -268,8 +219,7 @@ class StockTransactionController extends Controller
 
                 if ($unitPrice < 0) {
                     throw ValidationException::withMessages([
-                        'items' =>
-                            'Harga barang tidak boleh negatif.',
+                        'items' => 'Harga barang tidak boleh negatif.',
                     ]);
                 }
 
@@ -277,22 +227,17 @@ class StockTransactionController extends Controller
                     ? $row['unit']
                     : $item->unit;
 
-                $subtotal = $quantity * $unitPrice;
-
                 $transaction->details()->create([
                     'item_id' => $itemId,
                     'supplier_id' => $supplierId,
                     'quantity' => $quantity,
                     'unit' => $unit,
                     'unit_price' => $unitPrice,
-                    'subtotal' => $subtotal,
+                    'subtotal' => $quantity * $unitPrice,
                 ]);
 
                 $stock = $stocks->get($itemId);
-
-                $stock->quantity =
-                    (float) $stock->quantity + $quantity;
-
+                $stock->quantity = (float) $stock->quantity + $quantity;
                 $stock->save();
             }
         });
@@ -321,52 +266,29 @@ class StockTransactionController extends Controller
             'details.supplier',
             'invoice',
             'notaKeluars.supplier',
-        ])
-            ->where('type', 'OUT');
+        ])->where('type', 'OUT');
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
 
             $query->where(function ($q) use ($search) {
-                $q->where(
-                    'transaction_number',
-                    'like',
-                    '%' . $search . '%'
-                )
-                    ->orWhere(
-                        'notes',
-                        'like',
-                        '%' . $search . '%'
-                    )
+                $q->where('transaction_number', 'like', '%' . $search . '%')
+                    ->orWhere('notes', 'like', '%' . $search . '%')
                     ->orWhereHas('purchaseOrder', function ($po) use ($search) {
-                        $po->where(
-                            'po_number',
-                            'like',
-                            '%' . $search . '%'
-                        );
+                        $po->where('po_number', 'like', '%' . $search . '%');
                     })
                     ->orWhereHas('kitchen', function ($kitchen) use ($search) {
                         $kitchen->where(function ($subQuery) use ($search) {
-                            $subQuery->where(
-                                'name',
-                                'like',
-                                '%' . $search . '%'
-                            )
-                                ->orWhere(
-                                    'id_sppg',
-                                    'like',
-                                    '%' . $search . '%'
-                                );
+                            $subQuery
+                                ->where('name', 'like', '%' . $search . '%')
+                                ->orWhere('id_sppg', 'like', '%' . $search . '%');
                         });
                     });
             });
         }
 
         if ($request->filled('kitchen_id')) {
-            $query->where(
-                'kitchen_id',
-                $request->input('kitchen_id')
-            );
+            $query->where('kitchen_id', $request->input('kitchen_id'));
         }
 
         if ($request->filled('date_from')) {
@@ -394,18 +316,18 @@ class StockTransactionController extends Controller
         $suppliers = Supplier::orderBy('name')->get();
         $kitchens = Kitchen::orderBy('name')->get();
 
-        return view(
-            'stock_transactions.out_index',
-            compact('transactions', 'suppliers', 'kitchens')
-        );
+        return view('stock_transactions.out_index', compact(
+            'transactions',
+            'suppliers',
+            'kitchens'
+        ));
     }
 
-
-/*
-|--------------------------------------------------------------------------
-| DETAIL TRANSAKSI BARANG MASUK / BARANG KELUAR
-|--------------------------------------------------------------------------
-*/
+    /*
+    |--------------------------------------------------------------------------
+    | DETAIL TRANSAKSI
+    |--------------------------------------------------------------------------
+    */
 
     public function show($stockTransaction)
     {
@@ -437,21 +359,19 @@ class StockTransactionController extends Controller
             'supplier',
             'details.item',
             'details.supplier',
+            'purchaseOrder.details',
         ])->findOrFail($id);
 
         $items = Item::orderBy('name')->get();
         $suppliers = Supplier::orderBy('name')->get();
         $kitchens = Kitchen::orderBy('name')->get();
 
-        return view(
-            'stock_transactions.edit',
-            compact(
-                'stockTransaction',
-                'items',
-                'suppliers',
-                'kitchens'
-            )
-        );
+        return view('stock_transactions.edit', compact(
+            'stockTransaction',
+            'items',
+            'suppliers',
+            'kitchens'
+        ));
     }
 
     /*
@@ -500,6 +420,16 @@ class StockTransactionController extends Controller
                 'string',
                 'max:50',
             ],
+            'items.*.section_name' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'items.*.section_order' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
         ];
 
         if ($existingTransaction->type === 'IN') {
@@ -517,49 +447,52 @@ class StockTransactionController extends Controller
         }
 
         $validated = $request->validate($rules, [
-            'items.required' =>
-                'Minimal satu barang harus dipilih.',
-            'items.min' =>
-                'Minimal satu barang harus dipilih.',
-            'items.*.item_id.required' =>
-                'Barang wajib dipilih.',
-            'items.*.item_id.exists' =>
-                'Barang tidak ditemukan.',
+            'items.required' => 'Minimal satu barang harus dipilih.',
+            'items.min' => 'Minimal satu barang harus dipilih.',
+            'items.*.item_id.required' => 'Barang wajib dipilih.',
+            'items.*.item_id.exists' => 'Barang tidak ditemukan.',
             'items.*.item_id.distinct' =>
                 'Barang yang sama tidak boleh ditambahkan lebih dari satu kali.',
-            'items.*.quantity.required' =>
-                'Jumlah barang wajib diisi.',
-            'items.*.quantity.min' =>
-                'Jumlah barang tidak boleh negatif.',
+            'items.*.quantity.required' => 'Jumlah barang wajib diisi.',
+            'items.*.quantity.min' => 'Jumlah barang tidak boleh negatif.',
             'items.*.supplier_id.required' =>
                 'Supplier setiap barang wajib dipilih.',
             'items.*.supplier_id.exists' =>
                 'Supplier barang tidak ditemukan.',
+            'items.*.section_order.integer' =>
+                'Urutan Bagian harus berupa angka.',
         ]);
 
-        /*
-         * Barang dengan jumlah 0 tidak ikut disimpan.
-         */
         $validated['items'] = collect($validated['items'])
-            ->filter(function ($row) {
-                return (float) ($row['quantity'] ?? 0) > 0;
-            })
+            ->filter(fn ($row) => (float) ($row['quantity'] ?? 0) > 0)
+            ->values()
             ->all();
 
         if (count($validated['items']) === 0) {
             throw ValidationException::withMessages([
-                'items' =>
-                    'Minimal satu barang harus memiliki jumlah lebih dari 0.',
+                'items' => 'Minimal satu barang harus memiliki jumlah lebih dari 0.',
             ]);
         }
 
         DB::transaction(function () use ($validated, $id) {
-            $transaction = StockTransaction::with('details')
-                ->lockForUpdate()
-                ->findOrFail($id);
+            $transaction = StockTransaction::with([
+                'details',
+                'purchaseOrder.details',
+            ])->lockForUpdate()->findOrFail($id);
 
-            $oldItemIds = $transaction->details
-                ->pluck('item_id');
+            /*
+             * Simpan detail lama sebelum dihapus.
+             * Ini membantu mempertahankan Bagian untuk barang yang sama.
+             */
+            $oldDetails = $transaction->details->values();
+
+            /*
+             * Ambil detail PO untuk cadangan Bagian.
+             */
+            $purchaseOrderDetails = $transaction->purchaseOrder?->details
+                ?? collect();
+
+            $oldItemIds = $oldDetails->pluck('item_id');
 
             $newItemIds = collect($validated['items'])
                 ->pluck('item_id')
@@ -580,7 +513,7 @@ class StockTransactionController extends Controller
             /*
              * Kembalikan dampak transaksi lama terhadap stok.
              */
-            foreach ($transaction->details as $detail) {
+            foreach ($oldDetails as $detail) {
                 $stock = $stocks->get($detail->item_id);
 
                 if (!$stock) {
@@ -623,10 +556,13 @@ class StockTransactionController extends Controller
                 ->get()
                 ->keyBy('id');
 
+            /*
+             * Hapus detail lama setelah stok lama dipulihkan.
+             */
             $transaction->details()->delete();
 
             /*
-             * Terapkan detail transaksi yang baru.
+             * Buat ulang detail transaksi.
              */
             foreach ($validated['items'] as $row) {
                 $itemId = (int) $row['item_id'];
@@ -679,40 +615,84 @@ class StockTransactionController extends Controller
                         ]);
                     }
 
-                    $stock->quantity =
-                        (float) $stock->quantity + $quantity;
+                    $stock->quantity = (float) $stock->quantity + $quantity;
                 } else {
                     $supplierId = (int) $row['supplier_id'];
+
+                    /*
+                     * Pastikan supplier benar-benar ada.
+                     */
+                    if (!Supplier::whereKey($supplierId)->exists()) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Supplier barang tidak ditemukan.',
+                        ]);
+                    }
 
                     if ((float) $stock->quantity < $quantity) {
                         throw ValidationException::withMessages([
                             'items' =>
-                                'Stok ' . $item->name
-                                . ' tidak mencukupi. Stok tersedia: '
-                                . number_format(
+                                'Stok ' . $item->name .
+                                ' tidak mencukupi. Stok tersedia: ' .
+                                number_format(
                                     (float) $stock->quantity,
                                     2,
                                     ',',
                                     '.'
-                                )
-                                . ', kebutuhan: '
-                                . number_format(
-                                    $quantity,
-                                    2,
-                                    ',',
-                                    '.'
-                                )
-                                . '.',
+                                ) .
+                                ', kebutuhan: ' .
+                                number_format($quantity, 2, ',', '.') . '.',
                         ]);
                     }
 
-                    $stock->quantity =
-                        (float) $stock->quantity - $quantity;
+                    $stock->quantity = (float) $stock->quantity - $quantity;
                 }
 
                 $stock->save();
 
-                $transaction->details()->create([
+                /*
+                 * Tentukan Bagian:
+                 * 1. Utamakan section_name/order yang dikirim form.
+                 * 2. Jika kosong, gunakan detail lama yang cocok.
+                 * 3. Jika masih kosong, gunakan detail PO yang cocok.
+                 */
+                $sectionName = trim((string) ($row['section_name'] ?? ''));
+                $sectionOrder = $row['section_order'] ?? null;
+
+                $oldDetail = $oldDetails->first(function ($detail) use (
+                    $itemId,
+                    $supplierId
+                ) {
+                    return (int) $detail->item_id === $itemId
+                        && (int) ($detail->supplier_id ?? 0) === $supplierId;
+                });
+
+                $poDetail = $purchaseOrderDetails->first(function ($detail) use (
+                    $itemId,
+                    $supplierId
+                ) {
+                    $detailSupplierId = $detail->supplier_id
+                        ?? $detail->item?->supplier_id
+                        ?? null;
+
+                    return (int) $detail->item_id === $itemId
+                        && (int) ($detailSupplierId ?? 0) === $supplierId;
+                });
+
+                if ($sectionName === '') {
+                    $sectionName = trim((string) (
+                        $oldDetail?->section_name
+                        ?? $poDetail?->section_name
+                        ?? ''
+                    ));
+                }
+
+                if ($sectionOrder === null || $sectionOrder === '') {
+                    $sectionOrder = $oldDetail?->section_order
+                        ?? $poDetail?->section_order
+                        ?? 0;
+                }
+
+                $detailData = [
                     'item_id' => $itemId,
                     'supplier_id' => $supplierId,
                     'quantity' => $quantity,
@@ -721,17 +701,27 @@ class StockTransactionController extends Controller
                         : $item->unit,
                     'unit_price' => $unitPrice,
                     'subtotal' => $quantity * $unitPrice,
-                ]);
+                ];
+
+                /*
+                 * Kolom Bagian digunakan untuk transaksi OUT.
+                 */
+                if ($transaction->type === 'OUT') {
+                    $detailData['section_name'] = $sectionName !== ''
+                        ? $sectionName
+                        : null;
+
+                    $detailData['section_order'] = (int) $sectionOrder;
+                }
+
+                $transaction->details()->create($detailData);
             }
 
-            $transaction->transaction_date =
-                $validated['transaction_date'];
-
+            $transaction->transaction_date = $validated['transaction_date'];
             $transaction->notes = $validated['notes'] ?? null;
 
             if ($transaction->type === 'IN') {
-                $transaction->supplier_id =
-                    (int) $validated['supplier_id'];
+                $transaction->supplier_id = (int) $validated['supplier_id'];
             }
 
             $transaction->save();
@@ -758,8 +748,7 @@ class StockTransactionController extends Controller
                     $invoiceTotal = 0;
 
                     foreach ($transaction->details as $outDetail) {
-                        $subtotal =
-                            (float) $outDetail->quantity
+                        $subtotal = (float) $outDetail->quantity
                             * (float) $outDetail->unit_price;
 
                         $invoice->details()->create([
@@ -769,6 +758,8 @@ class StockTransactionController extends Controller
                             'unit' => $outDetail->unit,
                             'unit_price' => $outDetail->unit_price,
                             'subtotal' => $subtotal,
+                            'section_name' => $outDetail->section_name,
+                            'section_order' => $outDetail->section_order ?? 0,
                             'notes' => null,
                         ]);
 
@@ -777,8 +768,7 @@ class StockTransactionController extends Controller
 
                     $invoice->update([
                         'invoice_date' => $transaction->transaction_date,
-                        'purchase_order_id' =>
-                            $transaction->purchase_order_id,
+                        'purchase_order_id' => $transaction->purchase_order_id,
                         'kitchen_id' => $transaction->kitchen_id,
                         'total_amount' => $invoiceTotal,
                     ]);
@@ -786,8 +776,7 @@ class StockTransactionController extends Controller
             }
         });
 
-        $transactionType = StockTransaction::whereKey($id)
-            ->value('type');
+        $transactionType = StockTransaction::whereKey($id)->value('type');
 
         return redirect()
             ->route(
@@ -798,7 +787,7 @@ class StockTransactionController extends Controller
             ->with(
                 'success',
                 $transactionType === 'OUT'
-                    ? 'Transaksi barang keluar berhasil diperbarui. Invoice terkait juga telah disinkronkan jika tersedia.'
+                    ? 'Barang keluar berhasil diperbarui. Bagian dan Invoice telah disinkronkan jika tersedia.'
                     : 'Transaksi barang masuk berhasil diperbarui.'
             );
     }

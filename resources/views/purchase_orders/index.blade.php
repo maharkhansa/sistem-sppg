@@ -527,50 +527,66 @@
                             </tr>
                         @endif
 
-                        {{-- AKSI --}}
-                        <tr class="no-print">
-                            <td class="label">Aksi</td>
-                            <td colspan="3">
+                    {{-- AKSI --}}
+                    <tr class="no-print">
+                        <td class="label">Aksi</td>
+                        <td colspan="3">
 
-                                @if ($purchaseOrder->status !== 'PROCESSED')
+                            {{-- TOMBOL DAFTAR PESANAN SELALU MUNCUL --}}
+                            <a
+                                href="{{ route('purchase-orders.daftar-pesanan', $purchaseOrder->id) }}"
+                                class="btn btn-success"
+                                target="_blank"
+                            >
+                                📋 Daftar Pesanan MBG
+                            </a>
 
-                                    <form
-                                        action="{{ route('purchase-orders.process', $purchaseOrder->id) }}"
-                                        method="POST"
-                                        style="display:inline;"
-                                        onsubmit="return confirm('Apakah PO ini akan diproses menjadi OUT? Stok akan berkurang dan Invoice akan dibuat otomatis.');"
+                            <a
+                                href="{{ route('purchase-orders.delivery-note', $purchaseOrder->id) }}"
+                                class="btn btn-info"
+                                target="_blank"
+                            >
+                                📦 Delivery Note
+                            </a>
+
+                            {{-- TOMBOL PROSES HANYA UNTUK PO YANG BELUM DIPROSES --}}
+                            @if (strtoupper((string) $purchaseOrder->status) !== 'PROCESSED')
+
+                                <form
+                                    action="{{ route('purchase-orders.process', $purchaseOrder->id) }}"
+                                    method="POST"
+                                    style="display:inline;"
+                                    onsubmit="return confirm('Apakah PO ini akan diproses menjadi OUT? Stok akan berkurang dan Invoice akan dibuat otomatis.');"
+                                >
+                                    @csrf
+
+                                    <button
+                                        type="submit"
+                                        class="btn btn-process"
                                     >
-                                        @csrf
+                                        Proses PO → OUT
+                                    </button>
+                                </form>
 
-                                        <button type="submit"
-                                                class="btn btn-process">
-                                            Proses PO → OUT
-                                        </button>
-                                    </form>
+                            @else
 
-                                @else
+                                <span class="btn btn-success">
+                                    ✓ Sudah Diproses menjadi OUT
+                                </span>
 
-                                    <span class="btn btn-success">
-                                        ✓ Sudah Diproses menjadi OUT
-                                    </span>
-
-                                    @if ($purchaseOrder->invoice)
-                                        <a
-                                            href="{{ route('invoices.show', $purchaseOrder->invoice->id) }}"
-                                            class="btn btn-print"
-                                        >
-                                            🧾 Lihat Invoice
-                                        </a>
-                                    @endif
-
+                                @if ($purchaseOrder->invoice)
+                                    <a
+                                        href="{{ route('invoices.show', $purchaseOrder->invoice->id) }}"
+                                        class="btn btn-print"
+                                    >
+                                        🧾 Lihat Invoice
+                                    </a>
                                 @endif
 
-                            </td>
-                        </tr>
+                            @endif
 
-                    </table>
-
-                </div>
+                        </td>
+                    </tr>
 
                 {{-- DETAIL PO --}}
                 <table class="detail-table">

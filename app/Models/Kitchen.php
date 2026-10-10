@@ -11,10 +11,12 @@ class Kitchen extends Model
     use HasFactory;
 
     protected $fillable = [
+        // Data SPPG
         'id_sppg',
         'name',
         'kabupaten_kota',
         'provinsi',
+        'alamat',
         'status',
 
         // Data Mitra / Yayasan
@@ -44,7 +46,6 @@ class Kitchen extends Model
 
     public function lpdhs(): HasMany
     {
-    return $this->hasMany(LPDH::class);
+        return $this->hasMany(LPDH::class);
     }
-    
 }

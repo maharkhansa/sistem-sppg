@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Edit Barang Keluar</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
@@ -12,12 +11,12 @@
 
     <style>
         body {
-            background-color: #f5f7fb;
+            background: #f5f7fb;
             font-family: Arial, sans-serif;
         }
 
         .page-container {
-            max-width: 1500px;
+            max-width: 1600px;
             margin: 30px auto;
             padding: 0 15px;
         }
@@ -26,7 +25,7 @@
             background: #fff;
             border-radius: 12px;
             padding: 25px;
-            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.07);
+            box-shadow: 0 3px 15px rgba(0, 0, 0, .07);
         }
 
         .page-title {
@@ -35,7 +34,7 @@
         }
 
         .table th {
-            background-color: #f0f3f8;
+            background: #f0f3f8;
             white-space: nowrap;
             vertical-align: middle;
         }
@@ -49,30 +48,14 @@
             min-height: 38px;
         }
 
-        .item-select {
-            min-width: 200px;
-        }
-
-        .item-supplier {
-            min-width: 180px;
-        }
-
-        .item-code {
-            min-width: 130px;
-        }
-
-        .item-unit {
-            min-width: 100px;
-        }
-
+        .item-select { min-width: 200px; }
+        .item-supplier { min-width: 170px; }
+        .item-section { min-width: 160px; }
+        .item-code { min-width: 120px; }
+        .item-unit { min-width: 90px; }
         .item-quantity,
-        .item-price {
-            min-width: 120px;
-        }
-
-        .item-subtotal {
-            min-width: 130px;
-        }
+        .item-price { min-width: 120px; }
+        .item-subtotal { min-width: 130px; }
 
         .total-box {
             background: #f8f9fa;
@@ -87,34 +70,27 @@
             color: #198754;
         }
 
-        .required-mark {
-            color: #dc3545;
-        }
+        .required-mark { color: #dc3545; }
 
         @media (max-width: 768px) {
-            .main-card {
-                padding: 15px;
-            }
+            .main-card { padding: 15px; }
         }
     </style>
 </head>
 
 <body>
-
 <div class="page-container">
 
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
             <h3 class="page-title">Edit Barang Keluar</h3>
             <div class="text-muted">
-                Ubah tanggal transaksi, catatan, supplier, kode barang, satuan, dan rincian barang keluar.
+                Ubah rincian barang keluar. Bagian PO dipertahankan untuk pengelompokan tabel Invoice.
             </div>
         </div>
 
         <a href="{{ route('stock-transactions.out') }}"
-           class="btn btn-outline-secondary">
-            Kembali
-        </a>
+           class="btn btn-outline-secondary">Kembali</a>
     </div>
 
     @if (session('success'))
@@ -125,9 +101,7 @@
     @endif
 
     @if (session('error'))
-        <div class="alert alert-danger">
-            {{ session('error') }}
-        </div>
+        <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
     @if ($errors->any())
@@ -143,33 +117,28 @@
 
     <div class="main-card">
 
-        <div class="mb-4">
-            <h5 class="fw-bold mb-3">Informasi Transaksi</h5>
+        <h5 class="fw-bold mb-3">Informasi Transaksi</h5>
 
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label text-muted">Nomor Transaksi</label>
-                    <input type="text"
-                           class="form-control"
-                           value="{{ $stockTransaction->transaction_number }}"
-                           readonly>
-                </div>
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label class="form-label text-muted">Nomor Transaksi</label>
+                <input class="form-control"
+                       value="{{ $stockTransaction->transaction_number }}"
+                       readonly>
+            </div>
 
-                <div class="col-md-4">
-                    <label class="form-label text-muted">Nomor PO</label>
-                    <input type="text"
-                           class="form-control"
-                           value="{{ $stockTransaction->purchaseOrder?->po_number ?? '-' }}"
-                           readonly>
-                </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted">Nomor PO</label>
+                <input class="form-control"
+                       value="{{ $stockTransaction->purchaseOrder?->po_number ?? '-' }}"
+                       readonly>
+            </div>
 
-                <div class="col-md-4">
-                    <label class="form-label text-muted">Dapur SPPG</label>
-                    <input type="text"
-                           class="form-control"
-                           value="{{ $stockTransaction->kitchen?->name ?? '-' }}"
-                           readonly>
-                </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted">Dapur SPPG</label>
+                <input class="form-control"
+                       value="{{ $stockTransaction->kitchen?->name ?? '-' }}"
+                       readonly>
             </div>
         </div>
 
@@ -204,7 +173,6 @@
 
                 <div class="col-md-6">
                     <label for="notes" class="form-label">Catatan</label>
-
                     <input type="text"
                            name="notes"
                            id="notes"
@@ -214,8 +182,63 @@
                 </div>
             </div>
 
+            @php
+                /*
+                 * Jika detail Barang Keluar belum memiliki Bagian,
+                 * coba ambil nama Bagian dari detail PO berdasarkan barang
+                 * dan supplier yang sama.
+                 */
+                $purchaseOrderDetails = $stockTransaction->purchaseOrder?->details ?? collect();
+
+                $oldItems = old('items');
+
+                if (is_array($oldItems)) {
+                    $displayItems = $oldItems;
+                } else {
+                    $displayItems = $stockTransaction->details->map(function ($detail) use ($purchaseOrderDetails) {
+                        $poDetail = $purchaseOrderDetails->first(function ($po) use ($detail) {
+                            return (string) $po->item_id === (string) $detail->item_id
+                                && (
+                                    empty($detail->supplier_id)
+                                    || (string) ($po->supplier_id ?? '') === (string) $detail->supplier_id
+                                );
+                        });
+
+                        return [
+                            'item_id' => $detail->item_id,
+                            'supplier_id' => $detail->supplier_id
+                                ?? $detail->item?->supplier_id
+                                ?? $poDetail?->supplier_id
+                                ?? '',
+                            'code' => $detail->code ?? $detail->item?->code ?? '',
+                            'unit' => $detail->unit ?? $detail->item?->unit ?? '',
+                            'quantity' => $detail->quantity,
+                            'unit_price' => $detail->unit_price,
+                            'section_name' => $detail->section_name
+                                ?? $poDetail?->section_name
+                                ?? '',
+                            'section_order' => $detail->section_order
+                                ?? $poDetail?->section_order
+                                ?? 0,
+                        ];
+                    })->toArray();
+                }
+
+                $sectionNames = collect($displayItems)
+                    ->pluck('section_name')
+                    ->map(fn ($name) => trim((string) $name))
+                    ->filter()
+                    ->unique()
+                    ->values();
+            @endphp
+
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                <h5 class="fw-bold mb-0">Daftar Barang Keluar</h5>
+                <div>
+                    <h5 class="fw-bold mb-1">Daftar Barang Keluar</h5>
+                    <small class="text-muted">
+                        Isi Bagian sesuai PO. Gunakan nama Bagian yang sama untuk barang dalam tabel Invoice yang sama.
+                    </small>
+                </div>
 
                 <button type="button"
                         class="btn btn-outline-primary"
@@ -224,24 +247,11 @@
                 </button>
             </div>
 
-            @php
-                $oldItems = old('items');
-
-                if (is_array($oldItems)) {
-                    $displayItems = $oldItems;
-                } else {
-                    $displayItems = $stockTransaction->details->map(function ($detail) {
-                        return [
-                            'item_id' => $detail->item_id,
-                            'supplier_id' => $detail->supplier_id ?? $detail->item?->supplier_id ?? '',
-                            'code' => $detail->code ?? $detail->item?->code ?? '',
-                            'unit' => $detail->unit ?? $detail->item?->unit ?? '',
-                            'quantity' => $detail->quantity,
-                            'unit_price' => $detail->unit_price,
-                        ];
-                    })->toArray();
-                }
-            @endphp
+            <datalist id="sectionOptions">
+                @foreach ($sectionNames as $sectionName)
+                    <option value="{{ $sectionName }}"></option>
+                @endforeach
+            </datalist>
 
             <div class="table-responsive">
                 <table class="table table-bordered" id="itemsTable">
@@ -249,209 +259,200 @@
                         <tr>
                             <th>Nama Barang</th>
                             <th>Supplier</th>
+                            <th>Bagian PO</th>
                             <th>Kode Barang</th>
                             <th>Satuan</th>
                             <th>Qty</th>
                             <th>Harga Satuan (Rp)</th>
                             <th>Subtotal (Rp)</th>
-                            <th style="width: 90px;">Aksi</th>
+                            <th style="width: 80px;">Aksi</th>
                         </tr>
                     </thead>
 
                     <tbody id="itemsTableBody">
+                    @forelse ($displayItems as $index => $detail)
+                        @php
+                            $selectedItem = $items->firstWhere('id', $detail['item_id'] ?? null);
+                            $itemCode = $detail['code'] ?? ($selectedItem->code ?? '');
+                            $itemUnit = $detail['unit'] ?? ($selectedItem->unit ?? '');
+                            $selectedSupplierId = $detail['supplier_id'] ?? ($selectedItem->supplier_id ?? '');
+                        @endphp
 
-                        @forelse ($displayItems as $index => $detail)
+                        <tr class="item-row">
+                            <td>
+                                <select name="items[{{ $index }}][item_id]"
+                                        class="form-select item-select"
+                                        required>
+                                    <option value="">-- Pilih Barang --</option>
+                                    @foreach ($items as $item)
+                                        <option value="{{ $item->id }}"
+                                                data-code="{{ $item->code }}"
+                                                data-unit="{{ $item->unit }}"
+                                                data-price="{{ $item->price ?? 0 }}"
+                                                data-supplier="{{ $item->supplier_id ?? '' }}"
+                                            @selected((string) ($detail['item_id'] ?? '') === (string) $item->id)>
+                                            {{ $item->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </td>
 
-                            @php
-                                $selectedItem = $items->firstWhere('id', $detail['item_id'] ?? null);
+                            <td>
+                                <select name="items[{{ $index }}][supplier_id]"
+                                        class="form-select item-supplier"
+                                        required>
+                                    <option value="">-- Pilih Supplier --</option>
+                                    @foreach ($suppliers as $supplier)
+                                        <option value="{{ $supplier->id }}"
+                                            @selected((string) $selectedSupplierId === (string) $supplier->id)>
+                                            {{ $supplier->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </td>
 
-                                $itemCode = $detail['code'] ?? ($selectedItem->code ?? '');
-                                $itemUnit = $detail['unit'] ?? ($selectedItem->unit ?? '');
+                            <td>
+                                <input type="text"
+                                       name="items[{{ $index }}][section_name]"
+                                       class="form-control item-section"
+                                       list="sectionOptions"
+                                       value="{{ $detail['section_name'] ?? '' }}"
+                                       placeholder="Nama Bagian">
 
-                                $selectedSupplierId = $detail['supplier_id']
-                                    ?? ($selectedItem->supplier_id ?? '');
-                            @endphp
+                                <input type="hidden"
+                                       name="items[{{ $index }}][section_order]"
+                                       class="item-section-order"
+                                       value="{{ $detail['section_order'] ?? 0 }}">
+                            </td>
 
-                            <tr class="item-row">
+                            <td>
+                                <input type="text"
+                                       name="items[{{ $index }}][code]"
+                                       class="form-control item-code"
+                                       value="{{ $itemCode }}"
+                                       placeholder="Kode barang">
+                            </td>
 
-                                <td>
-                                    <select name="items[{{ $index }}][item_id]"
-                                            class="form-select item-select"
-                                            required>
+                            <td>
+                                <input type="text"
+                                       name="items[{{ $index }}][unit]"
+                                       class="form-control item-unit"
+                                       value="{{ $itemUnit }}"
+                                       placeholder="Satuan"
+                                       required>
+                            </td>
 
-                                        <option value="">-- Pilih Barang --</option>
+                            <td>
+                                <input type="number"
+                                       name="items[{{ $index }}][quantity]"
+                                       class="form-control item-quantity"
+                                       value="{{ $detail['quantity'] ?? 1 }}"
+                                       min="0.01"
+                                       step="0.01"
+                                       required>
+                            </td>
 
-                                        @foreach ($items as $item)
-                                            <option value="{{ $item->id }}"
-                                                    data-code="{{ $item->code }}"
-                                                    data-unit="{{ $item->unit }}"
-                                                    data-price="{{ $item->price ?? 0 }}"
-                                                    data-supplier="{{ $item->supplier_id ?? '' }}"
-                                                @selected((string) ($detail['item_id'] ?? '') === (string) $item->id)>
-                                                {{ $item->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </td>
+                            <td>
+                                <input type="number"
+                                       name="items[{{ $index }}][unit_price]"
+                                       class="form-control item-price"
+                                       value="{{ $detail['unit_price'] ?? 0 }}"
+                                       min="0"
+                                       step="0.01"
+                                       required>
+                            </td>
 
-                                <td>
-                                    <select name="items[{{ $index }}][supplier_id]"
-                                            class="form-select item-supplier"
-                                            required>
+                            <td>
+                                <input type="text"
+                                       class="form-control item-subtotal"
+                                       value="0"
+                                       readonly>
+                            </td>
 
-                                        <option value="">-- Pilih Supplier --</option>
+                            <td class="text-center">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger remove-item">
+                                    Hapus
+                                </button>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr class="item-row">
+                            <td>
+                                <select name="items[0][item_id]"
+                                        class="form-select item-select"
+                                        required>
+                                    <option value="">-- Pilih Barang --</option>
+                                    @foreach ($items as $item)
+                                        <option value="{{ $item->id }}"
+                                                data-code="{{ $item->code }}"
+                                                data-unit="{{ $item->unit }}"
+                                                data-price="{{ $item->price ?? 0 }}"
+                                                data-supplier="{{ $item->supplier_id ?? '' }}">
+                                            {{ $item->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </td>
 
-                                        @foreach ($suppliers as $supplier)
-                                            <option value="{{ $supplier->id }}"
-                                                @selected((string) $selectedSupplierId === (string) $supplier->id)>
-                                                {{ $supplier->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </td>
+                            <td>
+                                <select name="items[0][supplier_id]"
+                                        class="form-select item-supplier"
+                                        required>
+                                    <option value="">-- Pilih Supplier --</option>
+                                    @foreach ($suppliers as $supplier)
+                                        <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                                    @endforeach
+                                </select>
+                            </td>
 
-                                <td>
-                                    <input type="text"
-                                           name="items[{{ $index }}][code]"
-                                           class="form-control item-code"
-                                           value="{{ $itemCode }}"
-                                           placeholder="Kode barang">
-                                </td>
+                            <td>
+                                <input type="text"
+                                       name="items[0][section_name]"
+                                       class="form-control item-section"
+                                       list="sectionOptions"
+                                       placeholder="Nama Bagian">
+                                <input type="hidden"
+                                       name="items[0][section_order]"
+                                       class="item-section-order"
+                                       value="0">
+                            </td>
 
-                                <td>
-                                    <input type="text"
-                                           name="items[{{ $index }}][unit]"
-                                           class="form-control item-unit"
-                                           value="{{ $itemUnit }}"
-                                           placeholder="Satuan"
-                                           required>
-                                </td>
+                            <td>
+                                <input type="text" name="items[0][code]"
+                                       class="form-control item-code" placeholder="Kode barang">
+                            </td>
 
-                                <td>
-                                    <input type="number"
-                                           name="items[{{ $index }}][quantity]"
-                                           class="form-control item-quantity"
-                                           value="{{ $detail['quantity'] ?? 1 }}"
-                                           min="0.01"
-                                           step="0.01"
-                                           required>
-                                </td>
+                            <td>
+                                <input type="text" name="items[0][unit]"
+                                       class="form-control item-unit" placeholder="Satuan" required>
+                            </td>
 
-                                <td>
-                                    <input type="number"
-                                           name="items[{{ $index }}][unit_price]"
-                                           class="form-control item-price"
-                                           value="{{ $detail['unit_price'] ?? 0 }}"
-                                           min="0"
-                                           step="0.01"
-                                           required>
-                                </td>
+                            <td>
+                                <input type="number" name="items[0][quantity]"
+                                       class="form-control item-quantity" value="1"
+                                       min="0.01" step="0.01" required>
+                            </td>
 
-                                <td>
-                                    <input type="text"
-                                           class="form-control item-subtotal"
-                                           value="0"
-                                           readonly>
-                                </td>
+                            <td>
+                                <input type="number" name="items[0][unit_price]"
+                                       class="form-control item-price" value="0"
+                                       min="0" step="0.01" required>
+                            </td>
 
-                                <td class="text-center">
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-danger remove-item">
-                                        Hapus
-                                    </button>
-                                </td>
+                            <td>
+                                <input type="text" class="form-control item-subtotal"
+                                       value="0" readonly>
+                            </td>
 
-                            </tr>
-
-                        @empty
-
-                            <tr class="item-row">
-
-                                <td>
-                                    <select name="items[0][item_id]"
-                                            class="form-select item-select"
-                                            required>
-                                        <option value="">-- Pilih Barang --</option>
-
-                                        @foreach ($items as $item)
-                                            <option value="{{ $item->id }}"
-                                                    data-code="{{ $item->code }}"
-                                                    data-unit="{{ $item->unit }}"
-                                                    data-price="{{ $item->price ?? 0 }}"
-                                                    data-supplier="{{ $item->supplier_id ?? '' }}">
-                                                {{ $item->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </td>
-
-                                <td>
-                                    <select name="items[0][supplier_id]"
-                                            class="form-select item-supplier"
-                                            required>
-                                        <option value="">-- Pilih Supplier --</option>
-
-                                        @foreach ($suppliers as $supplier)
-                                            <option value="{{ $supplier->id }}">
-                                                {{ $supplier->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </td>
-
-                                <td>
-                                    <input type="text"
-                                           name="items[0][code]"
-                                           class="form-control item-code"
-                                           placeholder="Kode barang">
-                                </td>
-
-                                <td>
-                                    <input type="text"
-                                           name="items[0][unit]"
-                                           class="form-control item-unit"
-                                           placeholder="Satuan"
-                                           required>
-                                </td>
-
-                                <td>
-                                    <input type="number"
-                                           name="items[0][quantity]"
-                                           class="form-control item-quantity"
-                                           value="1"
-                                           min="0.01"
-                                           step="0.01"
-                                           required>
-                                </td>
-
-                                <td>
-                                    <input type="number"
-                                           name="items[0][unit_price]"
-                                           class="form-control item-price"
-                                           value="0"
-                                           min="0"
-                                           step="0.01"
-                                           required>
-                                </td>
-
-                                <td>
-                                    <input type="text"
-                                           class="form-control item-subtotal"
-                                           value="0"
-                                           readonly>
-                                </td>
-
-                                <td class="text-center">
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-danger remove-item">
-                                        Hapus
-                                    </button>
-                                </td>
-
-                            </tr>
-
-                        @endforelse
-
+                            <td class="text-center">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger remove-item">
+                                    Hapus
+                                </button>
+                            </td>
+                        </tr>
+                    @endforelse
                     </tbody>
                 </table>
             </div>
@@ -459,24 +460,15 @@
             <div class="total-box mt-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="fw-bold">TOTAL BARANG KELUAR</span>
-
-                    <span class="total-value">
-                        Rp <span id="grandTotal">0</span>
-                    </span>
+                    <span class="total-value">Rp <span id="grandTotal">0</span></span>
                 </div>
             </div>
 
             <div class="d-flex flex-wrap justify-content-end gap-2">
                 <a href="{{ route('stock-transactions.out') }}"
-                   class="btn btn-secondary">
-                    Batal
-                </a>
-
-                <button type="submit" class="btn btn-primary">
-                    Simpan Perubahan
-                </button>
+                   class="btn btn-secondary">Batal</a>
+                <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
             </div>
-
         </form>
     </div>
 </div>
@@ -519,32 +511,51 @@ document.addEventListener('DOMContentLoaded', function () {
         }).format(number);
     }
 
+    function updateSectionOrders() {
+        /*
+         * Bagian dengan nama yang sama dan supplier yang sama
+         * mendapat urutan yang sama.
+         */
+        const orders = new Map();
+        let nextOrder = 1;
+
+        tableBody.querySelectorAll('.item-row').forEach(function (row) {
+            const supplierId = row.querySelector('.item-supplier').value;
+            const sectionName = row.querySelector('.item-section').value.trim();
+            const orderInput = row.querySelector('.item-section-order');
+
+            if (!sectionName) {
+                orderInput.value = 0;
+                return;
+            }
+
+            const key = supplierId + '|' + sectionName.toLocaleLowerCase('id-ID');
+
+            if (!orders.has(key)) {
+                orders.set(key, nextOrder++);
+            }
+
+            orderInput.value = orders.get(key);
+        });
+    }
+
     function updateRow(row, itemChanged = false) {
         const select = row.querySelector('.item-select');
-        const selectedOption = select.options[select.selectedIndex];
+        const option = select.options[select.selectedIndex];
 
         const codeInput = row.querySelector('.item-code');
         const unitInput = row.querySelector('.item-unit');
         const quantityInput = row.querySelector('.item-quantity');
         const priceInput = row.querySelector('.item-price');
-        const subtotalInput = row.querySelector('.item-subtotal');
         const supplierSelect = row.querySelector('.item-supplier');
 
-        if (select.value && selectedOption) {
-            // Hanya isi otomatis ketika barang benar-benar diganti.
-            // Edit manual kode/satuan tidak akan tertimpa saat qty/harga berubah.
-            if (itemChanged) {
-                codeInput.value = selectedOption.dataset.code || '';
-                unitInput.value = selectedOption.dataset.unit || '';
+        if (select.value && option && itemChanged) {
+            codeInput.value = option.dataset.code || '';
+            unitInput.value = option.dataset.unit || '';
+            priceInput.value = option.dataset.price || 0;
 
-                // Isi harga dan supplier awal dari master barang.
-                priceInput.value = selectedOption.dataset.price || 0;
-
-                const masterSupplier = selectedOption.dataset.supplier || '';
-
-                if (masterSupplier) {
-                    supplierSelect.value = masterSupplier;
-                }
+            if (option.dataset.supplier) {
+                supplierSelect.value = option.dataset.supplier;
             }
         } else if (!select.value && itemChanged) {
             codeInput.value = '';
@@ -554,8 +565,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const quantity = parseFloat(quantityInput.value) || 0;
         const price = parseFloat(priceInput.value) || 0;
 
-        subtotalInput.value = formatNumber(quantity * price);
+        row.querySelector('.item-subtotal').value = formatNumber(quantity * price);
 
+        updateSectionOrders();
         updateGrandTotal();
     }
 
@@ -563,18 +575,11 @@ document.addEventListener('DOMContentLoaded', function () {
         let total = 0;
 
         tableBody.querySelectorAll('.item-row').forEach(function (row) {
-            const quantity = parseFloat(
-                row.querySelector('.item-quantity').value
-            ) || 0;
-
-            const price = parseFloat(
-                row.querySelector('.item-price').value
-            ) || 0;
-
+            const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
             const subtotal = quantity * price;
 
             row.querySelector('.item-subtotal').value = formatNumber(subtotal);
-
             total += subtotal;
         });
 
@@ -596,6 +601,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         nextIndex = tableBody.querySelectorAll('.item-row').length;
+        updateSectionOrders();
     }
 
     function createRow(index) {
@@ -605,65 +611,59 @@ document.addEventListener('DOMContentLoaded', function () {
         row.innerHTML = `
             <td>
                 <select name="items[${index}][item_id]"
-                        class="form-select item-select"
-                        required>
+                        class="form-select item-select" required>
                     ${itemOptions}
                 </select>
             </td>
 
             <td>
                 <select name="items[${index}][supplier_id]"
-                        class="form-select item-supplier"
-                        required>
+                        class="form-select item-supplier" required>
                     ${supplierOptions}
                 </select>
             </td>
 
             <td>
                 <input type="text"
-                       name="items[${index}][code]"
-                       class="form-control item-code"
-                       placeholder="Kode barang">
+                       name="items[${index}][section_name]"
+                       class="form-control item-section"
+                       list="sectionOptions"
+                       placeholder="Nama Bagian">
+                <input type="hidden"
+                       name="items[${index}][section_order]"
+                       class="item-section-order"
+                       value="0">
             </td>
 
             <td>
-                <input type="text"
-                       name="items[${index}][unit]"
-                       class="form-control item-unit"
-                       placeholder="Satuan"
-                       required>
+                <input type="text" name="items[${index}][code]"
+                       class="form-control item-code" placeholder="Kode barang">
             </td>
 
             <td>
-                <input type="number"
-                       name="items[${index}][quantity]"
-                       class="form-control item-quantity"
-                       value="1"
-                       min="0.01"
-                       step="0.01"
-                       required>
+                <input type="text" name="items[${index}][unit]"
+                       class="form-control item-unit" placeholder="Satuan" required>
             </td>
 
             <td>
-                <input type="number"
-                       name="items[${index}][unit_price]"
-                       class="form-control item-price"
-                       value="0"
-                       min="0"
-                       step="0.01"
-                       required>
+                <input type="number" name="items[${index}][quantity]"
+                       class="form-control item-quantity" value="1"
+                       min="0.01" step="0.01" required>
             </td>
 
             <td>
-                <input type="text"
-                       class="form-control item-subtotal"
-                       value="0"
-                       readonly>
+                <input type="number" name="items[${index}][unit_price]"
+                       class="form-control item-price" value="0"
+                       min="0" step="0.01" required>
+            </td>
+
+            <td>
+                <input type="text" class="form-control item-subtotal"
+                       value="0" readonly>
             </td>
 
             <td class="text-center">
-                <button type="button"
-                        class="btn btn-sm btn-outline-danger remove-item">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-item">
                     Hapus
                 </button>
             </td>
@@ -673,17 +673,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     addButton.addEventListener('click', function () {
-        const row = createRow(nextIndex);
-
-        tableBody.appendChild(row);
-        nextIndex++;
-
-        updateRow(row);
+        tableBody.appendChild(createRow(nextIndex++));
+        updateSectionOrders();
+        updateGrandTotal();
     });
 
     tableBody.addEventListener('change', function (event) {
+        const row = event.target.closest('.item-row');
+
+        if (!row) return;
+
         if (event.target.classList.contains('item-select')) {
-            const row = event.target.closest('.item-row');
             const selectedId = event.target.value;
 
             if (selectedId) {
@@ -702,34 +702,45 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             updateRow(row, true);
+            return;
+        }
+
+        if (
+            event.target.classList.contains('item-supplier') ||
+            event.target.classList.contains('item-section')
+        ) {
+            updateSectionOrders();
         }
     });
 
     tableBody.addEventListener('input', function (event) {
+        const row = event.target.closest('.item-row');
+
+        if (!row) return;
+
         if (
             event.target.classList.contains('item-quantity') ||
             event.target.classList.contains('item-price')
         ) {
-            updateRow(event.target.closest('.item-row'));
+            updateRow(row);
+        }
+
+        if (event.target.classList.contains('item-section')) {
+            updateSectionOrders();
         }
     });
 
     tableBody.addEventListener('click', function (event) {
-        const removeButton = event.target.closest('.remove-item');
+        const button = event.target.closest('.remove-item');
 
-        if (!removeButton) {
-            return;
-        }
+        if (!button) return;
 
-        const rows = tableBody.querySelectorAll('.item-row');
-
-        if (rows.length <= 1) {
+        if (tableBody.querySelectorAll('.item-row').length <= 1) {
             alert('Minimal harus ada satu baris barang.');
             return;
         }
 
-        removeButton.closest('.item-row').remove();
-
+        button.closest('.item-row').remove();
         renumberRows();
         updateGrandTotal();
     });
@@ -740,32 +751,38 @@ document.addEventListener('DOMContentLoaded', function () {
         let hasValidItem = false;
         let hasMissingSupplier = false;
         let hasMissingUnit = false;
+        let hasDuplicateItem = false;
+        const selectedIds = new Set();
 
         rows.forEach(function (row) {
             const itemId = row.querySelector('.item-select').value;
             const supplierId = row.querySelector('.item-supplier').value;
             const unit = row.querySelector('.item-unit').value.trim();
-
-            const quantity = parseFloat(
-                row.querySelector('.item-quantity').value
-            ) || 0;
+            const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
 
             if (itemId && quantity > 0) {
                 hasValidItem = true;
 
-                if (!supplierId) {
-                    hasMissingSupplier = true;
+                if (!supplierId) hasMissingSupplier = true;
+                if (!unit) hasMissingUnit = true;
+
+                if (selectedIds.has(itemId)) {
+                    hasDuplicateItem = true;
                 }
 
-                if (!unit) {
-                    hasMissingUnit = true;
-                }
+                selectedIds.add(itemId);
             }
         });
 
         if (!hasValidItem) {
             event.preventDefault();
             alert('Pilih minimal satu barang dengan jumlah lebih dari nol.');
+            return;
+        }
+
+        if (hasDuplicateItem) {
+            event.preventDefault();
+            alert('Barang yang sama tidak boleh dimasukkan lebih dari satu kali.');
             return;
         }
 
@@ -778,17 +795,19 @@ document.addEventListener('DOMContentLoaded', function () {
         if (hasMissingUnit) {
             event.preventDefault();
             alert('Satuan barang wajib diisi.');
+            return;
         }
+
+        updateSectionOrders();
     });
 
-    // Hitung subtotal awal tanpa menimpa kode dan satuan yang sudah tersimpan.
     tableBody.querySelectorAll('.item-row').forEach(function (row) {
         updateRow(row);
     });
 
+    updateSectionOrders();
     updateGrandTotal();
 });
 </script>
-
 </body>
 </html>

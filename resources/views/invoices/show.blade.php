@@ -36,7 +36,16 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
             margin-bottom: 15px;
+        }
+
+        .action-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -47,6 +56,7 @@
             border: none;
             cursor: pointer;
             font-size: 12px;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
         .btn-back {
@@ -57,6 +67,23 @@
         .btn-print {
             background: #2563eb;
             color: #fff;
+        }
+
+        .btn-manage-nota {
+            background: #198754;
+            color: #fff;
+        }
+
+        .btn-back:hover {
+            background: #4b5563;
+        }
+
+        .btn-print:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-manage-nota:hover {
+            background: #146c43;
         }
 
         .invoice-header {
@@ -127,6 +154,7 @@
             padding: 5px;
             vertical-align: middle;
             font-size: 10px;
+            overflow-wrap: anywhere;
         }
 
         .invoice-table th {
@@ -256,9 +284,6 @@
             margin-bottom: 10px;
         }
 
-        /* ==========================================
-           CETAK A4
-        ========================================== */
         @media print {
             @page {
                 size: A4 portrait;
@@ -389,7 +414,6 @@
                 margin-top: 5px !important;
             }
 
-            /* Pemadatan pertama jika dibutuhkan */
             .invoice-card.fit-compact-1 .invoice-table th,
             .invoice-card.fit-compact-1 .invoice-table td {
                 padding: 3px !important;
@@ -408,7 +432,6 @@
                 margin: 5px 0 8px !important;
             }
 
-            /* Pemadatan kedua: tetap berusaha terbaca */
             .invoice-card.fit-compact-2 .invoice-table th,
             .invoice-card.fit-compact-2 .invoice-table td {
                 padding: 2px !important;
@@ -442,14 +465,22 @@
 <body>
     <div class="invoice-container">
 
+        {{-- TOMBOL AKSI --}}
         <div class="top-actions">
             <a href="{{ route('stock-transactions.out') }}" class="btn btn-back">
                 ← Kembali ke Barang Keluar
             </a>
 
-            <button onclick="window.print()" class="btn btn-print">
-                🖨 Cetak Invoice
-            </button>
+            <div class="action-buttons">
+                <a href="{{ route('invoices.nota-allocation', $invoice->id) }}"
+                   class="btn btn-manage-nota">
+                    📋 Kelola Pembagian Nota
+                </a>
+
+                <button type="button" onclick="window.print()" class="btn btn-print">
+                    🖨 Cetak Invoice
+                </button>
+            </div>
         </div>
 
         <div class="invoice-card">
@@ -515,53 +546,71 @@
             @if($invoice->details->count() > 0)
 
                 @php
+                    /*
+                    * Kelompokkan berdasarkan supplier DAN bagian.
+                    * Bagian kosong tetap menjadi kelompok tanpa pembagian.
+                    */
                     $groupedDetails = $invoice->details
                         ->groupBy(function ($detail) {
-                            return $detail->supplier_id ?? 0;
+                            $section = trim((string) ($detail->section_name ?? ''));
+
+                            return ($detail->supplier_id ?? 0)
+                                . '|'
+                                . $section;
                         })
-                        ->sortBy(function ($details, $supplierId) {
+                        ->sortBy(function ($details) {
+                            $first = $details->first();
+
                             $supplierName = strtoupper(
-                                trim($details->first()?->supplier?->name ?? '')
+                                trim($first?->supplier?->name ?? '')
                             );
 
                             if (
                                 str_contains($supplierName, 'KOPERASI') ||
                                 str_contains($supplierName, 'SUMBER REJEKI')
                             ) {
-                                return 1;
-                            }
-
-                            if (
+                                $supplierOrder = 1;
+                            } elseif (
                                 str_contains($supplierName, 'ZENZI') ||
                                 str_contains($supplierName, 'ZENZIE')
                             ) {
-                                return 2;
-                            }
-
-                            if (str_contains($supplierName, 'GEMILANG')) {
-                                return 3;
-                            }
-
-                            if (
+                                $supplierOrder = 2;
+                            } elseif (str_contains($supplierName, 'GEMILANG')) {
+                                $supplierOrder = 3;
+                            } elseif (
                                 str_contains($supplierName, 'TOPFAST') ||
                                 str_contains($supplierName, 'TOP FAST')
                             ) {
-                                return 4;
+                                $supplierOrder = 4;
+                            } else {
+                                $supplierOrder = 5;
                             }
 
-                            return 5;
+                            return sprintf(
+                                '%02d-%06d-%06d',
+                                $supplierOrder,
+                                $first?->supplier_id ?? 0,
+                                $first?->section_order ?? 0
+                            );
                         });
 
                     $rowNumber = 1;
                 @endphp
 
-                @foreach($groupedDetails as $supplierId => $details)
+                @foreach($groupedDetails as $details)
 
                     @php
+                        $firstDetail = $details->first();
+
+                        $sectionName = trim(
+                            $firstDetail?->section_name ?? ''
+                        );
+
                         $supplierSubtotal = $details->sum('subtotal');
                     @endphp
 
                     <div class="supplier-section">
+
                         <table class="invoice-table">
                             <colgroup>
                                 <col style="width: 4%;">
@@ -715,12 +764,6 @@
     </div>
 
     <script>
-        /*
-         * Persiapan sebelum cetak.
-         * Mengukur tinggi aktual setelah CSS cetak diterapkan
-         * tidak sepenuhnya akurat melalui scrollHeight, sehingga
-         * gunakan tinggi hasil pengukuran elemen sebagai perkiraan.
-         */
         window.addEventListener('beforeprint', function () {
             const invoice = document.querySelector('.invoice-card');
 
