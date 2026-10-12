@@ -1,468 +1,330 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice Belanja Program MBG</title>
+@extends('layouts.app')
 
-    <style>
-        * {
-            box-sizing: border-box;
+@section('title', 'Daftar Invoice | Sistem SPPG')
+
+@push('styles')
+<style>
+    .invoice-list-page {
+        padding: 24px;
+    }
+
+    .invoice-list-page .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 22px;
+    }
+
+    .invoice-list-page .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0 0 5px;
+    }
+
+    .invoice-list-page .page-description {
+        color: #6b7280;
+        margin: 0;
+        font-size: 13px;
+    }
+
+    .invoice-list-page .filter-card,
+    .invoice-list-page .table-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+
+    .invoice-list-page .table-responsive {
+        overflow-x: auto;
+    }
+
+    .invoice-list-page table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 850px;
+    }
+
+    .invoice-list-page th {
+        background: #f3f4f6;
+        color: #374151;
+        padding: 12px 10px;
+        font-size: 12px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .invoice-list-page td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .invoice-list-page tbody tr:hover {
+        background: #f9fafb;
+    }
+
+    .invoice-list-page .invoice-number {
+        font-weight: 700;
+        color: #1d4ed8;
+    }
+
+    .invoice-list-page .amount {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .invoice-list-page .action-buttons {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+    }
+
+    .invoice-list-page .btn-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 7px 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .invoice-list-page .btn-detail {
+        background: #2563eb;
+        color: #fff;
+    }
+
+    .invoice-list-page .btn-print {
+        background: #059669;
+        color: #fff;
+    }
+
+    .invoice-list-page .btn-filter {
+        background: #2563eb;
+        color: #fff;
+        padding: 9px 14px;
+        border: none;
+        border-radius: 5px;
+    }
+
+    .invoice-list-page .btn-reset {
+        background: #e5e7eb;
+        color: #374151;
+        padding: 9px 14px;
+        border-radius: 5px;
+        text-decoration: none;
+    }
+
+    .invoice-list-page .empty-state {
+        text-align: center;
+        padding: 45px 15px;
+        color: #6b7280;
+    }
+
+    .invoice-list-page .pagination-wrapper {
+        margin-top: 18px;
+    }
+
+    @media (max-width: 768px) {
+        .invoice-list-page {
+            padding: 12px;
         }
 
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f3f4f6;
-            color: #000;
-            font-size: 12px;
+        .invoice-list-page .page-title {
+            font-size: 20px;
         }
 
-        .invoice-container {
-            max-width: 900px;
-            margin: 0 auto;
+        .invoice-list-page .filter-card,
+        .invoice-list-page .table-card {
+            padding: 12px;
         }
+    }
+</style>
+@endpush
 
-        .invoice-card {
-            background: white;
-            padding: 25px 30px;
-            border: 1px solid #d1d5db;
-        }
+@section('content')
+<div class="invoice-list-page">
 
-        /* ACTIONS BAR (HANYA DI TAMPILAN MONITOR) */
-        .top-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 8px 14px;
-            border-radius: 4px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .btn-back {
-            background: #6b7280;
-            color: white;
-        }
-
-        .btn-print {
-            background: #2563eb;
-            color: white;
-        }
-
-        /* ALERT MESSAGES */
-        .alert {
-            padding: 10px 14px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-        }
-
-        .alert-success {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #86efac;
-        }
-
-        .alert-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fca5a5;
-        }
-
-        /* HEADER */
-        .invoice-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
-        }
-
-        .header-left h1 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .header-left .sppg-name {
-            font-size: 14px;
-            font-weight: bold;
-            margin-top: 3px;
-            text-transform: uppercase;
-        }
-
-        .header-left .date {
-            font-size: 13px;
-            font-weight: bold;
-            margin-top: 8px;
-            text-transform: uppercase;
-        }
-
-        /* KOTAK DAPUR / KOTA (HIJAU TERCETAK DI PRINTER) */
-        .kitchen-box {
-            background-color: #1e7e34 !important;
-            color: #ffffff !important;
-            padding: 10px 20px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 16px;
-            text-transform: uppercase;
-            min-width: 140px;
-            display: inline-block;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-        }
-
-        /* TABEL INVOICE */
-        .supplier-section {
-            margin-bottom: 12px;
-            page-break-inside: avoid;
-        }
-
-        .invoice-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .invoice-table th,
-        .invoice-table td {
-            border: 1px solid #000;
-            padding: 4px 6px;
-            vertical-align: middle;
-            font-size: 11px;
-        }
-
-        .invoice-table th {
-            background: #e5e7eb !important;
-            text-align: center;
-            font-weight: bold;
-            text-transform: uppercase;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-
-        /* SUPPLIER FOOTER / APPROVAL BAR */
-        .supplier-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-left: 1px solid #000;
-            border-right: 1px solid #000;
-            border-bottom: 1px solid #000;
-            padding: 4px 8px;
-            font-size: 11px;
-            background: #fff;
-        }
-
-        .approval-text {
-            font-family: monospace;
-        }
-
-        .subtotal-val {
-            font-weight: bold;
-            font-size: 12px;
-        }
-
-        /* TOTAL KESELURUHAN */
-        .grand-total-container {
-            display: flex;
-            justify-content: flex-end;
-            margin: 15px 0 30px;
-        }
-
-        .grand-total-box {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            font-weight: bold;
-            font-size: 13px;
-            padding-right: 10px;
-        }
-
-        /* SIGNATURE SECTION */
-        .signature-section {
-            margin-top: 25px;
-            page-break-inside: avoid;
-        }
-
-        .signature-grid-top {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-
-        .signature-box {
-            text-align: center;
-            width: 260px;
-        }
-
-        .signature-space {
-            height: 60px;
-        }
-
-        .signature-line {
-            border-bottom: 1px dashed #000;
-            margin: 0 auto;
-            width: 80%;
-        }
-
-        .signature-name-bold {
-            font-weight: bold;
-            margin-top: 10px;
-        }
-
-        .knowing-title {
-            text-align: center;
-            font-size: 12px;
-            margin-bottom: 15px;
-        }
-
-        .signature-grid-bottom {
-            display: flex;
-            justify-content: space-between;
-        }
-
-        /* PENGATURAN CETAK (PRINT MEDIA) */
-        @media print {
-            /* MENGHILANGKAN HEADER & FOOTER BAWAAN BROWSER (TANGGAL, JAM, JUDUL DOKUMEN) */
-            @page {
-                margin: 10mm;
-                size: auto;
-            }
-
-            body {
-                background: white;
-                padding: 0;
-                margin: 0;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            .top-actions,
-            .alert {
-                display: none !important;
-            }
-
-            .invoice-card {
-                border: none;
-                padding: 0;
-            }
-
-            .kitchen-box {
-                background-color: #1e7e34 !important;
-                color: #ffffff !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-
-            .invoice-table th {
-                background-color: #e5e7eb !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-        }
-    </style>
-</head>
-<body>
-
-<div class="invoice-container">
-
-    {{-- Tombol Navigasi --}}
-    <div class="top-actions">
-        <a href="{{ route('stock-transactions.out') }}" class="btn btn-back">
-            ← Kembali ke OUT
-        </a>
-        <button onclick="window.print()" class="btn btn-print">
-            🖨 Cetak Invoice
-        </button>
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Daftar Invoice</h1>
+            <p class="page-description">
+                Daftar Invoice Belanja Program MBG berdasarkan transaksi Barang Keluar.
+            </p>
+        </div>
     </div>
 
-    {{-- Pesan Alert --}}
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="alert alert-error">{{ session('error') }}</div>
+    @if (session('success'))
+        <div class="alert alert-success">
+            {{ session('success') }}
+        </div>
     @endif
 
-    @forelse($invoices as $invoice)
-        @php
-            /* 
-             * Membersihkan nama dapur/kota agar yang tampil hanya nama daerah singkat.
-             * Contoh: "KOTA MAGELANG MAGELANG UTARA KEDUNGSARI 2" -> "KEDUNGSARI 2"
-             */
-            $rawKitchenName = $invoice->kitchen?->name ?? 'Adikarto';
-            
-            // Bersihkan kata-kata umum jika ada
-            $cleanedName = trim(str_ireplace(['SPPG', 'DAPUR', 'KITCHEN'], '', $rawKitchenName));
-            
-            // Ambil maksimal 2 kata terakhir dari nama daerah
-            $words = explode(' ', $cleanedName);
-            if (count($words) > 2) {
-                $kitchenRegion = implode(' ', array_slice($words, -2));
-            } else {
-                $kitchenRegion = $cleanedName;
-            }
-        @endphp
+    @if (session('error'))
+        <div class="alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
 
-        <div class="invoice-card">
+    {{-- FILTER --}}
+    <div class="filter-card">
+        <form action="{{ route('invoices.index') }}" method="GET">
+            <div class="row g-3 align-items-end">
 
-            {{-- HEADER --}}
-            <div class="invoice-header">
-                <div class="header-left">
-                    <h1>INVOICE BELANJA PROGRAM MBG</h1>
-                    <div class="sppg-name">SPPG AGHITS STAR {{ strtoupper($kitchenRegion) }}</div>
-                    <div class="date">
-                        TANGGAL : {{ strtoupper(\Carbon\Carbon::parse($invoice->invoice_date)->translatedFormat('l, d F Y')) }}
-                    </div>
+                <div class="col-md-4">
+                    <label for="search" class="form-label">
+                        Cari Invoice
+                    </label>
+                    <input
+                        type="text"
+                        name="search"
+                        id="search"
+                        class="form-control"
+                        value="{{ request('search') }}"
+                        placeholder="Nomor Invoice atau nama dapur">
                 </div>
 
-                <div class="header-right">
-                    {{-- KOTAK DAPUR BERWARNA HIJAU DI KANAN ATAS --}}
-                    <div class="kitchen-box">
-                        {{ strtoupper($kitchenRegion) }}
-                    </div>
+                <div class="col-md-3">
+                    <label for="date_from" class="form-label">
+                        Dari Tanggal
+                    </label>
+                    <input
+                        type="date"
+                        name="date_from"
+                        id="date_from"
+                        class="form-control"
+                        value="{{ request('date_from') }}">
                 </div>
+
+                <div class="col-md-3">
+                    <label for="date_to" class="form-label">
+                        Sampai Tanggal
+                    </label>
+                    <input
+                        type="date"
+                        name="date_to"
+                        id="date_to"
+                        class="form-control"
+                        value="{{ request('date_to') }}">
+                </div>
+
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn-filter">
+                        Cari
+                    </button>
+
+                    <a href="{{ route('invoices.index') }}" class="btn-reset">
+                        Reset
+                    </a>
+                </div>
+
             </div>
+        </form>
+    </div>
 
-            @php
-                $groupedDetails = $invoice->details->groupBy(function ($detail) {
-                    return $detail->supplier_id ?? 0;
-                });
-                $rowNumber = 1;
-            @endphp
+    {{-- TABEL DAFTAR INVOICE --}}
+    <div class="table-card">
 
-            {{-- TABEL PER SUPPLIER --}}
-            @foreach($groupedDetails as $supplierId => $details)
-                @php
-                    $supplierSubtotal = $details->sum('subtotal');
-                @endphp
-
-                <div class="supplier-section">
-                    <table class="invoice-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 35px;">NO</th>
-                                <th style="width: 180px;">SUPPLIER</th>
-                                <th style="width: 110px;">KODE BARANG</th>
-                                <th>JENIS BARANG</th>
-                                <th style="width: 50px;">QTY</th>
-                                <th style="width: 60px;">SATUAN</th>
-                                <th style="width: 90px;">HARGA</th>
-                                <th style="width: 110px;">JUMLAH</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($details as $detail)
-                                <tr>
-                                    <td class="text-center">{{ $rowNumber++ }}</td>
-                                    <td>{{ strtoupper($detail->supplier?->name ?? '-') }}</td>
-                                    <td class="text-center">{{ $detail->item?->code ?? '-' }}</td>
-                                    <td>{{ $detail->item?->name ?? '-' }}</td>
-                                    <td class="text-center">{{ rtrim(rtrim(number_format($detail->quantity, 2, ',', '.'), '0'), ',') }}</td>
-                                    <td class="text-center">{{ $detail->unit }}</td>
-                                    <td class="text-right">Rp {{ number_format($detail->unit_price, 0, ',', '.') }}</td>
-                                    <td class="text-right">Rp {{ number_format($detail->subtotal, 0, ',', '.') }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-
-                    {{-- STATUS APPROVAL & SUBTOTAL BAR --}}
-                    <div class="supplier-footer">
-                        <div class="approval-text">
-                            ☐ approved &nbsp; ☐ not approved &nbsp; ☐ pen | Date approval : ______________________
-                        </div>
-                        <div class="subtotal-val">
-                            Rp {{ number_format($supplierSubtotal, 0, ',', '.') }}
-                        </div>
-                    </div>
-                </div>
-            @endforeach
-
-            {{-- TOTAL KESELURUHAN --}}
-            <div class="grand-total-container">
-                <div class="grand-total-box">
-                    <span>TOTAL</span>
-                    <span>Rp {{ number_format($invoice->total_amount, 0, ',', '.') }}</span>
-                </div>
-            </div>
-
-            {{-- TANDA TANGAN --}}
-            <div class="signature-section">
-                {{-- Baris Atas --}}
-                <div class="signature-grid-top">
-                    <div class="signature-box">
-                        <div>Sales Manager</div>
-                        <div class="signature-space"></div>
-                        <div class="signature-line"></div>
-                    </div>
-
-                    <div class="signature-box">
-                        <div>Asisten Lapangan</div>
-                        <div>SPPG Aghits Star {{ ucfirst(strtolower($kitchenRegion)) }}</div>
-                        <div class="signature-space"></div>
-                        <div class="signature-line"></div>
-                    </div>
-                </div>
-
-                {{-- Mengetahui --}}
-                <div class="knowing-title">Mengetahui,</div>
-
-                {{-- Baris Bawah --}}
-                <div class="signature-grid-bottom">
-                    <div class="signature-box">
-                        <div>Ketua Yayasan Aghits Star</div>
-                        <div>International</div>
-                        <div class="signature-space"></div>
-                        <div class="signature-line"></div>
-                        <div class="signature-name-bold">Teguh Hadi Susilo</div>
-                    </div>
-
-                    <div class="signature-box">
-                        <div>Akuntan SPPG Aghits Star</div>
-                        <div>{{ ucfirst(strtolower($kitchenRegion)) }}</div>
-                        <div class="signature-space"></div>
-                        <div class="signature-line"></div>
-                    </div>
-
-                    <div class="signature-box">
-                        <div>Ka. SPPG Aghits Star</div>
-                        <div>{{ ucfirst(strtolower($kitchenRegion)) }}</div>
-                        <div class="signature-space"></div>
-                        <div class="signature-line"></div>
-                    </div>
-                </div>
-            </div>
-
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Riwayat Invoice</h5>
+            <span class="text-muted small">
+                Total: {{ $invoices->total() }} Invoice
+            </span>
         </div>
 
-        @if(!$loop->last)
-            <div style="page-break-after: always;"></div>
-        @endif
-    @empty
-        <div class="invoice-card">
-            <div class="text-center" style="padding: 40px 0;">
-                <h3>Belum Ada Invoice</h3>
-                <p>Invoice akan muncul setelah transaksi OUT diproses menjadi Invoice.</p>
-                <a href="{{ route('stock-transactions.out') }}" class="btn btn-back">← Kembali ke OUT</a>
-            </div>
-        </div>
-    @endforelse
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 55px;">No.</th>
+                        <th>Nomor Invoice</th>
+                        <th>Tanggal</th>
+                        <th>Dapur SPPG</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-center">Aksi</th>
+                    </tr>
+                </thead>
 
+                <tbody>
+                    @forelse ($invoices as $invoice)
+                        <tr>
+                            <td>
+                                {{ $invoices->firstItem() + $loop->index }}
+                            </td>
+
+                            <td>
+                                <span class="invoice-number">
+                                    {{ $invoice->invoice_number ?? '-' }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ $invoice->invoice_date
+                                    ? \Carbon\Carbon::parse($invoice->invoice_date)->translatedFormat('d M Y')
+                                    : '-' }}
+                            </td>
+
+                            <td>
+                                {{ $invoice->kitchen?->name ?? '-' }}
+                            </td>
+
+                            <td class="text-end amount">
+                                Rp {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}
+                            </td>
+
+                            <td>
+                                <div class="action-buttons">
+
+                                    <a
+                                        href="{{ route('invoices.show', $invoice->id) }}"
+                                        class="btn-action btn-detail"
+                                        title="Lihat detail Invoice">
+                                        <i class="bi bi-eye"></i>
+                                        Detail
+                                    </a>
+
+                                    <a
+                                        href="{{ route('invoices.show', $invoice->id) }}?print=1"
+                                        class="btn-action btn-print"
+                                        title="Lihat dan cetak Invoice">
+                                        <i class="bi bi-printer"></i>
+                                        Cetak
+                                    </a>
+
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="bi bi-receipt fs-1"></i>
+                                    <h5 class="mt-3">Belum Ada Invoice</h5>
+                                    <p class="mb-0">
+                                        Invoice akan muncul setelah transaksi OUT diproses.
+                                    </p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-wrapper">
+            {{ $invoices->withQueryString()->links() }}
+        </div>
+
+    </div>
 </div>
-
-</body>
-</html>
+@endsection

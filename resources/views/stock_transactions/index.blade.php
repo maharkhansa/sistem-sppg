@@ -1,53 +1,31 @@
-<!DOCTYPE html>
+@extends('layouts.app')
 
-<html lang="id">
+@section('title', 'Daftar Barang Masuk | Sistem SPPG')
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Daftar Barang Masuk</title>
-
-<link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-    rel="stylesheet">
-
-<link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-
+@push('styles')
 <style>
-    body {
-        background-color: #f8f9fa;
-        font-family: Arial, Helvetica, sans-serif;
-    }
-
     .page-container {
-        padding: 25px;
+        padding: 8px 0;
     }
 
-    .card {
+    .transaction-card {
         border: 1px solid #e5e7eb;
         border-radius: 10px;
     }
 
-    .card-header {
-        background-color: #fff;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    .table {
+    .transaction-table {
         margin-bottom: 0;
+        min-width: 850px;
     }
 
-    .table th {
+    .transaction-table th {
         background-color: #f8f9fa;
         font-size: 13px;
         font-weight: 600;
         white-space: nowrap;
     }
 
-    .table td {
+    .transaction-table td {
         font-size: 13px;
         vertical-align: middle;
     }
@@ -66,6 +44,7 @@
     .pagination {
         margin-bottom: 0;
         gap: 4px;
+        flex-wrap: wrap;
     }
 
     .pagination .page-item {
@@ -75,9 +54,9 @@
     .pagination .page-link {
         border: 1px solid #dee2e6;
         border-radius: 6px !important;
-        width: 30px;
-        height: 30px;
-        padding: 0;
+        min-width: 32px;
+        height: 32px;
+        padding: 0 8px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -111,579 +90,291 @@
         font-size: 40px;
     }
 </style>
+@endpush
 
-</head>
+@section('content')
+<div class="container-fluid container-xl py-4 py-lg-5">
+    <div class="page-container">
 
-<body>
+        {{-- HEADER --}}
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h4 class="mb-1 fw-bold">
+                    <i class="bi bi-box-arrow-in-down me-2 text-primary"></i>
+                    Daftar Barang Masuk
+                </h4>
+                <small class="text-muted">
+                    Daftar transaksi penerimaan barang dari supplier
+                </small>
+            </div>
 
-<div class="page-container">
+            <a href="{{ route('stock-transactions.create') }}"
+                class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>
+                Tambah Barang Masuk
+            </a>
+        </div>
 
-{{-- HEADER --}}
+        {{-- SUCCESS --}}
+        @if (session('success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle me-1"></i>
+                {{ session('success') }}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="alert" aria-label="Tutup"></button>
+            </div>
+        @endif
 
-    <div>
+        {{-- ERROR --}}
+        @if (session('error'))
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                {{ session('error') }}
 
-        <h4 class="mb-1">
-            <i class="bi bi-box-arrow-in-down me-2"></i>
-            Daftar Barang Masuk
-        </h4>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="alert" aria-label="Tutup"></button>
+            </div>
+        @endif
 
-        <small class="text-muted">
-            Daftar transaksi penerimaan barang dari supplier
-        </small>
+        {{-- VALIDATION ERRORS --}}
+        @if ($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Terjadi kesalahan:</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
 
-    </div>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="alert" aria-label="Tutup"></button>
+            </div>
+        @endif
 
-    <a href="{{ route('stock-transactions.create') }}"
-       class="btn btn-primary">
+        {{-- FILTER --}}
+        <div class="card transaction-card shadow-sm mb-4">
+            <div class="card-body p-3 p-md-4">
+                <form method="GET" action="{{ route('stock-transactions.index') }}">
+                    <div class="row g-3 align-items-end">
 
-        <i class="bi bi-plus-lg me-1"></i>
-        Tambah Barang Masuk
+                        {{-- SEARCH --}}
+                        <div class="col-12 col-md-5">
+                            <label for="search" class="form-label small fw-semibold">
+                                Cari Transaksi
+                            </label>
 
-    </a>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-search"></i>
+                                </span>
 
-</div>
+                                <input
+                                    type="text"
+                                    id="search"
+                                    name="search"
+                                    class="form-control"
+                                    value="{{ request('search') }}"
+                                    placeholder="Nomor transaksi atau supplier">
+                            </div>
+                        </div>
 
+                        {{-- TANGGAL --}}
+                        <div class="col-12 col-md-3">
+                            <label for="date" class="form-label small fw-semibold">
+                                Tanggal
+                            </label>
 
-{{-- SUCCESS --}}
+                            <input
+                                type="date"
+                                id="date"
+                                name="date"
+                                class="form-control"
+                                value="{{ request('date') }}">
+                        </div>
 
-@if(session('success'))
+                        {{-- SUPPLIER --}}
+                        <div class="col-12 col-md-3">
+                            <label for="supplier_id" class="form-label small fw-semibold">
+                                Supplier
+                            </label>
 
-    <div class="alert alert-success alert-dismissible fade show">
+                            <select id="supplier_id" name="supplier_id"
+                                class="form-select">
+                                <option value="">Semua Supplier</option>
 
-        <i class="bi bi-check-circle me-1"></i>
+                                @foreach ($suppliers as $supplier)
+                                    <option
+                                        value="{{ $supplier->id }}"
+                                        {{ (string) request('supplier_id') === (string) $supplier->id ? 'selected' : '' }}>
+                                        {{ $supplier->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
 
-        {{ session('success') }}
+                        {{-- BUTTON --}}
+                        <div class="col-12 col-md-1 d-flex gap-2">
+                            <button type="submit"
+                                class="btn btn-primary flex-grow-1"
+                                title="Cari transaksi">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
 
-        <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="alert">
-        </button>
-
-    </div>
-
-@endif
-
-
-{{-- ERROR --}}
-
-@if(session('error'))
-
-    <div class="alert alert-danger alert-dismissible fade show">
-
-        <i class="bi bi-exclamation-triangle me-1"></i>
-
-        {{ session('error') }}
-
-        <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="alert">
-        </button>
-
-    </div>
-
-@endif
-
-
-{{-- FILTER --}}
-
-<div class="card shadow-sm mb-4">
-
-    <div class="card-body">
-
-        <form
-            method="GET"
-            action="{{ route('stock-transactions.index') }}">
-
-            <div class="row g-3">
-
-                {{-- SEARCH --}}
-
-                <div class="col-md-5">
-
-                    <label class="form-label small fw-semibold">
-                        Cari Transaksi
-                    </label>
-
-                    <div class="input-group">
-
-                        <span class="input-group-text">
-                            <i class="bi bi-search"></i>
-                        </span>
-
-                        <input
-                            type="text"
-                            name="search"
-                            class="form-control"
-                            value="{{ request('search') }}"
-                            placeholder="Nomor transaksi atau supplier">
+                        <div class="col-12">
+                            <a href="{{ route('stock-transactions.index') }}"
+                                class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>
+                                Reset Filter
+                            </a>
+                        </div>
 
                     </div>
+                </form>
+            </div>
+        </div>
 
-                </div>
+        {{-- INFORMASI DATA --}}
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <small class="text-muted">
+                Menampilkan
+                <strong>{{ $transactions->firstItem() ?? 0 }}</strong>
+                -
+                <strong>{{ $transactions->lastItem() ?? 0 }}</strong>
+                dari
+                <strong>{{ $transactions->total() }}</strong>
+                transaksi
+            </small>
+        </div>
 
+        {{-- TABLE --}}
+        <div class="card transaction-card shadow-sm">
+            <div class="card-body p-0">
 
-                {{-- TANGGAL --}}
+                @if ($transactions->count() > 0)
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle transaction-table">
+                            <thead>
+                                <tr>
+                                    <th width="50" class="text-center">No</th>
+                                    <th>No. Transaksi</th>
+                                    <th>Tanggal</th>
+                                    <th>Supplier</th>
+                                    <th class="text-center">Jenis Barang</th>
+                                    <th class="text-end">Total Qty</th>
+                                    <th class="text-end">Total Nilai</th>
+                                    <th width="80" class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
 
-                <div class="col-md-3">
+                            <tbody>
+                                @foreach ($transactions as $transaction)
+                                    @php
+                                        $details = $transaction->details;
 
-                    <label class="form-label small fw-semibold">
-                        Tanggal
-                    </label>
+                                        $totalQty = $details->sum('quantity');
+                                        $totalAmount = $details->sum('subtotal');
+                                    @endphp
 
-                    <input
-                        type="date"
-                        name="date"
-                        class="form-control"
-                        value="{{ request('date') }}">
+                                    <tr>
+                                        {{-- NOMOR URUT --}}
+                                        <td class="text-center">
+                                            {{ $transactions->firstItem() + $loop->index }}
+                                        </td>
 
-                </div>
+                                        {{-- NOMOR TRANSAKSI --}}
+                                        <td>
+                                            <span class="transaction-number">
+                                                {{ $transaction->transaction_number }}
+                                            </span>
+                                        </td>
 
+                                        {{-- TANGGAL --}}
+                                        <td>
+                                            {{ $transaction->transaction_date
+                                                ? \Illuminate\Support\Carbon::parse($transaction->transaction_date)->format('d-m-Y')
+                                                : '-' }}
+                                        </td>
 
-                {{-- SUPPLIER --}}
+                                        {{-- SUPPLIER --}}
+                                        <td>
+                                            {{ $transaction->supplier->name ?? '-' }}
+                                        </td>
 
-                <div class="col-md-3">
+                                        {{-- JUMLAH JENIS BARANG --}}
+                                        <td class="text-center">
+                                            <span class="badge rounded-pill badge-in px-2 py-2">
+                                                {{ $details->count() }} item
+                                            </span>
+                                        </td>
 
-                    <label class="form-label small fw-semibold">
-                        Supplier
-                    </label>
+                                        {{-- TOTAL QTY --}}
+                                        <td class="text-end text-nowrap">
+                                            {{ number_format((float) $totalQty, 2, ',', '.') }}
+                                        </td>
 
-                    <select
-                        name="supplier_id"
-                        class="form-select">
+                                        {{-- TOTAL NILAI --}}
+                                        <td class="text-end text-nowrap fw-semibold">
+                                            Rp {{ number_format((float) $totalAmount, 0, ',', '.') }}
+                                        </td>
 
-                        <option value="">
-                            Semua Supplier
-                        </option>
+                                        {{-- DETAIL --}}
+                                        <td class="text-center">
+                                            <a
+                                                href="{{ route('stock-transactions.show', $transaction) }}"
+                                                class="btn btn-sm btn-outline-primary"
+                                                title="Lihat detail transaksi"
+                                                aria-label="Lihat detail transaksi">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
 
-                        @foreach($suppliers as $supplier)
+                        <h6 class="mt-3">Belum Ada Transaksi</h6>
 
-                            <option
-                                value="{{ $supplier->id }}"
-                                {{ request('supplier_id') == $supplier->id ? 'selected' : '' }}>
+                        <p class="mb-3">
+                            @if (request()->filled('search')
+                                || request()->filled('date')
+                                || request()->filled('supplier_id'))
+                                Tidak ada transaksi yang sesuai dengan filter.
+                            @else
+                                Belum terdapat data transaksi barang masuk.
+                            @endif
+                        </p>
 
-                                {{ $supplier->name }}
-
-                            </option>
-
-                        @endforeach
-
-                    </select>
-
-                </div>
-
-
-                {{-- SEARCH BUTTON --}}
-
-                <div class="col-md-1 d-flex align-items-end">
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary w-100"
-                        title="Cari">
-
-                        <i class="bi bi-search"></i>
-
-                    </button>
-
-                </div>
+                        <a href="{{ route('stock-transactions.create') }}"
+                            class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i>
+                            Tambah Barang Masuk
+                        </a>
+                    </div>
+                @endif
 
             </div>
+        </div>
 
-        </form>
+        {{-- PAGINATION --}}
+        @if ($transactions->hasPages())
+            <div class="d-flex flex-column align-items-center mt-4">
 
-    </div>
+                <div class="text-muted small text-center mb-3">
+                    Halaman <strong>{{ $transactions->currentPage() }}</strong>
+                    dari <strong>{{ $transactions->lastPage() }}</strong>
+                </div>
 
-</div>
-
-
-{{-- INFO --}}
-
-<div class="d-flex justify-content-between align-items-center mb-2">
-
-    <small class="text-muted">
-
-        Menampilkan
-
-        <strong>
-            {{ $transactions->firstItem() ?? 0 }}
-        </strong>
-
-        -
-
-        <strong>
-            {{ $transactions->lastItem() ?? 0 }}
-        </strong>
-
-        dari
-
-        <strong>
-            {{ $transactions->total() }}
-        </strong>
-
-        transaksi
-
-    </small>
-
-</div>
-
-
-{{-- TABLE --}}
-
-<div class="card shadow-sm">
-
-    <div class="card-body p-0">
-
-        @if($transactions->count() > 0)
-
-            <div class="table-responsive">
-
-                <table class="table table-hover align-middle">
-
-                    <thead>
-
-                        <tr>
-
-                            <th
-                                width="50"
-                                class="text-center">
-                                No
-                            </th>
-
-                            <th>
-                                No. Transaksi
-                            </th>
-
-                            <th>
-                                Tanggal
-                            </th>
-
-                            <th>
-                                Supplier
-                            </th>
-
-                            <th class="text-center">
-                                Jenis Barang
-                            </th>
-
-                            <th class="text-end">
-                                Total Qty
-                            </th>
-
-                            <th class="text-end">
-                                Total Nilai
-                            </th>
-
-                            <th
-                                width="80"
-                                class="text-center">
-                                Aksi
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        @foreach($transactions as $transaction)
-
-                            @php
-
-                                $totalQty =
-                                    $transaction->details->sum('quantity');
-
-                                $totalAmount =
-                                    $transaction->details->sum('subtotal');
-
-                            @endphp
-
-                            <tr>
-
-                                {{-- NO --}}
-
-                                <td class="text-center">
-
-                                    {{
-                                        $transactions->firstItem()
-                                        + $loop->index
-                                    }}
-
-                                </td>
-
-
-                                {{-- NOMOR --}}
-
-                                <td>
-
-                                    <span class="transaction-number">
-
-                                        {{
-                                            $transaction->transaction_number
-                                        }}
-
-                                    </span>
-
-                                </td>
-
-
-                                {{-- TANGGAL --}}
-
-                                <td>
-
-                                    {{
-                                        $transaction->transaction_date
-                                            ? $transaction->transaction_date->format('d-m-Y')
-                                            : '-'
-                                    }}
-
-                                </td>
-
-
-                                {{-- SUPPLIER --}}
-
-                                <td>
-
-                                    {{
-                                        $transaction->supplier->name
-                                        ?? '-'
-                                    }}
-
-                                </td>
-
-
-                                {{-- JUMLAH JENIS BARANG --}}
-
-                                <td class="text-center">
-
-                                    <span class="badge rounded-pill badge-in">
-
-                                        {{
-                                            $transaction->details->count()
-                                        }}
-
-                                        item
-
-                                    </span>
-
-                                </td>
-
-
-                                {{-- TOTAL QTY --}}
-
-                                <td class="text-end">
-
-                                    {{
-                                        number_format(
-                                            (float) $totalQty,
-                                            2,
-                                            ',',
-                                            '.'
-                                        )
-                                    }}
-
-                                </td>
-
-
-                                {{-- TOTAL NILAI --}}
-
-                                <td class="text-end">
-
-                                    Rp
-                                    {{
-                                        number_format(
-                                            (float) $totalAmount,
-                                            0,
-                                            ',',
-                                            '.'
-                                        )
-                                    }}
-
-                                </td>
-
-
-                                {{-- DETAIL --}}
-
-                                <td class="text-center">
-
-                                    <a
-                                        href="{{
-                                            route(
-                                                'stock-transactions.show',
-                                                $transaction
-                                            )
-                                        }}"
-                                        class="btn btn-sm btn-outline-primary"
-                                        title="Lihat Detail">
-
-                                        <i class="bi bi-eye"></i>
-
-                                    </a>
-
-                                </td>
-
-                            </tr>
-
-                        @endforeach
-
-                    </tbody>
-
-                </table>
+                {{ $transactions->withQueryString()->links('pagination::bootstrap-5') }}
 
             </div>
-
-        @else
-
-            <div class="empty-state">
-
-                <i class="bi bi-inbox"></i>
-
-                <h6 class="mt-3">
-                    Belum Ada Transaksi
-                </h6>
-
-                <p class="mb-0">
-                    Belum terdapat data transaksi barang masuk.
-                </p>
-
-            </div>
-
         @endif
 
     </div>
-
 </div>
-
-
-{{-- PAGINATION --}}
-
-@if($transactions->hasPages())
-
-    <div class="d-flex justify-content-center mt-4">
-
-        <nav aria-label="Pagination">
-
-            <ul class="pagination mb-0">
-
-                {{-- PREVIOUS --}}
-
-                @if($transactions->onFirstPage())
-
-                    <li class="page-item disabled">
-
-                        <span class="page-link">
-                            &lsaquo;
-                        </span>
-
-                    </li>
-
-                @else
-
-                    <li class="page-item">
-
-                        <a
-                            class="page-link"
-                            href="{{
-                                $transactions->previousPageUrl()
-                            }}">
-
-                            &lsaquo;
-
-                        </a>
-
-                    </li>
-
-                @endif
-
-
-                {{-- NUMBER --}}
-
-                @foreach(
-                    $transactions->getUrlRange(
-                        1,
-                        $transactions->lastPage()
-                    ) as $page => $url
-                )
-
-                    @if(
-                        $page ==
-                        $transactions->currentPage()
-                    )
-
-                        <li class="page-item active">
-
-                            <span class="page-link">
-                                {{ $page }}
-                            </span>
-
-                        </li>
-
-                    @else
-
-                        <li class="page-item">
-
-                            <a
-                                class="page-link"
-                                href="{{ $url }}">
-
-                                {{ $page }}
-
-                            </a>
-
-                        </li>
-
-                    @endif
-
-                @endforeach
-
-
-                {{-- NEXT --}}
-
-                @if($transactions->hasMorePages())
-
-                    <li class="page-item">
-
-                        <a
-                            class="page-link"
-                            href="{{
-                                $transactions->nextPageUrl()
-                            }}">
-
-                            &rsaquo;
-
-                        </a>
-
-                    </li>
-
-                @else
-
-                    <li class="page-item disabled">
-
-                        <span class="page-link">
-                            &rsaquo;
-                        </span>
-
-                    </li>
-
-                @endif
-
-            </ul>
-
-        </nav>
-
-    </div>
-
-@endif
-
-</div>
-
-<script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js">
-</script>
-
-</body>
-
-</html>
+@endsection

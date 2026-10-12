@@ -1,552 +1,222 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@extends('layouts.app')
 
-    <title>LPDH - SPPG</title>
+@section('title', 'LPDH - SPPG')
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f3f4f6;
-            color: #111827;
-            font-size: 13px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .top-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .page-title h1 {
-            margin: 0;
-            font-size: 20px;
-        }
-
-        .page-title p {
-            margin: 5px 0 0;
-            color: #6b7280;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 9px 14px;
-            border-radius: 5px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        .btn-primary {
-            background: #2563eb;
-            color: white;
-        }
-
-        .btn-info {
-            background: #0891b2;
-            color: white;
-        }
-
-        .btn-warning {
-            background: #d97706;
-            color: white;
-        }
-
-        .btn-danger {
-            background: #dc2626;
-            color: white;
-        }
-
-        .alert {
-            padding: 10px 14px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-        }
-
-        .alert-success {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #86efac;
-        }
-
-        .alert-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fca5a5;
-        }
-
-        .card {
-            background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-
-        .card-header {
-            padding: 14px 16px;
-            border-bottom: 1px solid #e5e7eb;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .table-wrapper {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th,
-        td {
-            border-bottom: 1px solid #e5e7eb;
-            padding: 10px 8px;
-            vertical-align: middle;
-        }
-
-        th {
-            background: #f3f4f6;
-            font-size: 11px;
-            text-transform: uppercase;
-            text-align: center;
-            white-space: nowrap;
-        }
-
-        td {
-            font-size: 12px;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .text-right {
-            text-align: right;
-        }
-
-        .sppg-name {
-            font-weight: bold;
-        }
-
-        .sppg-id {
-            display: block;
-            color: #6b7280;
-            font-size: 11px;
-            margin-top: 3px;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .badge-success {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .badge-secondary {
-            background: #e5e7eb;
-            color: #374151;
-        }
-
-        .badge-info {
-            background: #cffafe;
-            color: #155e75;
-        }
-
-        .action-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 5px;
-        }
-
-        .action-buttons .btn {
-            padding: 6px 9px;
-            font-size: 11px;
-        }
-
-        .empty {
-            padding: 50px 20px;
-            text-align: center;
-            color: #6b7280;
-        }
-
-        .empty-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 6px;
-            color: #374151;
-        }
-
-        @media print {
-            .top-actions,
-            .alert,
-            .action-column {
-                display: none !important;
-            }
-
-            body {
-                background: white;
-                padding: 0;
-            }
-
-            .card {
-                border: none;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-<div class="container">
+@section('content')
+<div class="container-fluid py-3">
 
     {{-- HEADER --}}
-    <div class="top-actions">
-
-        <div class="page-title">
-            <h1>LPDH</h1>
-            <p>Laporan Penggunaan Dana Harian SPPG</p>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">
+                <i class="bi bi-file-earmark-spreadsheet me-2"></i>
+                LPDH
+            </h4>
+            <p class="text-muted mb-0">
+                Laporan Penggunaan Dana Harian SPPG
+            </p>
         </div>
 
-        <a href="{{ route('lpdhs.create') }}"
-           class="btn btn-primary">
-            + Buat LPDH
+        <a href="{{ route('lpdhs.create') }}" class="btn btn-success">
+            <i class="bi bi-plus-circle me-1"></i>
+            Buat LPDH
         </a>
-
     </div>
-
 
     {{-- SUCCESS --}}
     @if(session('success'))
-
-        <div class="alert alert-success">
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>
             {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
-
     @endif
-
 
     {{-- ERROR --}}
     @if(session('error'))
-
-        <div class="alert alert-error">
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
             {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
-
     @endif
-
 
     {{-- VALIDATION ERROR --}}
     @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>
+                <i class="bi bi-exclamation-circle me-1"></i>
+                Terjadi kesalahan:
+            </strong>
 
-        <div class="alert alert-error">
-
-            <strong>Terjadi kesalahan:</strong>
-
-            <ul style="margin-bottom: 0;">
-
+            <ul class="mb-0 mt-2">
                 @foreach($errors->all() as $error)
-
                     <li>{{ $error }}</li>
-
                 @endforeach
-
             </ul>
 
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
-
     @endif
 
-
     {{-- DATA LPDH --}}
-    <div class="card">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-list-ul me-2"></i>
+                    Daftar Laporan Penggunaan Dana Harian
+                </h6>
 
-        <div class="card-header">
-            Daftar Laporan Penggunaan Dana Harian
+                <span class="badge bg-secondary">
+                    {{ $lpdhs->count() }} data
+                </span>
+            </div>
         </div>
 
-
         @if($lpdhs->count())
-
-            <div class="table-wrapper">
-
-                <table>
-
-                    <thead>
-
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
-
-                            <th style="width: 45px;">
-                                No
-                            </th>
-
-                            <th>
-                                SPPG
-                            </th>
-
-                            <th>
-                                Tanggal Pelayanan
-                            </th>
-
-                            <th>
-                                Status Hari
-                            </th>
-
-                            <th>
-                                Penerima Manfaat
-                            </th>
-
-                            <th>
-                                Belanja Bahan Baku
-                            </th>
-
-                            <th>
-                                Operasional
-                            </th>
-
-                            <th>
-                                Saldo Akhir VA
-                            </th>
-
-                            <th class="action-column"
-                                style="width: 150px;">
-                                Aksi
-                            </th>
-
+                            <th class="text-center" style="width: 55px;">No</th>
+                            <th>SPPG</th>
+                            <th class="text-center">Tanggal Pelayanan</th>
+                            <th class="text-center">Status Hari</th>
+                            <th class="text-end">Penerima Manfaat</th>
+                            <th class="text-end">Belanja Bahan Baku</th>
+                            <th class="text-end">Operasional</th>
+                            <th class="text-end">Saldo Akhir VA</th>
+                            <th class="text-center" style="min-width: 190px;">Aksi</th>
                         </tr>
-
                     </thead>
 
-
                     <tbody>
-
                         @foreach($lpdhs as $lpdh)
-
                             <tr>
-
+                                {{-- NOMOR --}}
                                 <td class="text-center">
                                     {{ $loop->iteration }}
                                 </td>
 
-
                                 {{-- SPPG --}}
                                 <td>
-
-                                    <span class="sppg-name">
+                                    <div class="fw-semibold">
                                         {{ $lpdh->kitchen?->name ?? '-' }}
-                                    </span>
+                                    </div>
 
-                                    <span class="sppg-id">
+                                    <small class="text-muted">
                                         ID SPPG:
                                         {{ $lpdh->kitchen?->id_sppg ?? '-' }}
-                                    </span>
-
+                                    </small>
                                 </td>
-
 
                                 {{-- TANGGAL --}}
-                                <td class="text-center">
-
+                                <td class="text-center text-nowrap">
                                     {{ $lpdh->service_date?->format('d/m/Y') ?? '-' }}
-
                                 </td>
-
 
                                 {{-- STATUS --}}
                                 <td class="text-center">
-
                                     @if($lpdh->day_status === 'Hari Pelayanan')
-
-                                        <span class="badge badge-success">
+                                        <span class="badge bg-success">
                                             Hari Pelayanan
                                         </span>
-
                                     @elseif($lpdh->day_status === 'Hari Libur')
-
-                                        <span class="badge badge-secondary">
+                                        <span class="badge bg-secondary">
                                             Hari Libur
                                         </span>
-
                                     @else
-
-                                        <span class="badge badge-info">
+                                        <span class="badge bg-info text-dark">
                                             {{ $lpdh->day_status ?? '-' }}
                                         </span>
-
                                     @endif
-
                                 </td>
 
-
-                                {{-- PENERIMA --}}
-                                <td class="text-right">
-
-                                    {{ number_format(
-                                        $lpdh->beneficiaries_count,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) }}
-
+                                {{-- PENERIMA MANFAAT --}}
+                                <td class="text-end text-nowrap">
+                                    {{ number_format((float) ($lpdh->beneficiaries_count ?? 0), 0, ',', '.') }}
                                 </td>
-
 
                                 {{-- BAHAN BAKU --}}
-                                <td class="text-right">
-
-                                    Rp
-                                    {{ number_format(
-                                        $lpdh->raw_material_expenses,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) }}
-
+                                <td class="text-end text-nowrap">
+                                    Rp {{ number_format((float) ($lpdh->raw_material_expenses ?? 0), 0, ',', '.') }}
                                 </td>
-
 
                                 {{-- OPERASIONAL --}}
-                                <td class="text-right">
-
-                                    Rp
-                                    {{ number_format(
-                                        $lpdh->operational_expenses,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) }}
-
+                                <td class="text-end text-nowrap">
+                                    Rp {{ number_format((float) ($lpdh->operational_expenses ?? 0), 0, ',', '.') }}
                                 </td>
-
 
                                 {{-- SALDO VA --}}
-                                <td class="text-right">
-
-                                    Rp
-                                    {{ number_format(
-                                        $lpdh->va_final_balance,
-                                        0,
-                                        ',',
-                                        '.'
-                                    ) }}
-
+                                <td class="text-end text-nowrap fw-semibold">
+                                    Rp {{ number_format((float) ($lpdh->va_final_balance ?? 0), 0, ',', '.') }}
                                 </td>
 
-
                                 {{-- AKSI --}}
-                                <td class="action-column">
-
-                                    <div class="action-buttons">
-
-                                        <a href="{{ route(
-                                            'lpdhs.show',
-                                            $lpdh->id
-                                        ) }}"
-                                           class="btn btn-info"
-                                           title="Lihat">
-
+                                <td>
+                                    <div class="d-flex justify-content-center flex-wrap gap-1">
+                                        <a
+                                            href="{{ route('lpdhs.show', $lpdh->id) }}"
+                                            class="btn btn-sm btn-info text-white"
+                                            title="Lihat LPDH"
+                                        >
+                                            <i class="bi bi-eye"></i>
                                             Lihat
-
                                         </a>
 
-
-                                        <a href="{{ route(
-                                            'lpdhs.edit',
-                                            $lpdh->id
-                                        ) }}"
-                                           class="btn btn-warning"
-                                           title="Edit">
-
+                                        <a
+                                            href="{{ route('lpdhs.edit', $lpdh->id) }}"
+                                            class="btn btn-sm btn-warning"
+                                            title="Edit LPDH"
+                                        >
+                                            <i class="bi bi-pencil-square"></i>
                                             Edit
-
                                         </a>
 
-
-                                        <form action="{{ route(
-                                            'lpdhs.destroy',
-                                            $lpdh->id
-                                        ) }}"
-                                              method="POST"
-                                              style="display:inline;"
-                                              onsubmit="return confirm(
-                                                  'Yakin ingin menghapus LPDH ini?'
-                                              );">
-
+                                        <form
+                                            action="{{ route('lpdhs.destroy', $lpdh->id) }}"
+                                            method="POST"
+                                            class="d-inline"
+                                            onsubmit="return confirm('Yakin ingin menghapus LPDH ini?')"
+                                        >
                                             @csrf
                                             @method('DELETE')
 
-                                            <button type="submit"
-                                                    class="btn btn-danger">
-
+                                            <button
+                                                type="submit"
+                                                class="btn btn-sm btn-danger"
+                                                title="Hapus LPDH"
+                                            >
+                                                <i class="bi bi-trash"></i>
                                                 Hapus
-
                                             </button>
-
                                         </form>
-
                                     </div>
-
                                 </td>
-
                             </tr>
-
                         @endforeach
-
                     </tbody>
-
                 </table>
-
             </div>
-
         @else
+            <div class="text-center py-5 px-3">
+                <i class="bi bi-file-earmark-x display-4 text-muted"></i>
 
-            <div class="empty">
-
-                <div class="empty-title">
+                <h6 class="fw-bold mt-3 mb-2">
                     Belum Ada LPDH
-                </div>
+                </h6>
 
-                <div>
+                <p class="text-muted mb-3">
                     Belum terdapat laporan penggunaan dana harian.
-                </div>
+                </p>
 
-                <br>
-
-                <a href="{{ route('lpdhs.create') }}"
-                   class="btn btn-primary">
-
-                    + Buat LPDH Pertama
-
+                <a href="{{ route('lpdhs.create') }}" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Buat LPDH Pertama
                 </a>
-
             </div>
-
         @endif
-
     </div>
-
 </div>
-
-</body>
-</html>
+@endsection

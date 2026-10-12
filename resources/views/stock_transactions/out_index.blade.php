@@ -1,561 +1,396 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Barang Keluar (OUT)</title>
+@extends('layouts.app')
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+@section('title', 'Barang Keluar (OUT) | Sistem SPPG')
 
-        body {
-            font-family: Arial, sans-serif;
-            margin: 30px;
-            background: #f8f9fa;
-            color: #333;
-        }
+@push('styles')
+<style>
+    .out-card {
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        margin-bottom: 24px;
+        overflow: hidden;
+        background: #fff;
+    }
 
-        .container {
-            max-width: 1200px;
-            margin: auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
-        }
+    .out-header {
+        background: #f8fafc;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e0e0e0;
+    }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
+    .out-header table {
+        width: 100%;
+        border-collapse: collapse;
+    }
 
-        h1 {
-            margin: 0;
-            font-size: 24px;
-        }
+    .out-header td {
+        padding: 7px;
+        vertical-align: top;
+    }
 
-        .btn {
-            display: inline-block;
-            padding: 8px 14px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 13px;
-            border: none;
-            cursor: pointer;
-            white-space: nowrap;
-            font-family: inherit;
-        }
+    .out-label {
+        font-weight: 600;
+        width: 145px;
+        color: #555;
+    }
 
-        .btn-back {
-            background: #6c757d;
-            color: white;
-        }
+    .out-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
 
-        .btn-back:hover {
-            background: #5c636a;
-        }
+    .out-detail-table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
 
-        .filter-box {
-            padding: 20px;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
+    .out-detail-table th,
+    .out-detail-table td {
+        border: 1px solid #dee2e6;
+        padding: 10px;
+        font-size: 13px;
+    }
 
-        .filter-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin: 0 0 15px;
-        }
+    .out-detail-table th {
+        background: #f8f9fa;
+        color: #495057;
+        white-space: nowrap;
+    }
 
-        .filter-grid {
-            display: grid;
-            grid-template-columns: 2fr 2fr 1fr 1fr;
-            gap: 12px;
-            align-items: end;
-        }
+    .out-detail-table td {
+        vertical-align: middle;
+    }
 
-        .form-group {
-            min-width: 0;
-        }
+    .out-text-center {
+        text-align: center;
+    }
 
-        .form-group label {
-            display: block;
-            font-weight: bold;
-            font-size: 13px;
-            margin-bottom: 7px;
-        }
+    .out-text-right {
+        text-align: right;
+        white-space: nowrap;
+    }
 
-        .form-control {
-            width: 100%;
-            height: 39px;
-            padding: 8px 10px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            background: #fff;
-            font-size: 13px;
-            color: #333;
-        }
+    .out-total {
+        font-weight: 700;
+        background: #f8f9fa;
+    }
 
-        .form-control:focus {
-            outline: none;
-            border-color: #86b7fe;
-            box-shadow: 0 0 0 3px rgba(13, 110, 253, .15);
-        }
+    .out-number {
+        color: #0d6efd;
+        font-weight: 700;
+    }
 
-        .filter-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 15px;
-        }
+    .out-badge {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        background: #f8d7da;
+        color: #842029;
+    }
 
-        .btn-filter {
-            background: #0d6efd;
-            color: #fff;
-        }
+    .out-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+    }
 
-        .btn-filter:hover {
-            background: #0b5ed7;
-        }
+    .out-actions form {
+        margin: 0;
+    }
 
-        .btn-reset {
-            background: #6c757d;
-            color: #fff;
-        }
+    .out-actions .btn {
+        font-size: 12px;
+    }
 
-        .btn-reset:hover {
-            background: #5c636a;
-        }
+    .out-filter {
+        background: #f8fafc;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+    }
 
-        .result-info {
-            font-size: 13px;
-            color: #666;
-            margin: 15px 0;
-        }
+    .out-empty {
+        padding: 45px 20px;
+        text-align: center;
+        color: #6c757d;
+    }
 
-        .alert {
-            padding: 12px 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
+    .out-empty i {
+        font-size: 38px;
+    }
 
-        .alert-success {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
+    .out-pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-top: 24px;
+    }
 
-        .alert-error {
-            background: #f8d7da;
-            color: #842029;
-        }
-
-        .out-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            overflow: hidden;
-            background: #fff;
-        }
-
+    @media (max-width: 767.98px) {
         .out-header {
-            background: #f1f3f5;
-            padding: 15px 20px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .out-header table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .out-header td {
-            padding: 7px;
-            vertical-align: top;
-        }
-
-        .label {
-            font-weight: bold;
-            width: 150px;
-            color: #555;
-        }
-
-        .table-wrapper {
-            width: 100%;
             overflow-x: auto;
         }
 
-        .detail-table {
-            width: 100%;
-            border-collapse: collapse;
+        .out-header table {
+            min-width: 600px;
         }
 
-        .detail-table th,
-        .detail-table td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            font-size: 13px;
+        .out-label {
+            width: 120px;
         }
 
-        .detail-table th {
-            background: #f8f9fa;
-            color: #495057;
-            white-space: nowrap;
+        .out-pagination {
+            flex-direction: column;
+            align-items: flex-start;
         }
+    }
+</style>
+@endpush
 
-        .text-center {
-            text-align: center;
-        }
-
-        .text-right {
-            text-align: right;
-            white-space: nowrap;
-        }
-
-        .total {
-            font-weight: bold;
-            background: #f8f9fa;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .badge-out {
-            background: #f8d7da;
-            color: #842029;
-        }
-
-        .empty {
-            text-align: center;
-            padding: 40px 15px;
-            color: #777;
-        }
-
-        .action-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .action-wrapper form {
-            margin: 0;
-        }
-
-        .btn-edit {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .btn-edit:hover {
-            background: #e0a800;
-        }
-
-        .btn-delete {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-delete:hover {
-            background: #bb2d3b;
-        }
-
-        .btn-invoice {
-            background: #fd7e14;
-            color: white;
-        }
-
-        .btn-invoice:hover {
-            background: #e96b02;
-        }
-
-        .btn-invoice-view {
-            background: #0d6efd;
-            color: white;
-        }
-
-        .btn-invoice-view:hover {
-            background: #0b5ed7;
-        }
-
-        .btn-nota {
-            background: #6f42c1;
-            color: white;
-        }
-
-        .btn-nota:hover {
-            background: #59359a;
-        }
-
-        .btn-nota-view {
-            background: #198754;
-            color: white;
-        }
-
-        .btn-nota-view:hover {
-            background: #157347;
-        }
-
-        .pagination-wrapper {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 25px;
-        }
-
-        .pagination-info {
-            color: #666;
-            font-size: 13px;
-        }
-
-        @media (max-width: 900px) {
-            .filter-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        @media (max-width: 600px) {
-            body {
-                margin: 10px;
-            }
-
-            .container {
-                padding: 15px;
-            }
-
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            h1 {
-                font-size: 21px;
-            }
-
-            .filter-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .out-header {
-                overflow-x: auto;
-            }
-
-            .out-header table {
-                min-width: 650px;
-            }
-
-            .pagination-wrapper {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-        }
-    </style>
-</head>
-
-<body>
-<div class="container">
+@section('content')
+<div class="container-fluid container-xl py-4 py-lg-5">
 
     {{-- HEADER --}}
-    <div class="header">
-        <h1>Barang Keluar (OUT)</h1>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="h4 fw-bold mb-1">
+                <i class="bi bi-box-arrow-up me-2 text-danger"></i>
+                Barang Keluar (OUT)
+            </h2>
+            <p class="text-muted small mb-0">
+                Riwayat pengeluaran barang berdasarkan Purchase Order dan dapur SPPG.
+            </p>
+        </div>
 
-        <a href="{{ route('purchase-orders.index') }}" class="btn btn-back">
-            ← Kembali
+        <a href="{{ route('purchase-orders.index') }}"
+            class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Kembali ke Purchase Order
         </a>
     </div>
 
     {{-- NOTIFIKASI --}}
     @if (session('success'))
-        <div class="alert alert-success">
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-1"></i>
             {{ session('success') }}
+
+            <button type="button" class="btn-close"
+                data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
     @endif
 
     @if (session('error'))
-        <div class="alert alert-error">
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i>
             {{ session('error') }}
+
+            <button type="button" class="btn-close"
+                data-bs-dismiss="alert" aria-label="Tutup"></button>
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Terjadi kesalahan:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+
+            <button type="button" class="btn-close"
+                data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
     @endif
 
     {{-- FILTER --}}
-    <div class="filter-box">
-        <h2 class="filter-title">Cari dan Filter Barang Keluar</h2>
+    <div class="card out-filter shadow-sm mb-4">
+        <div class="card-body p-3 p-md-4">
+            <h5 class="h6 fw-bold mb-3">
+                <i class="bi bi-funnel me-2 text-primary"></i>
+                Cari dan Filter Barang Keluar
+            </h5>
 
-        <form method="GET" action="{{ route('stock-transactions.out') }}">
-            <div class="filter-grid">
+            <form method="GET" action="{{ route('stock-transactions.out') }}">
+                <div class="row g-3">
 
-                {{-- PENCARIAN --}}
-                <div class="form-group">
-                    <label for="search">Pencarian</label>
-                    <input
-                        type="text"
-                        id="search"
-                        name="search"
-                        class="form-control"
-                        placeholder="Nomor OUT, nomor PO, kode SPPG, nama dapur..."
-                        value="{{ request('search') }}"
-                    >
+                    <div class="col-12 col-lg-5">
+                        <label for="search" class="form-label small fw-semibold">
+                            Pencarian
+                        </label>
+
+                        <input
+                            type="text"
+                            id="search"
+                            name="search"
+                            class="form-control"
+                            placeholder="Nomor OUT, nomor PO, kode SPPG, nama dapur..."
+                            value="{{ request('search') }}">
+                    </div>
+
+                    <div class="col-12 col-lg-3">
+                        <label for="kitchen_id" class="form-label small fw-semibold">
+                            Dapur / SPPG
+                        </label>
+
+                        <select name="kitchen_id" id="kitchen_id" class="form-select">
+                            <option value="">Semua Dapur / SPPG</option>
+
+                            @foreach ($kitchens as $kitchen)
+                                <option
+                                    value="{{ $kitchen->id }}"
+                                    {{ (string) request('kitchen_id') === (string) $kitchen->id ? 'selected' : '' }}>
+                                    {{ $kitchen->id_sppg ?? '-' }} -
+                                    {{ $kitchen->name ?? '-' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-lg-2">
+                        <label for="date_from" class="form-label small fw-semibold">
+                            Tanggal Mulai
+                        </label>
+
+                        <input
+                            type="date"
+                            id="date_from"
+                            name="date_from"
+                            class="form-control"
+                            value="{{ request('date_from') }}">
+                    </div>
+
+                    <div class="col-6 col-lg-2">
+                        <label for="date_to" class="form-label small fw-semibold">
+                            Tanggal Selesai
+                        </label>
+
+                        <input
+                            type="date"
+                            id="date_to"
+                            name="date_to"
+                            class="form-control"
+                            value="{{ request('date_to') }}">
+                    </div>
+
                 </div>
 
-                {{-- FILTER DAPUR --}}
-                <div class="form-group">
-                    <label for="kitchen_id">Dapur / SPPG</label>
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search me-1"></i>
+                        Terapkan Filter
+                    </button>
 
-                    <select
-                        name="kitchen_id"
-                        id="kitchen_id"
-                        class="form-control"
-                    >
-                        <option value="">Semua Dapur / SPPG</option>
-
-                        @foreach ($kitchens as $kitchen)
-                            <option
-                                value="{{ $kitchen->id }}"
-                                {{ (string) request('kitchen_id') === (string) $kitchen->id ? 'selected' : '' }}
-                            >
-                                {{ $kitchen->id_sppg ?? '-' }} - {{ $kitchen->name ?? '-' }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <a href="{{ route('stock-transactions.out') }}"
+                        class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>
+                        Reset Filter
+                    </a>
                 </div>
-
-                {{-- TANGGAL MULAI --}}
-                <div class="form-group">
-                    <label for="date_from">Tanggal Mulai</label>
-                    <input
-                        type="date"
-                        id="date_from"
-                        name="date_from"
-                        class="form-control"
-                        value="{{ request('date_from') }}"
-                    >
-                </div>
-
-                {{-- TANGGAL SELESAI --}}
-                <div class="form-group">
-                    <label for="date_to">Tanggal Selesai</label>
-                    <input
-                        type="date"
-                        id="date_to"
-                        name="date_to"
-                        class="form-control"
-                        value="{{ request('date_to') }}"
-                    >
-                </div>
-
-            </div>
-
-            <div class="filter-actions">
-                <button type="submit" class="btn btn-filter">
-                    🔎 Terapkan Filter
-                </button>
-
-                <a
-                    href="{{ route('stock-transactions.out') }}"
-                    class="btn btn-reset"
-                >
-                    ↻ Reset Filter
-                </a>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 
     {{-- INFORMASI HASIL --}}
-    <div class="result-info">
-        @if ($transactions->total() > 0)
-            Menampilkan {{ $transactions->firstItem() }}
-            - {{ $transactions->lastItem() }}
-            dari {{ $transactions->total() }} transaksi Barang Keluar.
-        @else
-            Tidak ada transaksi yang sesuai dengan filter.
-        @endif
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="text-muted small">
+            Menampilkan
+            <strong>{{ $transactions->firstItem() ?? 0 }}</strong>
+            sampai
+            <strong>{{ $transactions->lastItem() ?? 0 }}</strong>
+            dari
+            <strong>{{ $transactions->total() }}</strong>
+            transaksi Barang Keluar
+        </div>
+
+        <span class="badge bg-secondary-subtle text-secondary border">
+            {{ $transactions->count() }} transaksi pada halaman ini
+        </span>
     </div>
 
     {{-- DAFTAR TRANSAKSI --}}
     @forelse ($transactions as $transaction)
-        <div class="out-card">
+        <div class="out-card shadow-sm">
 
             {{-- INFORMASI TRANSAKSI --}}
             <div class="out-header">
                 <table>
                     <tbody>
                         <tr>
-                            <td class="label">No. OUT</td>
+                            <td class="out-label">No. OUT</td>
                             <td>
-                                <strong>
+                                <strong class="out-number">
                                     {{ $transaction->transaction_number }}
                                 </strong>
                             </td>
 
-                            <td class="label">Tanggal</td>
+                            <td class="out-label">Tanggal</td>
                             <td>
                                 {{ $transaction->transaction_date
-                                    ? \Carbon\Carbon::parse($transaction->transaction_date)->format('d-m-Y')
+                                    ? \Illuminate\Support\Carbon::parse($transaction->transaction_date)->format('d-m-Y')
                                     : '-' }}
                             </td>
                         </tr>
 
                         <tr>
-                            <td class="label">No. PO</td>
+                            <td class="out-label">No. PO</td>
                             <td>
                                 {{ $transaction->purchaseOrder?->po_number ?? '-' }}
                             </td>
 
-                            <td class="label">Status</td>
+                            <td class="out-label">Jenis Transaksi</td>
                             <td>
-                                <span class="badge badge-out">
-                                    BARANG KELUAR
-                                </span>
+                                <span class="out-badge">BARANG KELUAR</span>
                             </td>
                         </tr>
 
                         <tr>
-                            <td class="label">SPPG / Dapur</td>
+                            <td class="out-label">SPPG / Dapur</td>
                             <td colspan="3">
-                                {{ $transaction->kitchen?->id_sppg ?? '-' }}
+                                <strong>{{ $transaction->kitchen?->id_sppg ?? '-' }}</strong>
                                 - {{ $transaction->kitchen?->name ?? '-' }}
                             </td>
                         </tr>
 
+                        @if ($transaction->notes)
+                            <tr>
+                                <td class="out-label">Catatan</td>
+                                <td colspan="3">{{ $transaction->notes }}</td>
+                            </tr>
+                        @endif
+
                         {{-- AKSI --}}
                         <tr>
-                            <td class="label">Aksi</td>
+                            <td class="out-label">Aksi</td>
                             <td colspan="3">
-                                <div class="action-wrapper">
+                                <div class="out-actions">
 
                                     {{-- EDIT --}}
                                     <a
                                         href="{{ route('stock-transactions.edit', $transaction->id) }}"
-                                        class="btn btn-edit"
-                                    >
-                                        ✏️ Edit Barang Keluar
+                                        class="btn btn-sm btn-warning">
+                                        <i class="bi bi-pencil-square me-1"></i>
+                                        Edit
                                     </a>
 
                                     {{-- HAPUS --}}
                                     <form
                                         action="{{ route('stock-transactions.destroy', $transaction->id) }}"
                                         method="POST"
-                                        onsubmit="return confirm('Yakin ingin menghapus transaksi {{ $transaction->transaction_number }}? Pastikan dampak penghapusan terhadap stok, invoice, dan nota sudah diperiksa.');"
-                                    >
+                                        onsubmit="return confirm('Yakin ingin menghapus transaksi {{ $transaction->transaction_number }}? Pastikan dampaknya terhadap stok, Invoice, dan Nota sudah diperiksa.');">
                                         @csrf
                                         @method('DELETE')
 
-                                        <button type="submit" class="btn btn-delete">
-                                            🗑️ Hapus
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash me-1"></i>
+                                            Hapus
                                         </button>
                                     </form>
 
@@ -563,51 +398,32 @@
                                     @if ($transaction->invoice)
                                         <a
                                             href="{{ route('invoices.show', $transaction->invoice->id) }}"
-                                            class="btn btn-invoice-view"
-                                        >
-                                            👁 Lihat Invoice
+                                            class="btn btn-sm btn-primary">
+                                            <i class="bi bi-receipt me-1"></i>
+                                            Lihat Invoice
                                         </a>
                                     @else
                                         <form
                                             action="{{ route('stock-transactions.create-invoice', $transaction->id) }}"
                                             method="POST"
-                                            onsubmit="return confirm('Buat Invoice otomatis dari transaksi OUT ini?');"
-                                        >
+                                            onsubmit="return confirm('Buat Invoice otomatis dari transaksi OUT ini?');">
                                             @csrf
 
-                                            <button type="submit" class="btn btn-invoice">
-                                                🧾 Buat Invoice
+                                            <button type="submit" class="btn btn-sm btn-warning">
+                                                <i class="bi bi-file-earmark-plus me-1"></i>
+                                                Buat Invoice
                                             </button>
                                         </form>
                                     @endif
 
                                     {{-- NOTA KELUAR --}}
-                                    @if ($transaction->notaKeluars->isNotEmpty())
-                                        @php
-                                            $notaList = $transaction->notaKeluars->values();
-                                        @endphp
-
-                                        @foreach ($notaList as $notaIndex => $nota)
-                                            @php
-                                                $supplierNotes = $notaList
-                                                    ->where('supplier_id', $nota->supplier_id)
-                                                    ->values();
-
-                                                $notaNumber = $supplierNotes->search(
-                                                    fn ($item) => (int) $item->id === (int) $nota->id
-                                                );
-
-                                                $notaNumber = $notaNumber === false
-                                                    ? 1
-                                                    : $notaNumber + 1;
-                                            @endphp
-
+                                    @if ($transaction->notaKeluars && $transaction->notaKeluars->isNotEmpty())
+                                        @foreach ($transaction->notaKeluars as $nota)
                                             <a
                                                 href="{{ route('nota-keluars.show', $nota->id) }}"
-                                                class="btn btn-nota-view"
-                                            >
-                                                <i class="bi bi-eye"></i>
-                                                Nota {{ $notaNumber }}
+                                                class="btn btn-sm btn-success">
+                                                <i class="bi bi-file-earmark-text me-1"></i>
+                                                Nota
                                                 @if ($nota->supplier?->name)
                                                     - {{ $nota->supplier->name }}
                                                 @endif
@@ -617,12 +433,12 @@
                                         <form
                                             action="{{ route('stock-transactions.create-nota', $transaction->id) }}"
                                             method="POST"
-                                            onsubmit="return confirm('Buat Nota Keluar berdasarkan supplier dari transaksi OUT ini?');"
-                                        >
+                                            onsubmit="return confirm('Buat Nota Keluar berdasarkan supplier dari transaksi OUT ini?');">
                                             @csrf
 
-                                            <button type="submit" class="btn btn-nota">
-                                                📝 Buat Nota
+                                            <button type="submit" class="btn btn-sm btn-secondary">
+                                                <i class="bi bi-file-earmark-plus me-1"></i>
+                                                Buat Nota
                                             </button>
                                         </form>
                                     @endif
@@ -630,79 +446,59 @@
                                 </div>
                             </td>
                         </tr>
-
-                        @if ($transaction->notes)
-                            <tr>
-                                <td class="label">Catatan</td>
-                                <td colspan="3">
-                                    {{ $transaction->notes }}
-                                </td>
-                            </tr>
-                        @endif
                     </tbody>
                 </table>
             </div>
 
             {{-- DETAIL BARANG --}}
-            <div class="table-wrapper">
-                <table class="detail-table">
+            <div class="out-table-wrapper">
+                <table class="out-detail-table">
                     <thead>
                         <tr>
-                            <th width="50">No</th>
+                            <th width="50" class="out-text-center">No</th>
                             <th>Kode Barang</th>
                             <th>Nama Barang</th>
-                            <th width="100">Qty</th>
-                            <th width="100">Satuan</th>
-                            <th width="140">Harga</th>
-                            <th width="160">Jumlah</th>
+                            <th width="100" class="out-text-right">Qty</th>
+                            <th width="100" class="out-text-center">Satuan</th>
+                            <th width="140" class="out-text-right">Harga</th>
+                            <th width="160" class="out-text-right">Jumlah</th>
                         </tr>
                     </thead>
 
                     <tbody>
                         @forelse ($transaction->details as $index => $detail)
                             <tr>
-                                <td class="text-center">
-                                    {{ $index + 1 }}
-                                </td>
+                                <td class="out-text-center">{{ $index + 1 }}</td>
+                                <td>{{ $detail->item?->code ?? '-' }}</td>
+                                <td>{{ $detail->item?->name ?? '-' }}</td>
 
-                                <td>
-                                    {{ $detail->item?->code ?? '-' }}
-                                </td>
-
-                                <td>
-                                    {{ $detail->item?->name ?? '-' }}
-                                </td>
-
-                                <td class="text-right">
+                                <td class="out-text-right">
                                     {{ rtrim(rtrim(number_format((float) $detail->quantity, 2, ',', '.'), '0'), ',') }}
                                 </td>
 
-                                <td class="text-center">
+                                <td class="out-text-center">
                                     {{ $detail->unit ?? '-' }}
                                 </td>
 
-                                <td class="text-right">
+                                <td class="out-text-right">
                                     Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}
                                 </td>
 
-                                <td class="text-right">
+                                <td class="out-text-right">
                                     Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="empty">
+                                <td colspan="7" class="out-empty">
                                     Tidak ada detail barang.
                                 </td>
                             </tr>
                         @endforelse
 
-                        <tr class="total">
-                            <td colspan="6" class="text-right">
-                                Total
-                            </td>
-
-                            <td class="text-right">
+                        <tr class="out-total">
+                            <td colspan="6" class="out-text-right">Total</td>
+                            <td class="out-text-right">
                                 Rp {{ number_format((float) $transaction->details->sum('subtotal'), 0, ',', '.') }}
                             </td>
                         </tr>
@@ -712,25 +508,35 @@
 
         </div>
     @empty
-        <div class="empty">
-            Belum ada transaksi Barang Keluar (OUT) yang sesuai dengan pencarian atau filter.
+        <div class="card border-0 shadow-sm">
+            <div class="out-empty">
+                <i class="bi bi-inbox d-block mb-3"></i>
+                <h5 class="fw-semibold">Belum Ada Transaksi Barang Keluar</h5>
+                <p class="mb-3">
+                    Tidak ada transaksi yang cocok dengan pencarian atau filter.
+                </p>
+                <a href="{{ route('purchase-orders.index') }}"
+                    class="btn btn-primary">
+                    <i class="bi bi-cart-check me-1"></i>
+                    Buka Purchase Order
+                </a>
+            </div>
         </div>
     @endforelse
 
     {{-- PAGINATION --}}
     @if ($transactions->hasPages())
-        <div class="pagination-wrapper">
-            <div class="pagination-info">
+        <div class="out-pagination">
+            <div class="text-muted small">
                 Halaman {{ $transactions->currentPage() }}
                 dari {{ $transactions->lastPage() }}
             </div>
 
             <div>
-                {{ $transactions->onEachSide(1)->links() }}
+                {{ $transactions->withQueryString()->links('pagination::bootstrap-5') }}
             </div>
         </div>
     @endif
 
 </div>
-</body>
-</html>
+@endsection

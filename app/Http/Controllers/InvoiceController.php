@@ -21,17 +21,52 @@ class InvoiceController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function index()
+    public function index(Request $request)
     {
-        $invoices = Invoice::with([
+        $query = Invoice::with([
             'stockTransaction',
             'purchaseOrder',
             'kitchen',
             'details.item',
             'details.supplier',
-        ])
-            ->latest()
-            ->get();
+        ])->latest();
+
+        // Pencarian nomor Invoice atau nama dapur.
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                    ->orWhereHas('kitchen', function ($kitchenQuery) use ($search) {
+                        $kitchenQuery->where(
+                            'name',
+                            'like',
+                            "%{$search}%"
+                        );
+                    });
+            });
+        }
+
+        // Filter tanggal awal.
+        if ($request->filled('date_from')) {
+            $query->whereDate(
+                'invoice_date',
+                '>=',
+                $request->date_from
+            );
+        }
+
+        // Filter tanggal akhir.
+        if ($request->filled('date_to')) {
+            $query->whereDate(
+                'invoice_date',
+                '<=',
+                $request->date_to
+            );
+        }
+
+        // Maksimal 15 Invoice per halaman.
+        $invoices = $query->paginate(15)->withQueryString();
 
         return view('invoices.index', compact('invoices'));
     }

@@ -798,97 +798,307 @@ class StockTransactionController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function destroy($id)
-    {
-        try {
-            DB::transaction(function () use ($id) {
-                $transaction = StockTransaction::with('details')
-                    ->lockForUpdate()
-                    ->findOrFail($id);
+public function destroy($id)
+{
+    try {
+        DB::transaction(function () use ($id) {
+            $transaction = StockTransaction::with([
+                'details',
+                'purchaseOrder',
+            ])
+                ->lockForUpdate()
+                ->findOrFail($id);
 
-                $hasInvoice = Invoice::where(
-                    'stock_transaction_id',
-                    $transaction->id
-                )->exists();
+            /*
+            |--------------------------------------------------------------------------
+            | 1. Ambil data Invoice dan Nota terkait
+            |--------------------------------------------------------------------------
+            */
 
-                if ($hasInvoice) {
+            $invoice = Invoice::where(
+                'stock_transaction_id',
+                $transaction->id
+            )
+                ->lockForUpdate()
+                ->first();
+
+            $notaQuery = \App\Models\NotaKeluar::where(
+                'stock_transaction_id',
+                $transaction->id
+            );
+
+            $notaIds = $notaQuery->pluck('id')->all();
+
+            /*
+            |--------------------------------------------------------------------------
+            | 2. Kunci dan ambil stok barang terkait
+            |--------------------------------------------------------------------------
+            */
+
+            $itemIds = $transaction->details
+                ->pluck('item_id')
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values();
+
+            $stocks = Stock::whereIn('item_id', $itemIds)
+                ->orderBy('item_id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('item_id');
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3. Validasi sebelum menghapus
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($transaction->details as $detail) {
+                if (!$detail->item_id) {
+                    continue;
+                }
+
+                $stock = $stocks->get($detail->item_id);
+
+                if (!$stock && $transaction->type === 'IN') {
                     throw ValidationException::withMessages([
                         'transaction' =>
-                            'Transaksi tidak dapat dihapus karena masih terhubung dengan Invoice. Tangani Invoice terkait terlebih dahulu.',
+                            'Transaksi tidak dapat dihapus karena data stok barang masuk tidak ditemukan.',
                     ]);
                 }
 
-                $itemIds = $transaction->details
-                    ->pluck('item_id')
-                    ->unique()
-                    ->sort()
-                    ->values();
+                /*
+                 * Barang masuk:
+                 * stok dikurangi karena barang masuk dibatalkan.
+                 *
+                 * Barang keluar:
+                 * stok ditambah karena barang keluar dibatalkan.
+                 */
+                if (
+                    $transaction->type === 'IN'
+                    && (float) $stock->quantity < (float) $detail->quantity
+                ) {
+                    throw ValidationException::withMessages([
+                        'transaction' =>
+                            'Stok tidak mencukupi untuk membatalkan transaksi barang masuk. Periksa transaksi stok terkait terlebih dahulu.',
+                    ]);
+                }
+            }
 
-                $stocks = Stock::whereIn('item_id', $itemIds)
-                    ->orderBy('item_id')
-                    ->lockForUpdate()
-                    ->get()
-                    ->keyBy('item_id');
+            /*
+            |--------------------------------------------------------------------------
+            | 4. Hapus alokasi Nota-Invoice
+            |--------------------------------------------------------------------------
+            | Tabel invoice_nota_allocations menggunakan kolom:
+            | - nota_keluar_id
+            | - invoice_detail_id
+            |
+            | Tabel tersebut TIDAK memiliki kolom invoice_id.
+            */
 
-                foreach ($transaction->details as $detail) {
-                    $stock = $stocks->get($detail->item_id);
+            if (\Illuminate\Support\Facades\Schema::hasTable('invoice_nota_allocations')) {
 
-                    if (!$stock) {
-                        if ($transaction->type === 'IN') {
-                            throw ValidationException::withMessages([
-                                'items' =>
-                                    'Stok barang tidak ditemukan; transaksi tidak dapat dihapus.',
-                            ]);
-                        }
+                $allocationQuery = DB::table('invoice_nota_allocations');
 
-                        $stock = Stock::create([
-                            'item_id' => $detail->item_id,
-                            'quantity' => 0,
-                        ]);
+                $hasAllocation = false;
 
-                        $stocks->put($detail->item_id, $stock);
-                    }
-
-                    if ($transaction->type === 'IN') {
-                        $remaining = (float) $stock->quantity
-                            - (float) $detail->quantity;
-
-                        if ($remaining < 0) {
-                            throw ValidationException::withMessages([
-                                'items' =>
-                                    'Stok saat ini tidak cukup untuk membatalkan barang masuk. Periksa transaksi stok terkait terlebih dahulu.',
-                            ]);
-                        }
-
-                        $stock->quantity = $remaining;
-                    } else {
-                        $stock->quantity = (float) $stock->quantity
-                            + (float) $detail->quantity;
-                    }
-
-                    $stock->save();
+                // Hapus alokasi yang terhubung ke Nota milik transaksi ini.
+                if (!empty($notaIds)) {
+                    $allocationQuery->whereIn('nota_keluar_id', $notaIds);
+                    $hasAllocation = true;
                 }
 
-                $transaction->details()->delete();
-                $transaction->delete();
-            });
+                // Hapus alokasi yang terhubung ke detail Invoice milik transaksi ini.
+                if ($invoice) {
+                    $invoiceDetailIds = DB::table('invoice_details')
+                        ->where('invoice_id', $invoice->id)
+                        ->pluck('id')
+                        ->all();
 
-            return redirect()
-                ->back()
-                ->with('success', 'Transaksi berhasil dihapus.');
+                    if (!empty($invoiceDetailIds)) {
+                        if ($hasAllocation) {
+                            $allocationQuery->orWhereIn(
+                                'invoice_detail_id',
+                                $invoiceDetailIds
+                            );
+                        } else {
+                            $allocationQuery->whereIn(
+                                'invoice_detail_id',
+                                $invoiceDetailIds
+                            );
+                        }
 
-        } catch (ValidationException $e) {
-            throw $e;
+                        $hasAllocation = true;
+                    }
+                }
 
-        } catch (\Throwable $e) {
-            report($e);
+                if ($hasAllocation) {
+                    $allocationQuery->delete();
+                }
+            }        
 
-            return redirect()
-                ->back()
-                ->with(
-                    'error',
-                    'Transaksi gagal dihapus. Periksa apakah transaksi masih terhubung dengan Invoice, Nota Keluar, atau data lain.'
-                );
-        }
+            /*
+            |--------------------------------------------------------------------------
+            | 5. Hapus detail Nota jika tabelnya tersedia
+            |--------------------------------------------------------------------------
+            */
+
+            if ($notaIds) {
+                foreach ([
+                    'nota_keluar_details',
+                    'nota_keluar_items',
+                ] as $detailTable) {
+                    if (
+                        \Illuminate\Support\Facades\Schema::hasTable(
+                            $detailTable
+                        )
+                        && \Illuminate\Support\Facades\Schema::hasColumn(
+                            $detailTable,
+                            'nota_keluar_id'
+                        )
+                    ) {
+                        DB::table($detailTable)
+                            ->whereIn('nota_keluar_id', $notaIds)
+                            ->delete();
+                    }
+                }
+
+                /*
+                 * Hapus Nota yang hanya terkait transaksi ini.
+                 */
+                \App\Models\NotaKeluar::where(
+                    'stock_transaction_id',
+                    $transaction->id
+                )->delete();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 6. Hapus detail Invoice dan Invoice terkait
+            |--------------------------------------------------------------------------
+            */
+
+            if ($invoice) {
+                $invoiceId = $invoice->id;
+
+                if (
+                    \Illuminate\Support\Facades\Schema::hasTable(
+                        'invoice_details'
+                    )
+                ) {
+                    DB::table('invoice_details')
+                        ->where('invoice_id', $invoiceId)
+                        ->delete();
+                }
+
+                $invoice->delete();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 7. Pulihkan stok
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($transaction->details as $detail) {
+                if (!$detail->item_id) {
+                    continue;
+                }
+
+                $stock = $stocks->get($detail->item_id);
+
+                if (!$stock) {
+                    $stock = Stock::create([
+                        'item_id' => $detail->item_id,
+                        'quantity' => 0,
+                    ]);
+
+                    $stocks->put($detail->item_id, $stock);
+                }
+
+                if ($transaction->type === 'IN') {
+                    $stock->quantity = (float) $stock->quantity
+                        - (float) $detail->quantity;
+                } else {
+                    $stock->quantity = (float) $stock->quantity
+                        + (float) $detail->quantity;
+                }
+
+                $stock->save();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 8. Simpan ID PO sebelum transaksi dihapus
+            |--------------------------------------------------------------------------
+            */
+
+            $purchaseOrderId = $transaction->purchase_order_id;
+
+            /*
+            |--------------------------------------------------------------------------
+            | 9. Hapus detail dan transaksi
+            |--------------------------------------------------------------------------
+            */
+
+            $transaction->details()->delete();
+            $transaction->delete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | 10. Kembalikan status PO jika kolom tersedia
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $purchaseOrderId
+                && \Illuminate\Support\Facades\Schema::hasTable(
+                    'purchase_orders'
+                )
+                && \Illuminate\Support\Facades\Schema::hasColumn(
+                    'purchase_orders',
+                    'status'
+                )
+            ) {
+                $poUpdate = [
+                    'status' => 'RECEIVED',
+                ];
+
+                if (
+                    \Illuminate\Support\Facades\Schema::hasColumn(
+                        'purchase_orders',
+                        'processed_at'
+                    )
+                ) {
+                    $poUpdate['processed_at'] = null;
+                }
+
+                DB::table('purchase_orders')
+                    ->where('id', $purchaseOrderId)
+                    ->update($poUpdate);
+            }
+        });
+
+        return redirect()
+            ->route('stock-transactions.out')
+            ->with(
+                'success',
+                'Transaksi Barang Keluar beserta Invoice dan Nota terkait berhasil dihapus. Stok telah disesuaikan.'
+            );
+
+    } catch (ValidationException $e) {
+        throw $e;
+
+    } catch (\Throwable $e) {
+        report($e);
+
+        return redirect()
+            ->back()
+            ->with(
+                'error',
+                'Transaksi gagal dihapus. Periksa detail error pada log Laravel di storage/logs/laravel.log.'
+            );
     }
+}
 }

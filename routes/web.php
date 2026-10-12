@@ -21,8 +21,12 @@ use App\Http\Controllers\LPDHController;
 */
 
 Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+    return redirect()->route('dashboard');
+});
+
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->name('dashboard');
 
 
 /*
@@ -156,7 +160,7 @@ Route::put(
 
 // Hapus Barang Keluar
 Route::delete(
-    '/stock-transactions/{stockTransaction}',
+    '/stock-transactions/{id}',
     [StockTransactionController::class, 'destroy']
 )->name('stock-transactions.destroy');
 

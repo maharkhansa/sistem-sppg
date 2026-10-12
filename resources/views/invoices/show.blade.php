@@ -467,13 +467,13 @@
 
         {{-- TOMBOL AKSI --}}
         <div class="top-actions">
-            <a href="{{ route('stock-transactions.out') }}" class="btn btn-back">
-                ← Kembali ke Barang Keluar
+            <a href="{{ route('invoices.index') }}" class="btn btn-back">
+                ← Kembali ke Daftar Invoice
             </a>
 
             <div class="action-buttons">
                 <a href="{{ route('invoices.nota-allocation', $invoice->id) }}"
-                   class="btn btn-manage-nota">
+                class="btn btn-manage-nota">
                     📋 Kelola Pembagian Nota
                 </a>
 
