@@ -99,7 +99,7 @@
         .supplier-info {
             flex: 1;
             padding-left: 12px;
-            padding-top: 15px;
+            padding-top: 1px;
         }
 
         .supplier-name {
