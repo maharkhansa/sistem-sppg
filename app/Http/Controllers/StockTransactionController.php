@@ -8,8 +8,10 @@ use App\Models\StockTransaction;
 use App\Models\Supplier;
 use App\Models\Kitchen;
 use App\Models\Invoice;
+use App\Models\NotaKeluar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -66,14 +68,34 @@ class StockTransactionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'supplier_id' => [
+            'purchase_note_number' => [
                 'required',
-                'integer',
-                'exists:suppliers,id',
+                'string',
+                'max:100',
+            ],
+            'vendor_name' => [
+                'required',
+                'string',
+                'max:150',
             ],
             'transaction_date' => [
                 'required',
                 'date',
+            ],
+            'porter_cost' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+            'purchase_discount_type' => [
+                'nullable',
+                'in:amount,percent',
+            ],
+            'purchase_discount_value' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
             ],
             'notes' => [
                 'nullable',
@@ -97,6 +119,11 @@ class StockTransactionController extends Controller
                 'min:0',
             ],
             'items.*.unit_price' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+            'items.*.discount' => [
                 'nullable',
                 'numeric',
                 'min:0',
@@ -107,73 +134,111 @@ class StockTransactionController extends Controller
                 'max:50',
             ],
         ], [
-            'supplier_id.required' => 'Supplier wajib dipilih.',
-            'supplier_id.exists' => 'Supplier tidak ditemukan.',
-            'transaction_date.required' => 'Tanggal barang masuk wajib diisi.',
-            'items.required' => 'Minimal satu barang harus dipilih.',
-            'items.min' => 'Minimal satu barang harus dipilih.',
-            'items.*.item_id.required' => 'Barang wajib dipilih.',
+            'purchase_note_number.required' =>
+                'Nomor nota pembelian wajib diisi.',
+            'vendor_name.required' =>
+                'Nama vendor wajib diisi.',
+            'transaction_date.required' =>
+                'Tanggal pembelian wajib diisi.',
+            'porter_cost.numeric' =>
+                'Biaya kuli harus berupa angka.',
+            'porter_cost.min' =>
+                'Biaya kuli tidak boleh negatif.',
+            'purchase_discount_type.required' =>
+                'Jenis diskon tambahan nota wajib dipilih.',
+            'purchase_discount_type.in' =>
+                'Jenis diskon tambahan nota tidak valid.',
+            'purchase_discount_value.required' =>
+                'Nilai diskon tambahan nota wajib diisi.',
+            'purchase_discount_value.numeric' =>
+                'Nilai diskon tambahan nota harus berupa angka.',
+            'purchase_discount_value.min' =>
+                'Diskon tambahan nota tidak boleh negatif.',
+            'items.required' =>
+                'Tambahkan minimal satu barang.',
+            'items.min' =>
+                'Tambahkan minimal satu barang.',
             'items.*.item_id.distinct' =>
-                'Barang yang sama tidak boleh ditambahkan lebih dari satu kali.',
-            'items.*.quantity.required' => 'Jumlah barang wajib diisi.',
-            'items.*.quantity.numeric' => 'Jumlah barang harus berupa angka.',
-            'items.*.quantity.min' => 'Jumlah barang tidak boleh negatif.',
-            'items.*.unit_price.numeric' => 'Harga satuan harus berupa angka.',
-            'items.*.unit_price.min' => 'Harga satuan tidak boleh negatif.',
+                'Barang yang sama tidak boleh ditambahkan dua kali.',
+            'items.*.quantity.required' =>
+                'Jumlah barang wajib diisi.',
+            'items.*.quantity.min' =>
+                'Jumlah barang tidak boleh negatif.',
+            'items.*.unit_price.required' =>
+                'Harga satuan wajib diisi.',
+            'items.*.unit_price.min' =>
+                'Harga satuan tidak boleh negatif.',
+            'items.*.discount.min' =>
+                'Diskon barang tidak boleh negatif.',
         ]);
 
         $itemsData = collect($validated['items'])
-            ->filter(fn ($row) => (float) ($row['quantity'] ?? 0) > 0)
+            ->filter(
+                fn ($row) => (float) ($row['quantity'] ?? 0) > 0
+            )
             ->values();
 
         if ($itemsData->isEmpty()) {
             throw ValidationException::withMessages([
-                'items' => 'Isi jumlah minimal satu barang yang benar-benar masuk.',
+                'items' =>
+                    'Isi jumlah minimal satu barang yang benar-benar masuk.',
             ]);
         }
 
-        $supplierId = (int) $validated['supplier_id'];
+        $porterCost = round(
+            (float) ($validated['porter_cost'] ?? 0),
+            2
+        );
+
+        $purchaseDiscountType =
+            $validated['purchase_discount_type'] ?? 'amount';
+
+        $purchaseDiscountValue = round(
+            (float) ($validated['purchase_discount_value'] ?? 0),
+            2
+        );
+
+        if (
+            $purchaseDiscountType === 'percent'
+            && $purchaseDiscountValue > 100
+        ) {
+            throw ValidationException::withMessages([
+                'purchase_discount_value' =>
+                    'Diskon persentase tidak boleh lebih dari 100%.',
+            ]);
+        }
 
         DB::transaction(function () use (
             $validated,
             $itemsData,
-            $supplierId
+            $porterCost,
+            $purchaseDiscountType,
+            $purchaseDiscountValue
         ) {
             $itemIds = $itemsData
                 ->pluck('item_id')
                 ->map(fn ($id) => (int) $id)
                 ->unique()
+                ->sort()
                 ->values();
 
             $items = Item::whereIn('id', $itemIds)
                 ->orderBy('id')
+                ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
 
-            foreach ($itemsData as $row) {
-                $item = $items->get((int) $row['item_id']);
+            $stockItemIds = $items
+                ->filter(fn ($item) => $item->track_stock)
+                ->keys();
 
-                if (!$item) {
-                    throw ValidationException::withMessages([
-                        'items' => 'Barang tidak ditemukan.',
-                    ]);
-                }
-
-                if ((int) $item->supplier_id !== $supplierId) {
-                    throw ValidationException::withMessages([
-                        'items' => 'Barang "' . $item->name .
-                            '" tidak sesuai dengan supplier yang dipilih.',
-                    ]);
-                }
-            }
-
-            $stocks = Stock::whereIn('item_id', $itemIds)
+            $stocks = Stock::whereIn('item_id', $stockItemIds)
                 ->orderBy('item_id')
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('item_id');
 
-            foreach ($itemIds as $itemId) {
+            foreach ($stockItemIds as $itemId) {
                 if (!$stocks->has($itemId)) {
                     $stock = Stock::create([
                         'item_id' => $itemId,
@@ -185,9 +250,10 @@ class StockTransactionController extends Controller
             }
 
             do {
-                $transactionNumber = 'IN-' .
-                    now()->format('YmdHis') . '-' .
-                    Str::upper(Str::random(4));
+                $transactionNumber = 'IN-'
+                    . now()->format('YmdHis')
+                    . '-'
+                    . Str::upper(Str::random(4));
             } while (
                 StockTransaction::where(
                     'transaction_number',
@@ -198,7 +264,14 @@ class StockTransactionController extends Controller
             $transaction = StockTransaction::create([
                 'transaction_number' => $transactionNumber,
                 'type' => 'IN',
-                'supplier_id' => $supplierId,
+                'supplier_id' => null,
+                'vendor_name' => trim($validated['vendor_name']),
+                'purchase_note_number' => trim(
+                    $validated['purchase_note_number']
+                ),
+                'porter_cost' => $porterCost,
+                'purchase_discount_type' => $purchaseDiscountType,
+                'purchase_discount_value' => $purchaseDiscountValue,
                 'transaction_date' => $validated['transaction_date'],
                 'notes' => $validated['notes'] ?? null,
                 'created_by' => auth()->id() ?? 1,
@@ -207,19 +280,34 @@ class StockTransactionController extends Controller
             foreach ($itemsData as $row) {
                 $itemId = (int) $row['item_id'];
                 $item = $items->get($itemId);
-                $quantity = (float) $row['quantity'];
 
-                $unitPrice = (
-                    isset($row['unit_price']) &&
-                    $row['unit_price'] !== '' &&
-                    $row['unit_price'] !== null
-                )
-                    ? (float) $row['unit_price']
-                    : (float) ($item->price ?? 0);
-
-                if ($unitPrice < 0) {
+                if (!$item) {
                     throw ValidationException::withMessages([
-                        'items' => 'Harga barang tidak boleh negatif.',
+                        'items' => 'Barang tidak ditemukan.',
+                    ]);
+                }
+
+                $quantity = (float) $row['quantity'];
+                $unitPrice = (float) $row['unit_price'];
+                $discount = (float) ($row['discount'] ?? 0);
+
+                /*
+                 * DISKON BARANG ADALAH DISKON TOTAL PER BARIS.
+                 *
+                 * Contoh:
+                 * Quantity    = 10
+                 * Harga       = 7.000
+                 * Diskon      = 1.000
+                 * Subtotal    = (10 x 7.000) - 1.000
+                 *             = 69.000
+                 */
+                $subtotalBeforeDiscount = $quantity * $unitPrice;
+
+                if ($discount > $subtotalBeforeDiscount) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Diskon barang "'
+                            . $item->name
+                            . '" tidak boleh melebihi total harga barang.',
                     ]);
                 }
 
@@ -227,32 +315,79 @@ class StockTransactionController extends Controller
                     ? $row['unit']
                     : $item->unit;
 
+                $subtotal = round(
+                    max(0, $subtotalBeforeDiscount - $discount),
+                    2
+                );
+
                 $transaction->details()->create([
                     'item_id' => $itemId,
-                    'supplier_id' => $supplierId,
+                    'supplier_id' => $item->supplier_id,
                     'quantity' => $quantity,
                     'unit' => $unit,
                     'unit_price' => $unitPrice,
-                    'subtotal' => $quantity * $unitPrice,
+                    'discount' => $discount,
+                    'subtotal' => $subtotal,
+                    'allocated_porter_cost' => 0,
                 ]);
 
-                $stock = $stocks->get($itemId);
-                $stock->quantity = (float) $stock->quantity + $quantity;
-                $stock->save();
+                /*
+                 * Perbarui stok hanya jika item memang melacak stok.
+                 */
+                if ($item->track_stock) {
+                    $stock = $stocks->get($itemId);
+
+                    if (!$stock) {
+                        $stock = Stock::create([
+                            'item_id' => $itemId,
+                            'quantity' => 0,
+                        ]);
+
+                        $stocks->put($itemId, $stock);
+                    }
+
+                    $stock->quantity =
+                        (float) $stock->quantity + $quantity;
+
+                    $stock->save();
+                }
             }
+
+            $goodsSubtotal = round(
+                (float) $transaction->details()->sum('subtotal'),
+                2
+            );
+
+            $purchaseDiscountAmount = $this->calculatePurchaseDiscount(
+                $goodsSubtotal,
+                $purchaseDiscountType,
+                $purchaseDiscountValue
+            );
+
+            if ($purchaseDiscountAmount > $goodsSubtotal) {
+                throw ValidationException::withMessages([
+                    'purchase_discount_value' =>
+                        'Diskon tambahan nota tidak boleh melebihi subtotal barang.',
+                ]);
+            }
+
+            $this->allocatePorterCost(
+                $transaction,
+                $porterCost
+            );
         });
 
         return redirect()
             ->route('stock-transactions.index')
             ->with(
                 'success',
-                'Barang masuk berhasil disimpan dan stok telah diperbarui.'
+                'Barang masuk berhasil disimpan. Stok, diskon nota, dan alokasi biaya kuli telah diperbarui.'
             );
     }
 
     /*
     |--------------------------------------------------------------------------
-    | DAFTAR BARANG KELUAR + FILTER
+    | DAFTAR BARANG KELUAR
     |--------------------------------------------------------------------------
     */
 
@@ -272,16 +407,36 @@ class StockTransactionController extends Controller
             $search = trim($request->input('search'));
 
             $query->where(function ($q) use ($search) {
-                $q->where('transaction_number', 'like', '%' . $search . '%')
-                    ->orWhere('notes', 'like', '%' . $search . '%')
+                $q->where(
+                    'transaction_number',
+                    'like',
+                    '%' . $search . '%'
+                )
+                    ->orWhere(
+                        'notes',
+                        'like',
+                        '%' . $search . '%'
+                    )
                     ->orWhereHas('purchaseOrder', function ($po) use ($search) {
-                        $po->where('po_number', 'like', '%' . $search . '%');
+                        $po->where(
+                            'po_number',
+                            'like',
+                            '%' . $search . '%'
+                        );
                     })
                     ->orWhereHas('kitchen', function ($kitchen) use ($search) {
                         $kitchen->where(function ($subQuery) use ($search) {
                             $subQuery
-                                ->where('name', 'like', '%' . $search . '%')
-                                ->orWhere('id_sppg', 'like', '%' . $search . '%');
+                                ->where(
+                                    'name',
+                                    'like',
+                                    '%' . $search . '%'
+                                )
+                                ->orWhere(
+                                    'id_sppg',
+                                    'like',
+                                    '%' . $search . '%'
+                                );
                         });
                     });
             });
@@ -366,6 +521,15 @@ class StockTransactionController extends Controller
         $suppliers = Supplier::orderBy('name')->get();
         $kitchens = Kitchen::orderBy('name')->get();
 
+        if ($stockTransaction->type === 'IN') {
+            return view('stock_transactions.edit_in', compact(
+                'stockTransaction',
+                'items',
+                'suppliers',
+                'kitchens'
+            ));
+        }
+
         return view('stock_transactions.edit', compact(
             'stockTransaction',
             'items',
@@ -402,7 +566,8 @@ class StockTransactionController extends Controller
             'items.*.item_id' => [
                 'required',
                 'integer',
-                'distinct',
+                // Sengaja tidak memakai distinct:
+                // satu barang boleh muncul pada beberapa baris.
                 'exists:items,id',
             ],
             'items.*.quantity' => [
@@ -411,6 +576,11 @@ class StockTransactionController extends Controller
                 'min:0',
             ],
             'items.*.unit_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+            'items.*.discount' => [
                 'nullable',
                 'numeric',
                 'min:0',
@@ -430,15 +600,50 @@ class StockTransactionController extends Controller
                 'integer',
                 'min:0',
             ],
+            'items.*.reimburse' => [
+                'nullable',
+                'boolean',
+            ],
         ];
 
         if ($existingTransaction->type === 'IN') {
-            $rules['supplier_id'] = [
-                'required',
-                'integer',
-                'exists:suppliers,id',
+            $rules['vendor_name'] = [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:150',
             ];
-        } else {
+
+            $rules['purchase_note_number'] = [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:100',
+            ];
+
+            $rules['porter_cost'] = [
+                'sometimes',
+                'nullable',
+                'numeric',
+                'min:0',
+            ];
+
+            $rules['purchase_discount_type'] = [
+                'sometimes',
+                'nullable',
+                'in:amount,percent',
+            ];
+
+            $rules['purchase_discount_value'] = [
+                'sometimes',
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ];
+        }
+
+        if ($existingTransaction->type === 'OUT') {
             $rules['items.*.supplier_id'] = [
                 'required',
                 'integer',
@@ -447,48 +652,80 @@ class StockTransactionController extends Controller
         }
 
         $validated = $request->validate($rules, [
-            'items.required' => 'Minimal satu barang harus dipilih.',
-            'items.min' => 'Minimal satu barang harus dipilih.',
-            'items.*.item_id.required' => 'Barang wajib dipilih.',
-            'items.*.item_id.exists' => 'Barang tidak ditemukan.',
-            'items.*.item_id.distinct' =>
-                'Barang yang sama tidak boleh ditambahkan lebih dari satu kali.',
-            'items.*.quantity.required' => 'Jumlah barang wajib diisi.',
-            'items.*.quantity.min' => 'Jumlah barang tidak boleh negatif.',
+            'items.required' =>
+                'Minimal satu barang harus dipilih.',
+            'items.min' =>
+                'Minimal satu barang harus dipilih.',
+            'items.*.item_id.required' =>
+                'Barang wajib dipilih.',
+            'items.*.item_id.exists' =>
+                'Barang tidak ditemukan.',
+            'items.*.quantity.required' =>
+                'Jumlah barang wajib diisi.',
+            'items.*.quantity.min' =>
+                'Jumlah barang tidak boleh negatif.',
+            'items.*.discount.numeric' =>
+                'Diskon barang harus berupa angka.',
+            'items.*.discount.min' =>
+                'Diskon barang tidak boleh negatif.',
             'items.*.supplier_id.required' =>
                 'Supplier setiap barang wajib dipilih.',
             'items.*.supplier_id.exists' =>
                 'Supplier barang tidak ditemukan.',
             'items.*.section_order.integer' =>
                 'Urutan Bagian harus berupa angka.',
+            'items.*.reimburse.boolean' =>
+                'Status Reimburse tidak valid.',
+            'porter_cost.numeric' =>
+                'Biaya kuli harus berupa angka.',
+            'porter_cost.min' =>
+                'Biaya kuli tidak boleh negatif.',
+            'purchase_discount_type.in' =>
+                'Jenis diskon tambahan nota tidak valid.',
+            'purchase_discount_value.numeric' =>
+                'Nilai diskon tambahan nota harus berupa angka.',
+            'purchase_discount_value.min' =>
+                'Diskon tambahan nota tidak boleh negatif.',
         ]);
 
-        $validated['items'] = collect($validated['items'])
-            ->filter(fn ($row) => (float) ($row['quantity'] ?? 0) > 0)
-            ->values()
-            ->all();
+        if ($existingTransaction->type === 'IN') {
+            $discountType = array_key_exists(
+                'purchase_discount_type',
+                $validated
+            )
+                ? ($validated['purchase_discount_type'] ?: 'amount')
+                : (
+                    $existingTransaction->purchase_discount_type
+                    ?: 'amount'
+                );
 
-        if (count($validated['items']) === 0) {
-            throw ValidationException::withMessages([
-                'items' => 'Minimal satu barang harus memiliki jumlah lebih dari 0.',
-            ]);
+            $discountValue = array_key_exists(
+                'purchase_discount_value',
+                $validated
+            )
+                ? (float) ($validated['purchase_discount_value'] ?? 0)
+                : (float) (
+                    $existingTransaction->purchase_discount_value ?? 0
+                );
+
+            if ($discountType === 'percent' && $discountValue > 100) {
+                throw ValidationException::withMessages([
+                    'purchase_discount_value' =>
+                        'Diskon persentase tidak boleh lebih dari 100%.',
+                ]);
+            }
         }
 
         DB::transaction(function () use ($validated, $id) {
             $transaction = StockTransaction::with([
-                'details',
+                'details.item',
                 'purchaseOrder.details',
-            ])->lockForUpdate()->findOrFail($id);
+            ])
+                ->lockForUpdate()
+                ->findOrFail($id);
 
-            /*
-             * Simpan detail lama sebelum dihapus.
-             * Ini membantu mempertahankan Bagian untuk barang yang sama.
-             */
             $oldDetails = $transaction->details->values();
 
-            /*
-             * Ambil detail PO untuk cadangan Bagian.
-             */
             $purchaseOrderDetails = $transaction->purchaseOrder?->details
                 ?? collect();
 
@@ -511,8 +748,10 @@ class StockTransactionController extends Controller
                 ->keyBy('item_id');
 
             /*
-             * Kembalikan dampak transaksi lama terhadap stok.
-             */
+            * Kembalikan dampak semua detail lama terhadap stok.
+            * Jika satu barang memiliki beberapa baris, setiap baris
+            * dikembalikan satu kali sesuai jumlah masing-masing.
+            */
             foreach ($oldDetails as $detail) {
                 $stock = $stocks->get($detail->item_id);
 
@@ -552,18 +791,23 @@ class StockTransactionController extends Controller
                 $stock->save();
             }
 
-            $items = Item::whereIn('id', $newItemIds)
+            $items = Item::whereIn('id', $newItemIds->unique())
                 ->get()
                 ->keyBy('id');
 
             /*
-             * Hapus detail lama setelah stok lama dipulihkan.
-             */
+            * Hapus detail lama setelah dampak stoknya dikembalikan.
+            * Seluruh detail baru kemudian disimpan dari input form.
+            */
             $transaction->details()->delete();
 
             /*
-             * Buat ulang detail transaksi.
-             */
+            * Penanda agar detail lama yang sama tidak dipakai
+            * berulang kali saat mencocokkan baris baru.
+            */
+            $usedOldDetailIds = [];
+            $usedPoDetailIds = [];
+
             foreach ($validated['items'] as $row) {
                 $itemId = (int) $row['item_id'];
                 $item = $items->get($itemId);
@@ -581,19 +825,40 @@ class StockTransactionController extends Controller
                 }
 
                 $unitPrice = (
-                    isset($row['unit_price']) &&
-                    $row['unit_price'] !== '' &&
-                    $row['unit_price'] !== null
+                    isset($row['unit_price'])
+                    && $row['unit_price'] !== ''
+                    && $row['unit_price'] !== null
                 )
                     ? (float) $row['unit_price']
                     : (float) ($item->price ?? 0);
 
-                if ($unitPrice < 0) {
+                $discount = (float) ($row['discount'] ?? 0);
+
+                if ($unitPrice < 0 || $discount < 0) {
                     throw ValidationException::withMessages([
-                        'items' => 'Harga barang tidak boleh negatif.',
+                        'items' =>
+                            'Harga dan diskon barang tidak boleh negatif.',
                     ]);
                 }
 
+                $subtotalBeforeDiscount = $quantity * $unitPrice;
+
+                if (
+                    $transaction->type === 'IN'
+                    && $discount > $subtotalBeforeDiscount
+                ) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Diskon barang "'
+                            . $item->name
+                            . '" tidak boleh melebihi total harga barang.',
+                    ]);
+                }
+
+                /*
+                * Cari stok berdasarkan ID barang.
+                * Semua baris barang yang sama memakai record stok
+                * yang sama, bukan membuat stok duplikat.
+                */
                 $stock = $stocks->get($itemId);
 
                 if (!$stock) {
@@ -606,78 +871,224 @@ class StockTransactionController extends Controller
                 }
 
                 if ($transaction->type === 'IN') {
-                    $supplierId = (int) $validated['supplier_id'];
+                    $supplierId = $item->supplier_id
+                        ? (int) $item->supplier_id
+                        : null;
 
-                    if ((int) $item->supplier_id !== $supplierId) {
-                        throw ValidationException::withMessages([
-                            'items' =>
-                                'Barang tidak sesuai dengan supplier yang dipilih.',
-                        ]);
-                    }
-
-                    $stock->quantity = (float) $stock->quantity + $quantity;
+                    $stock->quantity =
+                        (float) $stock->quantity + $quantity;
                 } else {
-                    $supplierId = (int) $row['supplier_id'];
+                    $supplierId = (int) ($row['supplier_id'] ?? 0);
 
-                    /*
-                     * Pastikan supplier benar-benar ada.
-                     */
                     if (!Supplier::whereKey($supplierId)->exists()) {
                         throw ValidationException::withMessages([
                             'items' => 'Supplier barang tidak ditemukan.',
                         ]);
                     }
 
+                    /*
+                    * Validasi dilakukan untuk setiap baris terhadap
+                    * stok terkini setelah baris sebelumnya diproses.
+                    */
                     if ((float) $stock->quantity < $quantity) {
                         throw ValidationException::withMessages([
                             'items' =>
-                                'Stok ' . $item->name .
-                                ' tidak mencukupi. Stok tersedia: ' .
-                                number_format(
+                                'Stok ' . $item->name
+                                . ' tidak mencukupi. Stok tersedia: '
+                                . number_format(
                                     (float) $stock->quantity,
                                     2,
                                     ',',
                                     '.'
-                                ) .
-                                ', kebutuhan: ' .
-                                number_format($quantity, 2, ',', '.') . '.',
+                                )
+                                . ', kebutuhan: '
+                                . number_format(
+                                    $quantity,
+                                    2,
+                                    ',',
+                                    '.'
+                                )
+                                . '.',
                         ]);
                     }
 
-                    $stock->quantity = (float) $stock->quantity - $quantity;
+                    $stock->quantity =
+                        (float) $stock->quantity - $quantity;
                 }
 
                 $stock->save();
 
                 /*
-                 * Tentukan Bagian:
-                 * 1. Utamakan section_name/order yang dikirim form.
-                 * 2. Jika kosong, gunakan detail lama yang cocok.
-                 * 3. Jika masih kosong, gunakan detail PO yang cocok.
-                 */
-                $sectionName = trim((string) ($row['section_name'] ?? ''));
-                $sectionOrder = $row['section_order'] ?? null;
+                * Cocokkan detail lama satu per satu.
+                * Utamakan barang, supplier, dan Bagian yang sama.
+                * Ini mencegah semua baris duplikat mengambil detail lama
+                * yang sama sehingga Bagian/Reimburse tertukar.
+                */
+                $sectionName = trim(
+                    (string) ($row['section_name'] ?? '')
+                );
 
-                $oldDetail = $oldDetails->first(function ($detail) use (
-                    $itemId,
-                    $supplierId
-                ) {
-                    return (int) $detail->item_id === $itemId
-                        && (int) ($detail->supplier_id ?? 0) === $supplierId;
-                });
+                $oldDetail = $oldDetails->first(
+                    function ($detail) use (
+                        $itemId,
+                        $supplierId,
+                        $sectionName,
+                        &$usedOldDetailIds,
+                        $transaction
+                    ) {
+                        if (in_array(
+                            $detail->id,
+                            $usedOldDetailIds
+                        )) {
+                            return false;
+                        }
 
-                $poDetail = $purchaseOrderDetails->first(function ($detail) use (
-                    $itemId,
-                    $supplierId
-                ) {
-                    $detailSupplierId = $detail->supplier_id
-                        ?? $detail->item?->supplier_id
-                        ?? null;
+                        if ((int) $detail->item_id !== $itemId) {
+                            return false;
+                        }
 
-                    return (int) $detail->item_id === $itemId
-                        && (int) ($detailSupplierId ?? 0) === $supplierId;
-                });
+                        $oldSupplierId = $detail->supplier_id
+                            ? (int) $detail->supplier_id
+                            : null;
 
+                        if (
+                            $transaction->type === 'OUT'
+                            && $oldSupplierId !== $supplierId
+                        ) {
+                            return false;
+                        }
+
+                        if ($sectionName !== '') {
+                            return trim(
+                                (string) ($detail->section_name ?? '')
+                            ) === $sectionName;
+                        }
+
+                        return true;
+                    }
+                );
+
+                /*
+                * Jika tidak ditemukan kecocokan Bagian, ambil detail
+                * lama pertama yang belum dipakai untuk barang/supplier
+                * yang sama.
+                */
+                if (!$oldDetail) {
+                    $oldDetail = $oldDetails->first(
+                        function ($detail) use (
+                            $itemId,
+                            $supplierId,
+                            &$usedOldDetailIds,
+                            $transaction
+                        ) {
+                            if (in_array(
+                                $detail->id,
+                                $usedOldDetailIds
+                            )) {
+                                return false;
+                            }
+
+                            if ((int) $detail->item_id !== $itemId) {
+                                return false;
+                            }
+
+                            $oldSupplierId = $detail->supplier_id
+                                ? (int) $detail->supplier_id
+                                : null;
+
+                            return $transaction->type !== 'OUT'
+                                || $oldSupplierId === $supplierId;
+                        }
+                    );
+                }
+
+                if ($oldDetail) {
+                    $usedOldDetailIds[] = $oldDetail->id;
+                }
+
+                /*
+                * Cari detail PO yang belum dipakai.
+                * Utamakan Bagian yang sama jika tersedia.
+                */
+                $poDetail = $purchaseOrderDetails->first(
+                    function ($detail) use (
+                        $itemId,
+                        $supplierId,
+                        $sectionName,
+                        &$usedPoDetailIds
+                    ) {
+                        if (in_array(
+                            $detail->id,
+                            $usedPoDetailIds
+                        )) {
+                            return false;
+                        }
+
+                        if ((int) $detail->item_id !== $itemId) {
+                            return false;
+                        }
+
+                        $detailSupplierId = $detail->supplier_id
+                            ?? $detail->item?->supplier_id
+                            ?? null;
+
+                        $detailSupplierId = $detailSupplierId
+                            ? (int) $detailSupplierId
+                            : null;
+
+                        if ($detailSupplierId !== $supplierId) {
+                            return false;
+                        }
+
+                        if ($sectionName !== '') {
+                            return trim(
+                                (string) ($detail->section_name ?? '')
+                            ) === $sectionName;
+                        }
+
+                        return true;
+                    }
+                );
+
+                if (!$poDetail) {
+                    $poDetail = $purchaseOrderDetails->first(
+                        function ($detail) use (
+                            $itemId,
+                            $supplierId,
+                            &$usedPoDetailIds
+                        ) {
+                            if (in_array(
+                                $detail->id,
+                                $usedPoDetailIds
+                            )) {
+                                return false;
+                            }
+
+                            if ((int) $detail->item_id !== $itemId) {
+                                return false;
+                            }
+
+                            $detailSupplierId = $detail->supplier_id
+                                ?? $detail->item?->supplier_id
+                                ?? null;
+
+                            $detailSupplierId = $detailSupplierId
+                                ? (int) $detailSupplierId
+                                : null;
+
+                            return $detailSupplierId === $supplierId;
+                        }
+                    );
+                }
+
+                if ($poDetail) {
+                    $usedPoDetailIds[] = $poDetail->id;
+                }
+
+                /*
+                * Pertahankan Bagian dari form.
+                * Jika kosong, gunakan data lama atau data PO.
+                */
                 if ($sectionName === '') {
                     $sectionName = trim((string) (
                         $oldDetail?->section_name
@@ -686,11 +1097,42 @@ class StockTransactionController extends Controller
                     ));
                 }
 
+                $sectionOrder = $row['section_order'] ?? null;
+
                 if ($sectionOrder === null || $sectionOrder === '') {
                     $sectionOrder = $oldDetail?->section_order
                         ?? $poDetail?->section_order
                         ?? 0;
                 }
+
+                /*
+                * Checkbox form menggunakan hidden 0 dan checkbox 1.
+                * Jika nilai reimburse ada dalam input, ikuti nilai itu.
+                * Jika tidak ada, pertahankan nilai detail lama/PO.
+                */
+                if (array_key_exists('reimburse', $row)) {
+                    $isReimburse = (bool) $row['reimburse'];
+                } else {
+                    $oldNotes = trim(
+                        (string) ($oldDetail?->notes ?? '')
+                    );
+
+                    $poNotes = trim(
+                        (string) ($poDetail?->notes ?? '')
+                    );
+
+                    $isReimburse = (
+                        $oldNotes === '*Reimburse'
+                        || $poNotes === '*Reimburse'
+                    );
+                }
+
+                $subtotal = $transaction->type === 'IN'
+                    ? round(
+                        max(0, $subtotalBeforeDiscount - $discount),
+                        2
+                    )
+                    : round($quantity * $unitPrice, 2);
 
                 $detailData = [
                     'item_id' => $itemId,
@@ -700,12 +1142,14 @@ class StockTransactionController extends Controller
                         ? $row['unit']
                         : $item->unit,
                     'unit_price' => $unitPrice,
-                    'subtotal' => $quantity * $unitPrice,
+                    'subtotal' => $subtotal,
                 ];
 
-                /*
-                 * Kolom Bagian digunakan untuk transaksi OUT.
-                 */
+                if ($transaction->type === 'IN') {
+                    $detailData['discount'] = $discount;
+                    $detailData['allocated_porter_cost'] = 0;
+                }
+
                 if ($transaction->type === 'OUT') {
                     $detailData['section_name'] = $sectionName !== ''
                         ? $sectionName
@@ -714,69 +1158,122 @@ class StockTransactionController extends Controller
                     $detailData['section_order'] = (int) $sectionOrder;
                 }
 
+                /*
+                * Simpan penanda Reimburse jika kolom tersedia.
+                */
+                $detailTable = $transaction->details()
+                    ->getModel()
+                    ->getTable();
+
+                if (Schema::hasColumn($detailTable, 'notes')) {
+                    $detailData['notes'] = $isReimburse
+                        ? '*Reimburse'
+                        : null;
+                } elseif (
+                    $transaction->type === 'OUT'
+                    && $isReimburse
+                ) {
+                    throw ValidationException::withMessages([
+                        'items' =>
+                            'Kolom notes pada detail transaksi belum tersedia. Tambahkan kolom tersebut sebelum menyimpan Reimburse.',
+                    ]);
+                }
+
                 $transaction->details()->create($detailData);
             }
 
-            $transaction->transaction_date = $validated['transaction_date'];
+            /*
+            * Simpan header transaksi.
+            */
+            $transaction->transaction_date =
+                $validated['transaction_date'];
+
             $transaction->notes = $validated['notes'] ?? null;
 
             if ($transaction->type === 'IN') {
-                $transaction->supplier_id = (int) $validated['supplier_id'];
+                $transaction->supplier_id = null;
+
+                if (array_key_exists('vendor_name', $validated)) {
+                    $transaction->vendor_name = $validated['vendor_name'];
+                }
+
+                if (array_key_exists('purchase_note_number', $validated)) {
+                    $transaction->purchase_note_number =
+                        $validated['purchase_note_number'];
+                }
+
+                if (array_key_exists('porter_cost', $validated)) {
+                    $transaction->porter_cost = round(
+                        (float) ($validated['porter_cost'] ?? 0),
+                        2
+                    );
+                }
+
+                if (array_key_exists('purchase_discount_type', $validated)) {
+                    $transaction->purchase_discount_type =
+                        $validated['purchase_discount_type'] ?: 'amount';
+                } elseif (!$transaction->purchase_discount_type) {
+                    $transaction->purchase_discount_type = 'amount';
+                }
+
+                if (array_key_exists('purchase_discount_value', $validated)) {
+                    $transaction->purchase_discount_value = round(
+                        (float) ($validated['purchase_discount_value'] ?? 0),
+                        2
+                    );
+                } elseif ($transaction->purchase_discount_value === null) {
+                    $transaction->purchase_discount_value = 0;
+                }
+
+                if (
+                    $transaction->purchase_discount_type === 'percent'
+                    && (float) $transaction->purchase_discount_value > 100
+                ) {
+                    throw ValidationException::withMessages([
+                        'purchase_discount_value' =>
+                            'Diskon persentase tidak boleh lebih dari 100%.',
+                    ]);
+                }
+
+                $goodsSubtotal = round(
+                    (float) $transaction->details()->sum('subtotal'),
+                    2
+                );
+
+                $discountAmount = $this->calculatePurchaseDiscount(
+                    $goodsSubtotal,
+                    (string) (
+                        $transaction->purchase_discount_type ?? 'amount'
+                    ),
+                    (float) (
+                        $transaction->purchase_discount_value ?? 0
+                    )
+                );
+
+                if ($discountAmount > $goodsSubtotal) {
+                    throw ValidationException::withMessages([
+                        'purchase_discount_value' =>
+                            'Diskon tambahan nota tidak boleh melebihi subtotal barang.',
+                    ]);
+                }
             }
 
             $transaction->save();
 
-            /*
-             * Sinkronkan Invoice jika transaksi adalah Barang Keluar.
-             */
+            if ($transaction->type === 'IN') {
+                $this->allocatePorterCost(
+                    $transaction,
+                    (float) ($transaction->porter_cost ?? 0)
+                );
+            }
+
             if ($transaction->type === 'OUT') {
-                $invoice = Invoice::where(
-                    'stock_transaction_id',
-                    $transaction->id
-                )
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($invoice) {
-                    $transaction->load([
-                        'details.item',
-                        'details.supplier',
-                    ]);
-
-                    $invoice->details()->delete();
-
-                    $invoiceTotal = 0;
-
-                    foreach ($transaction->details as $outDetail) {
-                        $subtotal = (float) $outDetail->quantity
-                            * (float) $outDetail->unit_price;
-
-                        $invoice->details()->create([
-                            'supplier_id' => $outDetail->supplier_id,
-                            'item_id' => $outDetail->item_id,
-                            'quantity' => $outDetail->quantity,
-                            'unit' => $outDetail->unit,
-                            'unit_price' => $outDetail->unit_price,
-                            'subtotal' => $subtotal,
-                            'section_name' => $outDetail->section_name,
-                            'section_order' => $outDetail->section_order ?? 0,
-                            'notes' => null,
-                        ]);
-
-                        $invoiceTotal += $subtotal;
-                    }
-
-                    $invoice->update([
-                        'invoice_date' => $transaction->transaction_date,
-                        'purchase_order_id' => $transaction->purchase_order_id,
-                        'kitchen_id' => $transaction->kitchen_id,
-                        'total_amount' => $invoiceTotal,
-                    ]);
-                }
+                app(InvoiceController::class)->syncFromOut($transaction);
             }
         });
 
-        $transactionType = StockTransaction::whereKey($id)->value('type');
+        $transactionType = StockTransaction::whereKey($id)
+            ->value('type');
 
         return redirect()
             ->route(
@@ -787,8 +1284,8 @@ class StockTransactionController extends Controller
             ->with(
                 'success',
                 $transactionType === 'OUT'
-                    ? 'Barang keluar berhasil diperbarui. Bagian dan Invoice telah disinkronkan jika tersedia.'
-                    : 'Transaksi barang masuk berhasil diperbarui.'
+                    ? 'Barang Keluar berhasil diperbarui. Stok dan Invoice telah disinkronkan jika Invoice tersedia.'
+                    : 'Transaksi Barang Masuk berhasil diperbarui. Stok, diskon nota, dan alokasi biaya kuli telah dihitung ulang.'
             );
     }
 
@@ -798,307 +1295,397 @@ class StockTransactionController extends Controller
     |--------------------------------------------------------------------------
     */
 
-public function destroy($id)
-{
-    try {
-        DB::transaction(function () use ($id) {
-            $transaction = StockTransaction::with([
-                'details',
-                'purchaseOrder',
-            ])
-                ->lockForUpdate()
-                ->findOrFail($id);
+    public function destroy($id)
+    {
+        try {
+            $transactionType = null;
 
-            /*
-            |--------------------------------------------------------------------------
-            | 1. Ambil data Invoice dan Nota terkait
-            |--------------------------------------------------------------------------
-            */
+            DB::transaction(function () use ($id, &$transactionType) {
+                $transaction = StockTransaction::with([
+                    'details.item',
+                    'purchaseOrder',
+                ])
+                    ->lockForUpdate()
+                    ->findOrFail($id);
 
-            $invoice = Invoice::where(
-                'stock_transaction_id',
-                $transaction->id
-            )
-                ->lockForUpdate()
-                ->first();
+                $transactionType = $transaction->type;
 
-            $notaQuery = \App\Models\NotaKeluar::where(
-                'stock_transaction_id',
-                $transaction->id
-            );
+                $invoice = Invoice::where(
+                    'stock_transaction_id',
+                    $transaction->id
+                )
+                    ->lockForUpdate()
+                    ->first();
 
-            $notaIds = $notaQuery->pluck('id')->all();
+                $notaIds = NotaKeluar::where(
+                    'stock_transaction_id',
+                    $transaction->id
+                )->pluck('id')->all();
 
-            /*
-            |--------------------------------------------------------------------------
-            | 2. Kunci dan ambil stok barang terkait
-            |--------------------------------------------------------------------------
-            */
+                $detailsByItem = $transaction->details
+                    ->filter(fn ($detail) => $detail->item_id !== null)
+                    ->groupBy('item_id');
 
-            $itemIds = $transaction->details
-                ->pluck('item_id')
-                ->filter()
-                ->unique()
-                ->sort()
-                ->values();
+                $itemIds = $detailsByItem->keys()
+                    ->map(fn ($id) => (int) $id)
+                    ->sort()
+                    ->values();
 
-            $stocks = Stock::whereIn('item_id', $itemIds)
-                ->orderBy('item_id')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('item_id');
+                $stocks = Stock::whereIn('item_id', $itemIds)
+                    ->orderBy('item_id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('item_id');
 
-            /*
-            |--------------------------------------------------------------------------
-            | 3. Validasi sebelum menghapus
-            |--------------------------------------------------------------------------
-            */
+                if ($transaction->type === 'IN') {
+                    foreach ($detailsByItem as $itemId => $details) {
+                        $itemId = (int) $itemId;
 
-            foreach ($transaction->details as $detail) {
-                if (!$detail->item_id) {
-                    continue;
-                }
+                        $requiredQuantity = (float) $details->sum(
+                            fn ($detail) => (float) $detail->quantity
+                        );
 
-                $stock = $stocks->get($detail->item_id);
+                        $stock = $stocks->get($itemId);
 
-                if (!$stock && $transaction->type === 'IN') {
-                    throw ValidationException::withMessages([
-                        'transaction' =>
-                            'Transaksi tidak dapat dihapus karena data stok barang masuk tidak ditemukan.',
-                    ]);
-                }
+                        $availableQuantity = $stock
+                            ? (float) $stock->quantity
+                            : 0;
 
-                /*
-                 * Barang masuk:
-                 * stok dikurangi karena barang masuk dibatalkan.
-                 *
-                 * Barang keluar:
-                 * stok ditambah karena barang keluar dibatalkan.
-                 */
-                if (
-                    $transaction->type === 'IN'
-                    && (float) $stock->quantity < (float) $detail->quantity
-                ) {
-                    throw ValidationException::withMessages([
-                        'transaction' =>
-                            'Stok tidak mencukupi untuk membatalkan transaksi barang masuk. Periksa transaksi stok terkait terlebih dahulu.',
-                    ]);
-                }
-            }
+                        if ($availableQuantity < $requiredQuantity) {
+                            $itemName = $details->first()->item?->name
+                                ?? Item::whereKey($itemId)->value('name')
+                                ?? 'Barang ID ' . $itemId;
 
-            /*
-            |--------------------------------------------------------------------------
-            | 4. Hapus alokasi Nota-Invoice
-            |--------------------------------------------------------------------------
-            | Tabel invoice_nota_allocations menggunakan kolom:
-            | - nota_keluar_id
-            | - invoice_detail_id
-            |
-            | Tabel tersebut TIDAK memiliki kolom invoice_id.
-            */
+                            $formatQuantity = function ($quantity) {
+                                return rtrim(
+                                    rtrim(
+                                        number_format(
+                                            (float) $quantity,
+                                            2,
+                                            ',',
+                                            '.'
+                                        ),
+                                        '0'
+                                    ),
+                                    ','
+                                );
+                            };
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('invoice_nota_allocations')) {
-
-                $allocationQuery = DB::table('invoice_nota_allocations');
-
-                $hasAllocation = false;
-
-                // Hapus alokasi yang terhubung ke Nota milik transaksi ini.
-                if (!empty($notaIds)) {
-                    $allocationQuery->whereIn('nota_keluar_id', $notaIds);
-                    $hasAllocation = true;
-                }
-
-                // Hapus alokasi yang terhubung ke detail Invoice milik transaksi ini.
-                if ($invoice) {
-                    $invoiceDetailIds = DB::table('invoice_details')
-                        ->where('invoice_id', $invoice->id)
-                        ->pluck('id')
-                        ->all();
-
-                    if (!empty($invoiceDetailIds)) {
-                        if ($hasAllocation) {
-                            $allocationQuery->orWhereIn(
-                                'invoice_detail_id',
-                                $invoiceDetailIds
-                            );
-                        } else {
-                            $allocationQuery->whereIn(
-                                'invoice_detail_id',
-                                $invoiceDetailIds
-                            );
+                            throw ValidationException::withMessages([
+                                'transaction' => sprintf(
+                                    'Barang "%s" tidak dapat dihapus. Jumlah pada transaksi yang ingin dibatalkan: %s. Stok tersedia saat ini: %s. Penghapusan dibatalkan agar stok tidak menjadi minus. Periksa transaksi Barang Keluar terkait terlebih dahulu.',
+                                    $itemName,
+                                    $formatQuantity($requiredQuantity),
+                                    $formatQuantity($availableQuantity)
+                                ),
+                            ]);
                         }
+                    }
+                }
+
+                if (Schema::hasTable('invoice_nota_allocations')) {
+                    $allocationQuery = DB::table(
+                        'invoice_nota_allocations'
+                    );
+
+                    $hasAllocation = false;
+
+                    if (!empty($notaIds)) {
+                        $allocationQuery->whereIn(
+                            'nota_keluar_id',
+                            $notaIds
+                        );
 
                         $hasAllocation = true;
                     }
-                }
 
-                if ($hasAllocation) {
-                    $allocationQuery->delete();
-                }
-            }        
-
-            /*
-            |--------------------------------------------------------------------------
-            | 5. Hapus detail Nota jika tabelnya tersedia
-            |--------------------------------------------------------------------------
-            */
-
-            if ($notaIds) {
-                foreach ([
-                    'nota_keluar_details',
-                    'nota_keluar_items',
-                ] as $detailTable) {
                     if (
-                        \Illuminate\Support\Facades\Schema::hasTable(
-                            $detailTable
-                        )
-                        && \Illuminate\Support\Facades\Schema::hasColumn(
-                            $detailTable,
-                            'nota_keluar_id'
-                        )
+                        $invoice
+                        && Schema::hasTable('invoice_details')
                     ) {
-                        DB::table($detailTable)
-                            ->whereIn('nota_keluar_id', $notaIds)
-                            ->delete();
+                        $invoiceDetailIds = DB::table('invoice_details')
+                            ->where('invoice_id', $invoice->id)
+                            ->pluck('id')
+                            ->all();
+
+                        if (!empty($invoiceDetailIds)) {
+                            if ($hasAllocation) {
+                                $allocationQuery->orWhereIn(
+                                    'invoice_detail_id',
+                                    $invoiceDetailIds
+                                );
+                            } else {
+                                $allocationQuery->whereIn(
+                                    'invoice_detail_id',
+                                    $invoiceDetailIds
+                                );
+                            }
+
+                            $hasAllocation = true;
+                        }
+                    }
+
+                    if ($hasAllocation) {
+                        $allocationQuery->delete();
                     }
                 }
 
-                /*
-                 * Hapus Nota yang hanya terkait transaksi ini.
-                 */
-                \App\Models\NotaKeluar::where(
-                    'stock_transaction_id',
-                    $transaction->id
-                )->delete();
-            }
+                if (!empty($notaIds)) {
+                    foreach ([
+                        'nota_keluar_details',
+                        'nota_keluar_items',
+                    ] as $detailTable) {
+                        if (
+                            Schema::hasTable($detailTable)
+                            && Schema::hasColumn(
+                                $detailTable,
+                                'nota_keluar_id'
+                            )
+                        ) {
+                            DB::table($detailTable)
+                                ->whereIn('nota_keluar_id', $notaIds)
+                                ->delete();
+                        }
+                    }
 
-            /*
-            |--------------------------------------------------------------------------
-            | 6. Hapus detail Invoice dan Invoice terkait
-            |--------------------------------------------------------------------------
-            */
+                    NotaKeluar::where(
+                        'stock_transaction_id',
+                        $transaction->id
+                    )->delete();
+                }
 
-            if ($invoice) {
-                $invoiceId = $invoice->id;
+                if ($invoice) {
+                    if (Schema::hasTable('invoice_details')) {
+                        DB::table('invoice_details')
+                            ->where('invoice_id', $invoice->id)
+                            ->delete();
+                    }
+
+                    $invoice->delete();
+                }
+
+                foreach ($transaction->details as $detail) {
+                    if (!$detail->item_id) {
+                        continue;
+                    }
+
+                    $itemId = (int) $detail->item_id;
+                    $stock = $stocks->get($itemId);
+
+                    if (!$stock) {
+                        if ($transaction->type === 'IN') {
+                            throw ValidationException::withMessages([
+                                'transaction' =>
+                                    'Data stok barang masuk tidak ditemukan. Transaksi tidak dihapus.',
+                            ]);
+                        }
+
+                        $stock = Stock::create([
+                            'item_id' => $itemId,
+                            'quantity' => 0,
+                        ]);
+
+                        $stocks->put($itemId, $stock);
+                    }
+
+                    if ($transaction->type === 'IN') {
+                        $stock->quantity = (float) $stock->quantity
+                            - (float) $detail->quantity;
+                    } else {
+                        $stock->quantity = (float) $stock->quantity
+                            + (float) $detail->quantity;
+                    }
+
+                    $stock->save();
+                }
+
+                $purchaseOrderId = $transaction->purchase_order_id;
+
+                $transaction->details()->delete();
+                $transaction->delete();
 
                 if (
-                    \Illuminate\Support\Facades\Schema::hasTable(
-                        'invoice_details'
-                    )
+                    $purchaseOrderId
+                    && Schema::hasTable('purchase_orders')
+                    && Schema::hasColumn('purchase_orders', 'status')
                 ) {
-                    DB::table('invoice_details')
-                        ->where('invoice_id', $invoiceId)
-                        ->delete();
+                    $poUpdate = [
+                        'status' => 'RECEIVED',
+                    ];
+
+                    if (
+                        Schema::hasColumn(
+                            'purchase_orders',
+                            'processed_at'
+                        )
+                    ) {
+                        $poUpdate['processed_at'] = null;
+                    }
+
+                    DB::table('purchase_orders')
+                        ->where('id', $purchaseOrderId)
+                        ->update($poUpdate);
                 }
+            });
 
-                $invoice->delete();
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | 7. Pulihkan stok
-            |--------------------------------------------------------------------------
-            */
-
-            foreach ($transaction->details as $detail) {
-                if (!$detail->item_id) {
-                    continue;
-                }
-
-                $stock = $stocks->get($detail->item_id);
-
-                if (!$stock) {
-                    $stock = Stock::create([
-                        'item_id' => $detail->item_id,
-                        'quantity' => 0,
-                    ]);
-
-                    $stocks->put($detail->item_id, $stock);
-                }
-
-                if ($transaction->type === 'IN') {
-                    $stock->quantity = (float) $stock->quantity
-                        - (float) $detail->quantity;
-                } else {
-                    $stock->quantity = (float) $stock->quantity
-                        + (float) $detail->quantity;
-                }
-
-                $stock->save();
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | 8. Simpan ID PO sebelum transaksi dihapus
-            |--------------------------------------------------------------------------
-            */
-
-            $purchaseOrderId = $transaction->purchase_order_id;
-
-            /*
-            |--------------------------------------------------------------------------
-            | 9. Hapus detail dan transaksi
-            |--------------------------------------------------------------------------
-            */
-
-            $transaction->details()->delete();
-            $transaction->delete();
-
-            /*
-            |--------------------------------------------------------------------------
-            | 10. Kembalikan status PO jika kolom tersedia
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                $purchaseOrderId
-                && \Illuminate\Support\Facades\Schema::hasTable(
-                    'purchase_orders'
+            return redirect()
+                ->route(
+                    $transactionType === 'OUT'
+                        ? 'stock-transactions.out'
+                        : 'stock-transactions.index'
                 )
-                && \Illuminate\Support\Facades\Schema::hasColumn(
-                    'purchase_orders',
-                    'status'
-                )
-            ) {
-                $poUpdate = [
-                    'status' => 'RECEIVED',
-                ];
+                ->with(
+                    'success',
+                    $transactionType === 'OUT'
+                        ? 'Transaksi Barang Keluar beserta Invoice dan Nota terkait berhasil dihapus. Stok telah disesuaikan.'
+                        : 'Transaksi Barang Masuk berhasil dihapus. Stok telah disesuaikan.'
+                );
 
-                if (
-                    \Illuminate\Support\Facades\Schema::hasColumn(
-                        'purchase_orders',
-                        'processed_at'
-                    )
-                ) {
-                    $poUpdate['processed_at'] = null;
-                }
+        } catch (ValidationException $e) {
+            throw $e;
 
-                DB::table('purchase_orders')
-                    ->where('id', $purchaseOrderId)
-                    ->update($poUpdate);
-            }
-        });
+        } catch (\Throwable $e) {
+            report($e);
 
-        return redirect()
-            ->route('stock-transactions.out')
-            ->with(
-                'success',
-                'Transaksi Barang Keluar beserta Invoice dan Nota terkait berhasil dihapus. Stok telah disesuaikan.'
-            );
-
-    } catch (ValidationException $e) {
-        throw $e;
-
-    } catch (\Throwable $e) {
-        report($e);
-
-        return redirect()
-            ->back()
-            ->with(
-                'error',
-                'Transaksi gagal dihapus. Periksa detail error pada log Laravel di storage/logs/laravel.log.'
-            );
+            return redirect()
+                ->back()
+                ->with(
+                    'error',
+                    'Transaksi gagal dihapus. Periksa storage/logs/laravel.log untuk detail error.'
+                );
+        }
     }
-}
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORM EDIT BARANG MASUK
+    |--------------------------------------------------------------------------
+    */
+
+    public function editIn(StockTransaction $stockTransaction)
+    {
+        abort_unless($stockTransaction->type === 'IN', 404);
+
+        $stockTransaction->load([
+            'details.item',
+            'details.supplier',
+        ]);
+
+        $suppliers = Supplier::orderBy('name')->get();
+        $items = Item::orderBy('name')->get();
+        $kitchens = Kitchen::orderBy('name')->get();
+
+        return view('stock_transactions.edit_in', compact(
+            'stockTransaction',
+            'suppliers',
+            'items',
+            'kitchens'
+        ));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HITUNG DISKON TAMBAHAN NOTA
+    |--------------------------------------------------------------------------
+    */
+
+    private function calculatePurchaseDiscount(
+        float $goodsSubtotal,
+        string $discountType,
+        float $discountValue
+    ): float {
+        $goodsSubtotal = round(max(0, $goodsSubtotal), 2);
+        $discountValue = round(max(0, $discountValue), 2);
+
+        if ($discountType === 'percent') {
+            if ($discountValue > 100) {
+                throw ValidationException::withMessages([
+                    'purchase_discount_value' =>
+                        'Diskon persentase tidak boleh lebih dari 100%.',
+                ]);
+            }
+
+            return round(
+                $goodsSubtotal * $discountValue / 100,
+                2
+            );
+        }
+
+        return round(min($goodsSubtotal, $discountValue), 2);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ALOKASI BIAYA KULI
+    |--------------------------------------------------------------------------
+    */
+
+    private function allocatePorterCost(
+        StockTransaction $transaction,
+        float $porterCost
+    ): void {
+        $porterCost = round($porterCost, 2);
+
+        if ($porterCost < 0) {
+            throw ValidationException::withMessages([
+                'porter_cost' =>
+                    'Biaya kuli tidak boleh kurang dari Rp0.',
+            ]);
+        }
+
+        $details = $transaction->details()
+            ->orderBy('id')
+            ->get();
+
+        $totalSubtotal = round(
+            (float) $details->sum('subtotal'),
+            2
+        );
+
+        if ($porterCost > 0 && $totalSubtotal <= 0) {
+            throw ValidationException::withMessages([
+                'porter_cost' =>
+                    'Biaya kuli tidak dapat dialokasikan karena total subtotal barang adalah Rp0.',
+            ]);
+        }
+
+        if ($details->isEmpty()) {
+            if ($porterCost > 0) {
+                throw ValidationException::withMessages([
+                    'porter_cost' =>
+                        'Tambahkan barang terlebih dahulu sebelum mengisi biaya kuli.',
+                ]);
+            }
+
+            return;
+        }
+
+        $remainingCost = $porterCost;
+        $lastIndex = $details->count() - 1;
+
+        foreach ($details as $index => $detail) {
+            if ($porterCost <= 0 || $totalSubtotal <= 0) {
+                $allocated = 0;
+            } elseif ($index === $lastIndex) {
+                $allocated = $remainingCost;
+            } else {
+                $allocated = round(
+                    $porterCost
+                        * (
+                            (float) $detail->subtotal
+                            / $totalSubtotal
+                        ),
+                    2
+                );
+
+                $remainingCost = round(
+                    $remainingCost - $allocated,
+                    2
+                );
+            }
+
+            $detail->allocated_porter_cost = $allocated;
+            $detail->save();
+        }
+    }
 }

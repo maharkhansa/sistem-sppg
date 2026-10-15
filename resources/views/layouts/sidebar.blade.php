@@ -1,7 +1,7 @@
 @php
     $menuGroups = [
         'TRANSAKSI PERSEDIAAN' => [
-            ['icon' => '📥', 'label' => 'Barang Masuk', 'route' => 'stock-transactions.create'],
+            ['icon' => '📥', 'label' => 'Barang Masuk', 'route' => 'stock-transactions.index'],
             ['icon' => '📤', 'label' => 'Barang Keluar', 'route' => 'stock-transactions.out'],
             ['icon' => '📦', 'label' => 'Stok Persediaan', 'route' => 'stocks.index'],
         ],

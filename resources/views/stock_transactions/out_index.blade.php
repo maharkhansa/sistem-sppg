@@ -132,6 +132,12 @@
         margin-top: 24px;
     }
 
+    .out-section-title {
+        padding: 16px 20px;
+        border-top: 1px solid #dee2e6;
+        background: #fff;
+    }
+
     @media (max-width: 767.98px) {
         .out-header {
             overflow-x: auto;
@@ -169,7 +175,7 @@
         </div>
 
         <a href="{{ route('purchase-orders.index') }}"
-            class="btn btn-outline-secondary">
+           class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>
             Kembali ke Purchase Order
         </a>
@@ -180,9 +186,8 @@
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             <i class="bi bi-check-circle me-1"></i>
             {{ session('success') }}
-
             <button type="button" class="btn-close"
-                data-bs-dismiss="alert" aria-label="Tutup"></button>
+                    data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
     @endif
 
@@ -190,9 +195,8 @@
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <i class="bi bi-exclamation-triangle me-1"></i>
             {{ session('error') }}
-
             <button type="button" class="btn-close"
-                data-bs-dismiss="alert" aria-label="Tutup"></button>
+                    data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
     @endif
 
@@ -204,9 +208,8 @@
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
-
             <button type="button" class="btn-close"
-                data-bs-dismiss="alert" aria-label="Tutup"></button>
+                    data-bs-dismiss="alert" aria-label="Tutup"></button>
         </div>
     @endif
 
@@ -225,7 +228,6 @@
                         <label for="search" class="form-label small fw-semibold">
                             Pencarian
                         </label>
-
                         <input
                             type="text"
                             id="search"
@@ -239,10 +241,8 @@
                         <label for="kitchen_id" class="form-label small fw-semibold">
                             Dapur / SPPG
                         </label>
-
                         <select name="kitchen_id" id="kitchen_id" class="form-select">
                             <option value="">Semua Dapur / SPPG</option>
-
                             @foreach ($kitchens as $kitchen)
                                 <option
                                     value="{{ $kitchen->id }}"
@@ -258,7 +258,6 @@
                         <label for="date_from" class="form-label small fw-semibold">
                             Tanggal Mulai
                         </label>
-
                         <input
                             type="date"
                             id="date_from"
@@ -271,7 +270,6 @@
                         <label for="date_to" class="form-label small fw-semibold">
                             Tanggal Selesai
                         </label>
-
                         <input
                             type="date"
                             id="date_to"
@@ -289,7 +287,7 @@
                     </button>
 
                     <a href="{{ route('stock-transactions.out') }}"
-                        class="btn btn-outline-secondary">
+                       class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-counterclockwise me-1"></i>
                         Reset Filter
                     </a>
@@ -317,6 +315,7 @@
 
     {{-- DAFTAR TRANSAKSI --}}
     @forelse ($transactions as $transaction)
+
         <div class="out-card shadow-sm">
 
             {{-- INFORMASI TRANSAKSI --}}
@@ -330,7 +329,6 @@
                                     {{ $transaction->transaction_number }}
                                 </strong>
                             </td>
-
                             <td class="out-label">Tanggal</td>
                             <td>
                                 {{ $transaction->transaction_date
@@ -344,7 +342,6 @@
                             <td>
                                 {{ $transaction->purchaseOrder?->po_number ?? '-' }}
                             </td>
-
                             <td class="out-label">Jenis Transaksi</td>
                             <td>
                                 <span class="out-badge">BARANG KELUAR</span>
@@ -372,7 +369,6 @@
                             <td colspan="3">
                                 <div class="out-actions">
 
-                                    {{-- EDIT --}}
                                     <a
                                         href="{{ route('stock-transactions.edit', $transaction->id) }}"
                                         class="btn btn-sm btn-warning">
@@ -380,7 +376,6 @@
                                         Edit
                                     </a>
 
-                                    {{-- HAPUS --}}
                                     <form
                                         action="{{ route('stock-transactions.destroy', $transaction->id) }}"
                                         method="POST"
@@ -402,13 +397,18 @@
                                             <i class="bi bi-receipt me-1"></i>
                                             Lihat Invoice
                                         </a>
+                                        <a
+                                            href="{{ route('invoices.expenses.edit', $transaction->invoice->id) }}"
+                                            class="btn btn-sm btn-outline-warning">
+                                            <i class="bi bi-pencil-square me-1"></i>
+                                            Edit Biaya Non-Stok
+                                        </a>
                                     @else
                                         <form
                                             action="{{ route('stock-transactions.create-invoice', $transaction->id) }}"
                                             method="POST"
                                             onsubmit="return confirm('Buat Invoice otomatis dari transaksi OUT ini?');">
                                             @csrf
-
                                             <button type="submit" class="btn btn-sm btn-warning">
                                                 <i class="bi bi-file-earmark-plus me-1"></i>
                                                 Buat Invoice
@@ -435,7 +435,6 @@
                                             method="POST"
                                             onsubmit="return confirm('Buat Nota Keluar berdasarkan supplier dari transaksi OUT ini?');">
                                             @csrf
-
                                             <button type="submit" class="btn btn-sm btn-secondary">
                                                 <i class="bi bi-file-earmark-plus me-1"></i>
                                                 Buat Nota
@@ -450,7 +449,14 @@
                 </table>
             </div>
 
-            {{-- DETAIL BARANG --}}
+            {{-- DETAIL BARANG STOK --}}
+            <div class="out-section-title">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-box-seam me-2 text-primary"></i>
+                    Rincian Barang Stok
+                </h6>
+            </div>
+
             <div class="out-table-wrapper">
                 <table class="out-detail-table">
                     <thead>
@@ -464,26 +470,19 @@
                             <th width="160" class="out-text-right">Jumlah</th>
                         </tr>
                     </thead>
-
                     <tbody>
                         @forelse ($transaction->details as $index => $detail)
                             <tr>
                                 <td class="out-text-center">{{ $index + 1 }}</td>
                                 <td>{{ $detail->item?->code ?? '-' }}</td>
                                 <td>{{ $detail->item?->name ?? '-' }}</td>
-
                                 <td class="out-text-right">
                                     {{ rtrim(rtrim(number_format((float) $detail->quantity, 2, ',', '.'), '0'), ',') }}
                                 </td>
-
-                                <td class="out-text-center">
-                                    {{ $detail->unit ?? '-' }}
-                                </td>
-
+                                <td class="out-text-center">{{ $detail->unit ?? '-' }}</td>
                                 <td class="out-text-right">
                                     Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}
                                 </td>
-
                                 <td class="out-text-right">
                                     Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}
                                 </td>
@@ -491,13 +490,15 @@
                         @empty
                             <tr>
                                 <td colspan="7" class="out-empty">
-                                    Tidak ada detail barang.
+                                    Tidak ada detail barang stok.
                                 </td>
                             </tr>
                         @endforelse
 
                         <tr class="out-total">
-                            <td colspan="6" class="out-text-right">Total</td>
+                            <td colspan="6" class="out-text-right">
+                                TOTAL BARANG STOK
+                            </td>
                             <td class="out-text-right">
                                 Rp {{ number_format((float) $transaction->details->sum('subtotal'), 0, ',', '.') }}
                             </td>
@@ -506,20 +507,126 @@
                 </table>
             </div>
 
+            {{-- DETAIL BIAYA NON-STOK DARI INVOICE --}}
+            @php
+                $invoiceOut = $transaction->invoice;
+
+                $biayaNonStok = collect($invoiceOut?->details ?? [])
+                    ->filter(function ($detail) {
+                        $jenis = strtolower(trim((string) ($detail->detail_type ?? '')));
+
+                        return !empty($detail->expense_type_id)
+                            || in_array($jenis, [
+                                'expense',
+                                'biaya',
+                                'non_stock',
+                                'non-stock',
+                                'operasional',
+                                'operational',
+                                'nonstok',
+                                'non-stok',
+                            ], true)
+                            || (empty($detail->item_id) && !empty($detail->expense_date));
+                    })
+                    ->values();
+            @endphp
+
+            @if ($biayaNonStok->isNotEmpty())
+                <div class="out-section-title">
+                    <h6 class="fw-bold mb-0">
+                        <i class="bi bi-receipt me-2 text-warning"></i>
+                        Rincian Biaya Non-Stok
+                    </h6>
+                    <p class="text-muted small mb-0 mt-1">
+                        Biaya dari Invoice yang terkait dengan transaksi OUT ini.
+                    </p>
+                </div>
+
+                <div class="out-table-wrapper">
+                    <table class="out-detail-table">
+                        <thead>
+                            <tr>
+                                <th width="50" class="out-text-center">No</th>
+                                <th width="120">Tanggal Biaya</th>
+                                <th>Jenis Biaya</th>
+                                <th>Keterangan</th>
+                                <th width="100" class="out-text-right">Qty</th>
+                                <th width="100" class="out-text-center">Satuan</th>
+                                <th width="140" class="out-text-right">Harga</th>
+                                <th width="160" class="out-text-right">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($biayaNonStok as $index => $biaya)
+                                @php
+                                    $jumlah = (float) ($biaya->quantity ?? 0);
+                                    $harga = (float) ($biaya->unit_price ?? 0);
+                                    $subtotalBiaya = (float) (
+                                        $biaya->subtotal ?? ($jumlah * $harga)
+                                    );
+                                @endphp
+
+                                <tr>
+                                    <td class="out-text-center">{{ $index + 1 }}</td>
+                                    <td>
+                                        {{ $biaya->expense_date
+                                            ? \Illuminate\Support\Carbon::parse($biaya->expense_date)->format('d-m-Y')
+                                            : '-' }}
+                                    </td>
+                                    <td>
+                                        {{ $biaya->expenseType?->name ?? 'Biaya Non-Stok' }}
+                                    </td>
+                                    <td>{{ $biaya->notes ?: '-' }}</td>
+                                    <td class="out-text-right">
+                                        {{ rtrim(rtrim(number_format($jumlah, 2, ',', '.'), '0'), ',') }}
+                                    </td>
+                                    <td class="out-text-center">{{ $biaya->unit ?? '-' }}</td>
+                                    <td class="out-text-right">
+                                        Rp {{ number_format($harga, 0, ',', '.') }}
+                                    </td>
+                                    <td class="out-text-right">
+                                        Rp {{ number_format($subtotalBiaya, 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                            @endforeach
+
+                            <tr class="out-total">
+                                <td colspan="7" class="out-text-right">
+                                    TOTAL BIAYA NON-STOK
+                                </td>
+                                <td class="out-text-right">
+                                    Rp {{ number_format(
+                                        (float) $biayaNonStok->sum(function ($biaya) {
+                                            return (float) (
+                                                $biaya->subtotal
+                                                ?? (
+                                                    (float) ($biaya->quantity ?? 0)
+                                                    * (float) ($biaya->unit_price ?? 0)
+                                                )
+                                            );
+                                        }),
+                                        0,
+                                        ',',
+                                        '.'
+                                    ) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
         </div>
+        {{-- PENUTUP KARTU TRANSAKSI --}}
+
     @empty
-        <div class="card border-0 shadow-sm">
+        <div class="card shadow-sm">
             <div class="out-empty">
                 <i class="bi bi-inbox d-block mb-3"></i>
-                <h5 class="fw-semibold">Belum Ada Transaksi Barang Keluar</h5>
-                <p class="mb-3">
-                    Tidak ada transaksi yang cocok dengan pencarian atau filter.
+                <h5 class="fw-bold">Belum Ada Transaksi Barang Keluar</h5>
+                <p class="mb-0">
+                    Tidak ada transaksi yang sesuai dengan filter pencarian.
                 </p>
-                <a href="{{ route('purchase-orders.index') }}"
-                    class="btn btn-primary">
-                    <i class="bi bi-cart-check me-1"></i>
-                    Buka Purchase Order
-                </a>
             </div>
         </div>
     @endforelse
@@ -533,7 +640,7 @@
             </div>
 
             <div>
-                {{ $transactions->withQueryString()->links('pagination::bootstrap-5') }}
+                {{ $transactions->withQueryString()->links() }}
             </div>
         </div>
     @endif

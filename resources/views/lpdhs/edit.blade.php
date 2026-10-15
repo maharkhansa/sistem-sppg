@@ -1,806 +1,418 @@
-<!DOCTYPE html>
+@extends('layouts.app')
 
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@section('title', 'Edit LPDH')
 
-```
-<title>Edit LPDH - SPPG</title>
+@section('content')
+<div class="container-fluid py-4 lpdh-edit">
 
-<style>
-    * {
-        box-sizing: border-box;
-    }
-
-    body {
-        margin: 0;
-        padding: 20px;
-        font-family: Arial, Helvetica, sans-serif;
-        background: #f3f4f6;
-        color: #111827;
-        font-size: 13px;
-    }
-
-    .container {
-        max-width: 900px;
-        margin: 0 auto;
-    }
-
-    .top-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    h1 {
-        margin: 0;
-        font-size: 20px;
-    }
-
-    .subtitle {
-        color: #6b7280;
-        margin-top: 5px;
-    }
-
-    .btn {
-        display: inline-block;
-        padding: 9px 14px;
-        border-radius: 5px;
-        text-decoration: none;
-        border: none;
-        cursor: pointer;
-        font-size: 13px;
-    }
-
-    .btn-back {
-        background: #6b7280;
-        color: white;
-    }
-
-    .btn-primary {
-        background: #2563eb;
-        color: white;
-    }
-
-    .card {
-        background: white;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        margin-bottom: 15px;
-    }
-
-    .card-header {
-        padding: 13px 16px;
-        border-bottom: 1px solid #e5e7eb;
-        font-weight: bold;
-        font-size: 14px;
-    }
-
-    .card-body {
-        padding: 18px;
-    }
-
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 15px;
-    }
-
-    .form-group {
-        margin-bottom: 5px;
-    }
-
-    .form-group.full {
-        grid-column: 1 / -1;
-    }
-
-    label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: bold;
-        font-size: 12px;
-    }
-
-    .required {
-        color: #dc2626;
-    }
-
-    input,
-    select {
-        width: 100%;
-        padding: 9px 10px;
-        border: 1px solid #d1d5db;
-        border-radius: 5px;
-        font-size: 13px;
-        background: white;
-    }
-
-    input:focus,
-    select:focus {
-        outline: none;
-        border-color: #2563eb;
-    }
-
-    input[readonly] {
-        background: #f3f4f6;
-    }
-
-    .help-text {
-        margin-top: 5px;
-        color: #6b7280;
-        font-size: 11px;
-    }
-
-    .hpe-info {
-        margin-top: 6px;
-        color: #2563eb;
-        font-size: 11px;
-    }
-
-    .invoice-result {
-        margin-top: 8px;
-        padding: 9px 10px;
-        border-radius: 5px;
-        background: #eff6ff;
-        border: 1px solid #bfdbfe;
-        color: #1e40af;
-        font-weight: bold;
-    }
-
-    .alert {
-        padding: 10px 14px;
-        margin-bottom: 15px;
-        border-radius: 5px;
-    }
-
-    .alert-error {
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fca5a5;
-    }
-
-    .form-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        padding: 15px 18px;
-        border-top: 1px solid #e5e7eb;
-    }
-
-    @media (max-width: 700px) {
-
-        .form-grid {
-            grid-template-columns: 1fr;
+    <style>
+        .lpdh-edit .lpdh-card {
+            border: 0;
+            border-radius: 10px;
+            overflow: hidden;
         }
 
-        .form-group.full {
-            grid-column: auto;
+        .lpdh-edit .lpdh-card-header {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 15px 20px;
+            font-weight: 700;
         }
 
-        .top-actions {
-            align-items: flex-start;
-            gap: 10px;
-            flex-direction: column;
+        .lpdh-edit .lpdh-card-body {
+            padding: 20px;
         }
-    }
-</style>
-```
 
-</head>
+        .lpdh-edit .lpdh-hpe-info {
+            display: block;
+            margin-top: 6px;
+            color: #2563eb;
+            font-size: 12px;
+        }
 
-<body>
+        .lpdh-edit .lpdh-result {
+            margin-top: 8px;
+            padding: 10px;
+            border-radius: 6px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            font-weight: 600;
+            font-size: 13px;
+        }
+    </style>
 
-<div class="container">
-
-```
-<!-- HEADER -->
-
-<div class="top-actions">
-
-    <div>
-        <h1>Edit LPDH</h1>
-
-        <div class="subtitle">
-            Laporan Penggunaan Dana Harian SPPG
-        </div>
-    </div>
-
-    <a href="{{ route('lpdhs.show', $lpdh) }}"
-       class="btn btn-back">
-        ← Kembali
-    </a>
-
-</div>
-
-
-<!-- ERROR -->
-
-@if($errors->any())
-
-    <div class="alert alert-error">
-
-        <strong>
-            Periksa kembali data berikut:
-        </strong>
-
-        <ul style="margin-bottom:0;">
-
-            @foreach($errors->all() as $error)
-
-                <li>
-                    {{ $error }}
-                </li>
-
-            @endforeach
-
-        </ul>
-
-    </div>
-
-@endif
-
-
-<form action="{{ route('lpdhs.update', $lpdh) }}"
-      method="POST">
-
-    @csrf
-    @method('PUT')
-
-
-    <!-- IDENTITAS -->
-
-    <div class="card">
-
-        <div class="card-header">
-            Identitas Pelayanan
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-1">Edit LPDH</h3>
+            <p class="text-muted mb-0">
+                Laporan Penggunaan Dana Harian SPPG
+            </p>
         </div>
 
-        <div class="card-body">
+        <a href="{{ route('lpdhs.show', $lpdh) }}"
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Kembali
+        </a>
+    </div>
 
-            <div class="form-grid">
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Periksa kembali data berikut:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
+    <form action="{{ route('lpdhs.update', $lpdh) }}"
+          method="POST" id="lpdhEditForm">
+        @csrf
+        @method('PUT')
 
-                <!-- SPPG -->
+        <div class="card shadow-sm mb-4 lpdh-card">
+            <div class="lpdh-card-header">A. Identitas Pelayanan</div>
 
-                <div class="form-group">
+            <div class="lpdh-card-body">
+                <div class="row g-3">
 
-                    <label>
-                        SPPG / Dapur
-                        <span class="required">*</span>
-                    </label>
+                    <div class="col-md-6">
+                        <label for="kitchen_id" class="form-label">
+                            SPPG / Dapur <span class="text-danger">*</span>
+                        </label>
 
-                    <select name="kitchen_id"
-                            id="kitchen_id"
-                            required>
+                        <select name="kitchen_id" id="kitchen_id"
+                                class="form-select" required>
+                            <option value="">-- Pilih SPPG --</option>
 
-                        <option value="">
-                            -- Pilih SPPG --
-                        </option>
+                            @foreach ($kitchens as $kitchen)
+                                <option value="{{ $kitchen->id }}"
+                                    {{ old('kitchen_id', $lpdh->kitchen_id) == $kitchen->id ? 'selected' : '' }}>
+                                    {{ $kitchen->name }} - {{ $kitchen->id_sppg }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                        @foreach($kitchens as $kitchen)
+                    <div class="col-md-6">
+                        <label for="service_date" class="form-label">
+                            Tanggal Pelayanan <span class="text-danger">*</span>
+                        </label>
 
-                            <option value="{{ $kitchen->id }}"
-                                {{ old('kitchen_id', $lpdh->kitchen_id) == $kitchen->id ? 'selected' : '' }}>
+                        <input type="date" name="service_date" id="service_date"
+                               class="form-control"
+                               value="{{ old('service_date', \Illuminate\Support\Carbon::parse($lpdh->service_date)->format('Y-m-d')) }}"
+                               required>
+                    </div>
 
-                                {{ $kitchen->name }} - {{ $kitchen->id_sppg }}
+                    <div class="col-md-6">
+                        <label for="day_status_display" class="form-label">HPE</label>
 
+                        <input type="text" id="day_status_display"
+                               class="form-control bg-light"
+                               readonly placeholder="Otomatis berdasarkan tanggal">
+
+                        <input type="hidden" name="day_status" id="day_status">
+
+                        <small class="lpdh-hpe-info">
+                            HPE Ke-1 dimulai pada tanggal 5 Oktober 2026.
+                        </small>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="beneficiaries_count" class="form-label">
+                            Jumlah Penerima Manfaat
+                            <span class="text-danger">*</span>
+                        </label>
+
+                        <input type="number" name="beneficiaries_count"
+                               id="beneficiaries_count" min="0" step="1"
+                               class="form-control"
+                               value="{{ old('beneficiaries_count', $lpdh->beneficiaries_count) }}"
+                               required>
+
+                        <small class="text-muted">
+                            Insentif dihitung Rp2.000 per penerima manfaat.
+                        </small>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4 lpdh-card">
+            <div class="lpdh-card-header">B. Penggunaan Dana dan Insentif</div>
+
+            <div class="lpdh-card-body">
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Total bahan baku dan operasional diambil dari Invoice
+                    berdasarkan SPPG dan tanggal pelayanan.
+                </div>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="raw_material_expenses" class="form-label">
+                            Belanja Bahan Baku Pangan (Rp)
+                        </label>
+
+                        <input type="number" name="raw_material_expenses"
+                               id="raw_material_expenses" min="0" step="0.01"
+                               class="form-control bg-light"
+                               value="{{ old('raw_material_expenses', $lpdh->raw_material_expenses) }}"
+                               readonly required>
+
+                        <div id="raw-material-result" class="lpdh-result">
+                            Mengambil total bahan baku...
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="operational_expenses" class="form-label">
+                            Biaya Operasional (Rp)
+                        </label>
+
+                        <input type="number" name="operational_expenses"
+                               id="operational_expenses" min="0" step="0.01"
+                               class="form-control bg-light"
+                               value="{{ old('operational_expenses', $lpdh->operational_expenses) }}"
+                               readonly required>
+
+                        <div id="operational-result" class="lpdh-result">
+                            Mengambil total operasional...
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="incentive_calculated" class="form-label">
+                            Insentif Hasil Perhitungan (Rp)
+                        </label>
+
+                        <input type="number" name="incentive_calculated"
+                               id="incentive_calculated" min="0" step="0.01"
+                               class="form-control bg-light"
+                               value="{{ old('incentive_calculated', $lpdh->incentive_calculated) }}"
+                               readonly required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="incentive_paid" class="form-label">
+                            Insentif Dibayarkan ke Mitra/Yayasan (Rp)
+                            <span class="text-danger">*</span>
+                        </label>
+
+                        <input type="number" name="incentive_paid"
+                               id="incentive_paid" min="0" step="0.01"
+                               class="form-control"
+                               value="{{ old('incentive_paid', $lpdh->incentive_paid) }}"
+                               required>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4 lpdh-card">
+            <div class="lpdh-card-header">C. Saldo dan Pemeriksaan</div>
+
+            <div class="lpdh-card-body">
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="va_final_balance" class="form-label">
+                            Saldo Akhir VA (Rp)
+                            <span class="text-danger">*</span>
+                        </label>
+
+                        <input type="number" name="va_final_balance"
+                               id="va_final_balance" min="0" step="0.01"
+                               class="form-control"
+                               value="{{ old('va_final_balance', $lpdh->va_final_balance) }}"
+                               required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="topup_proposal" class="form-label">
+                            Usulan Top Up (Rp)
+                            <span class="text-danger">*</span>
+                        </label>
+
+                        <input type="number" name="topup_proposal"
+                               id="topup_proposal" min="0" step="0.01"
+                               class="form-control"
+                               value="{{ old('topup_proposal', $lpdh->topup_proposal) }}"
+                               required>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label for="inspection_result" class="form-label">
+                            Hasil Pemeriksaan
+                        </label>
+
+                        <select name="inspection_result" id="inspection_result"
+                                class="form-select">
+                            <option value="">-- Pilih Hasil --</option>
+
+                            <option value="Sesuai"
+                                {{ old('inspection_result', $lpdh->inspection_result) === 'Sesuai' ? 'selected' : '' }}>
+                                Sesuai
                             </option>
 
-                        @endforeach
-
-                    </select>
-
-                </div>
-
-
-                <!-- TANGGAL -->
-
-                <div class="form-group">
-
-                    <label>
-                        Tanggal Pelayanan
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="date"
-                           name="service_date"
-                           id="service_date"
-                           value="{{ old('service_date', $lpdh->service_date->format('Y-m-d')) }}"
-                           required>
-
-                </div>
-
-
-                <!-- STATUS HARI -->
-
-                <div class="form-group">
-
-                    <label>
-                        Status Hari
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="text"
-                           id="day_status_display"
-                           readonly
-                           placeholder="Otomatis berdasarkan tanggal">
-
-                    <input type="hidden"
-                           name="day_status"
-                           id="day_status">
-
-                    <div class="hpe-info">
-                        HPE ke-1 dimulai pada tanggal 5 Oktober 2026.
+                            <option value="Perlu Perbaikan"
+                                {{ old('inspection_result', $lpdh->inspection_result) === 'Perlu Perbaikan' ? 'selected' : '' }}>
+                                Perlu Perbaikan
+                            </option>
+                        </select>
                     </div>
 
                 </div>
-
-
-                <!-- PENERIMA MANFAAT -->
-
-                <div class="form-group">
-
-                    <label>
-                        Jumlah Penerima Manfaat
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           name="beneficiaries_count"
-                           min="0"
-                           value="{{ old('beneficiaries_count', $lpdh->beneficiaries_count) }}"
-                           required>
-
-                </div>
-
             </div>
 
-        </div>
+            <div class="d-flex justify-content-end gap-2 p-3 border-top">
+                <a href="{{ route('lpdhs.show', $lpdh) }}"
+                   class="btn btn-light border">
+                    Batal
+                </a>
 
-    </div>
-
-
-    <!-- PENGGUNAAN DANA -->
-
-    <div class="card">
-
-        <div class="card-header">
-            Penggunaan Dana
-        </div>
-
-        <div class="card-body">
-
-            <div class="form-grid">
-
-
-                <!-- BAHAN BAKU -->
-
-                <div class="form-group">
-
-                    <label>
-                        Belanja Bahan Baku Pangan
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           name="raw_material_expenses"
-                           id="raw_material_expenses"
-                           min="0"
-                           step="0.01"
-                           value="{{ old('raw_material_expenses', $lpdh->raw_material_expenses) }}"
-                           readonly
-                           required>
-
-                    <div id="raw-material-result"
-                         class="invoice-result">
-
-                        Mengambil total bahan baku...
-
-                    </div>
-
-                    <div class="help-text">
-                        Nilai diambil otomatis dari Invoice berdasarkan SPPG dan tanggal pelayanan.
-                    </div>
-
-                </div>
-
-
-                <!-- OPERASIONAL -->
-
-                <div class="form-group">
-
-                    <label>
-                        Biaya Operasional
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           name="operational_expenses"
-                           id="operational_expenses"
-                           min="0"
-                           step="0.01"
-                           value="{{ old('operational_expenses', $lpdh->operational_expenses) }}"
-                           readonly
-                           required>
-
-                    <div id="operational-result"
-                         class="invoice-result">
-
-                        Mengambil total operasional...
-
-                    </div>
-
-                </div>
-
-
-                <!-- INSENTIF DIHITUNG -->
-
-                <div class="form-group">
-
-                    <label>
-                        Insentif Dihitung
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           name="incentive_calculated"
-                           min="0"
-                           step="0.01"
-                           value="{{ old('incentive_calculated', $lpdh->incentive_calculated) }}"
-                           required>
-
-                </div>
-
-
-                <!-- INSENTIF DIBAYARKAN -->
-
-                <div class="form-group">
-
-                    <label>
-                        Insentif Dibayarkan ke Mitra/Yayasan
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           name="incentive_paid"
-                           min="0"
-                           step="0.01"
-                           value="{{ old('incentive_paid', $lpdh->incentive_paid) }}"
-                           required>
-
-                </div>
-
-
-                <!-- SALDO VA -->
-
-                <div class="form-group">
-
-                    <label>
-                        Saldo Akhir VA
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           name="va_final_balance"
-                           min="0"
-                           step="0.01"
-                           value="{{ old('va_final_balance', $lpdh->va_final_balance) }}"
-                           required>
-
-                </div>
-
-
-                <!-- TOP UP -->
-
-                <div class="form-group">
-
-                    <label>
-                        Usulan Top Up
-                        <span class="required">*</span>
-                    </label>
-
-                    <input type="number"
-                           name="topup_proposal"
-                           min="0"
-                           step="0.01"
-                           value="{{ old('topup_proposal', $lpdh->topup_proposal) }}"
-                           required>
-
-                </div>
-
-
-                <!-- HASIL PERIKSA -->
-
-                <div class="form-group full">
-
-                    <label>
-                        Hasil Daftar Periksa
-                    </label>
-
-                    <select name="inspection_result">
-
-                        <option value="">
-                            -- Pilih Hasil --
-                        </option>
-
-                        <option value="Sesuai"
-                            {{ old('inspection_result', $lpdh->inspection_result) === 'Sesuai' ? 'selected' : '' }}>
-                            Sesuai
-                        </option>
-
-                        <option value="Perlu Perbaikan"
-                            {{ old('inspection_result', $lpdh->inspection_result) === 'Perlu Perbaikan' ? 'selected' : '' }}>
-                            Perlu Perbaikan
-                        </option>
-
-                    </select>
-
-                </div>
-
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i> Simpan Perubahan
+                </button>
             </div>
-
         </div>
-
-
-        <!-- ACTION -->
-
-        <div class="form-actions">
-
-            <a href="{{ route('lpdhs.show', $lpdh) }}"
-               class="btn btn-back">
-                Batal
-            </a>
-
-            <button type="submit"
-                    class="btn btn-primary">
-                Simpan Perubahan
-            </button>
-
-        </div>
-
-    </div>
-
-</form>
-```
-
+    </form>
 </div>
+@endsection
 
+@push('scripts')
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const kitchenSelect = document.getElementById('kitchen_id');
+    const serviceDate = document.getElementById('service_date');
+    const dayStatusDisplay = document.getElementById('day_status_display');
+    const dayStatus = document.getElementById('day_status');
 
-    const kitchenSelect =
-        document.getElementById('kitchen_id');
+    const beneficiariesInput = document.getElementById('beneficiaries_count');
+    const incentiveCalculated = document.getElementById('incentive_calculated');
 
-    const serviceDate =
-        document.getElementById('service_date');
+    const rawMaterial = document.getElementById('raw_material_expenses');
+    const operational = document.getElementById('operational_expenses');
 
-    const dayStatusDisplay =
-        document.getElementById('day_status_display');
-
-    const dayStatus =
-        document.getElementById('day_status');
-
-    const rawMaterial =
-        document.getElementById('raw_material_expenses');
-
-    const operational =
-        document.getElementById('operational_expenses');
-
-    const rawMaterialResult =
-        document.getElementById('raw-material-result');
-
-    const operationalResult =
-        document.getElementById('operational-result');
-
-
-    function formatRupiah(number) {
-
-        return new Intl.NumberFormat('id-ID', {
-
-            style: 'currency',
-
-            currency: 'IDR',
-
-            minimumFractionDigits: 0
-
-        }).format(number);
-
-    }
-
+    const rawMaterialResult = document.getElementById('raw-material-result');
+    const operationalResult = document.getElementById('operational-result');
 
     function calculateHPE(dateValue) {
-
         if (!dateValue) {
-
             dayStatusDisplay.value = '';
-
             dayStatus.value = '';
-
             return;
-
         }
 
+        const startDate = new Date('2026-10-05T00:00:00');
+        const selectedDate = new Date(dateValue + 'T00:00:00');
 
-        const startDate =
-            new Date('2026-10-05T00:00:00');
+        const difference = Math.floor(
+            (selectedDate.getTime() - startDate.getTime()) / 86400000
+        ) + 1;
 
-        const selectedDate =
-            new Date(dateValue + 'T00:00:00');
+        const hpe = difference < 1
+            ? 'Belum HPE'
+            : 'HPE ke-' + difference;
 
-
-        const difference =
-            Math.floor(
-                (selectedDate - startDate) /
-                (1000 * 60 * 60 * 24)
-            ) + 1;
-
-
-        if (difference < 1) {
-
-            dayStatusDisplay.value =
-                'Belum HPE';
-
-            dayStatus.value =
-                'Belum HPE';
-
-        } else {
-
-            const hpe =
-                'HPE ke-' + difference;
-
-            dayStatusDisplay.value =
-                hpe;
-
-            dayStatus.value =
-                hpe;
-
-        }
-
+        dayStatusDisplay.value = hpe;
+        dayStatus.value = hpe;
     }
 
+    function calculateIncentive() {
+        const beneficiaries = Number(beneficiariesInput.value || 0);
+        incentiveCalculated.value = beneficiaries * 2000;
+    }
 
-    function loadInvoiceTotal() {
+    function formatRupiah(number) {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 2
+        }).format(Number(number || 0));
+    }
 
-        const kitchenId =
-            kitchenSelect.value;
-
-        const date =
-            serviceDate.value;
-
+    async function loadInvoiceTotal() {
+        const kitchenId = kitchenSelect.value;
+        const date = serviceDate.value;
 
         if (!kitchenId || !date) {
-
-            rawMaterialResult.style.display =
-                'none';
-
-            operationalResult.style.display =
-                'none';
-
-            rawMaterial.value = 0;
-
-            operational.value = 0;
-
+            rawMaterial.value = '0';
+            operational.value = '0';
+            rawMaterialResult.textContent = 'Pilih SPPG dan tanggal pelayanan.';
+            operationalResult.textContent = 'Pilih SPPG dan tanggal pelayanan.';
             return;
-
         }
 
+        rawMaterialResult.textContent = 'Mengambil total bahan baku...';
+        operationalResult.textContent = 'Mengambil total operasional...';
 
-        rawMaterialResult.style.display =
-            'block';
+        const url = @json(route('lpdhs.invoice-total'));
 
-        operationalResult.style.display =
-            'block';
-
-
-        rawMaterialResult.innerHTML =
-            'Mengambil total bahan baku...';
-
-        operationalResult.innerHTML =
-            'Mengambil total operasional...';
-
-
-        const url =
-            "{{ route('lpdhs.invoice-total') }}" +
-            "?kitchen_id=" +
-            encodeURIComponent(kitchenId) +
-            "&service_date=" +
-            encodeURIComponent(date);
-
-
-        fetch(url)
-
-            .then(response => {
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        'Gagal mengambil data Invoice.'
-                    );
-
+        try {
+            const response = await fetch(
+                @json(route('lpdhs.invoice-total')),
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': @json(csrf_token())
+                    },
+                    body: JSON.stringify({
+                        kitchen_id: kitchenSelect.value,
+                        service_date: serviceDate.value
+                    })
                 }
+            );
 
-                return response.json();
+            if (!response.ok) {
+                throw new Error('Gagal mengambil data Invoice.');
+            }
 
-            })
+            const data = await response.json();
 
-            .then(data => {
+            const rawTotal = Number(data.raw_material_total || 0);
+            const operationalTotal = Number(data.operational_total || 0);
 
-                const rawMaterialTotal =
-                    Number(
-                        data.raw_material_total || 0
-                    );
+            rawMaterial.value = rawTotal.toFixed(2);
+            operational.value = operationalTotal.toFixed(2);
 
-                const operationalTotal =
-                    Number(
-                        data.operational_total || 0
-                    );
+            rawMaterialResult.textContent =
+                'Total bahan baku: ' + formatRupiah(rawTotal);
 
+            operationalResult.textContent =
+                'Total operasional: ' + formatRupiah(operationalTotal);
+        } catch (error) {
+            rawMaterialResult.textContent =
+                'Gagal mengambil total bahan baku.';
 
-                rawMaterial.value =
-                    rawMaterialTotal.toFixed(2);
+            operationalResult.textContent =
+                'Gagal mengambil total operasional.';
 
-                operational.value =
-                    operationalTotal.toFixed(2);
-
-
-                rawMaterialResult.innerHTML =
-                    'Zenzie + Gemilang + Koperasi: ' +
-                    formatRupiah(rawMaterialTotal);
-
-
-                operationalResult.innerHTML =
-                    'Topfast: ' +
-                    formatRupiah(operationalTotal);
-
-            })
-
-            .catch(error => {
-
-                rawMaterialResult.innerHTML =
-                    'Gagal mengambil total bahan baku.';
-
-                operationalResult.innerHTML =
-                    'Gagal mengambil total operasional.';
-
-                console.error(error);
-
-            });
-
+            console.error(error);
+        }
     }
 
+    kitchenSelect.addEventListener('change', loadInvoiceTotal);
 
-    kitchenSelect.addEventListener(
-        'change',
-        loadInvoiceTotal
-    );
+    serviceDate.addEventListener('change', function () {
+        calculateHPE(this.value);
+        loadInvoiceTotal();
+    });
 
-
-    serviceDate.addEventListener(
-        'change',
-        function () {
-
-            calculateHPE(this.value);
-
-            loadInvoiceTotal();
-
-        }
-    );
-
+    beneficiariesInput.addEventListener('input', calculateIncentive);
 
     calculateHPE(serviceDate.value);
-
-
-    if (
-        kitchenSelect.value &&
-        serviceDate.value
-    ) {
-
-        loadInvoiceTotal();
-
-    }
-
+    calculateIncentive();
+    loadInvoiceTotal();
+});
 </script>
-
-</body>
-</html>
+@endpush

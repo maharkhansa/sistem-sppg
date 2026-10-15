@@ -86,12 +86,15 @@
             background: #146c43;
         }
 
+        /* HEADER INVOICE */
+
         .invoice-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             gap: 12px;
             margin-bottom: 14px;
+            width: 100%;
         }
 
         .header-left {
@@ -138,12 +141,24 @@
             print-color-adjust: exact !important;
         }
 
+        /* AREA TABEL */
+
         .supplier-section {
+            width: 100%;
             margin-bottom: 10px;
         }
 
-        .invoice-table {
+        .invoice-table-wrap {
+            position: relative;
             width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: visible;
+        }
+
+        .invoice-table {
+            width: 92%;
+            margin: 0;
             border-collapse: collapse;
             table-layout: fixed;
         }
@@ -166,6 +181,40 @@
             print-color-adjust: exact !important;
         }
 
+        /* HEADER KOLOM HIJAU, TEKS PUTIH */
+
+        .invoice-table thead th {
+            background-color: #6dad8f !important;
+            color: #ffffff !important;
+            font-weight: 700;
+            text-align: center;
+            vertical-align: middle;
+            border: 1px solid #000000;
+            padding: 8px 5px;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .invoice-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        /* HEADER KOLOM TUNGGAL */
+
+        .invoice-column-header {
+            width: 100%;
+            margin-bottom: 0;
+        }
+
+        .invoice-column-header .invoice-table {
+            width: 92%;
+        }
+
+        .invoice-column-header .invoice-table th {
+            padding: 5px 2px;
+        }
+
         .text-center {
             text-align: center;
         }
@@ -174,16 +223,61 @@
             text-align: right;
         }
 
+        .item-name-cell {
+            position: relative;
+        }
+
+        .item-name-with-reimburse {
+            display: block;
+            position: relative;
+        }
+
+        .item-name-text {
+            display: inline;
+        }
+
+        .item-name-text small {
+            font-size: 8px;
+            font-weight: normal;
+        }
+
+        /* CATATAN REIMBURSE DI LUAR TABEL */
+
+        .reimburse-outside {
+            display: none;
+            position: absolute;
+            left: 92%;
+            width: 8%;
+            padding-left: 5px;
+            font-size: 9px;
+            font-weight: 700;
+            color: #000;
+            line-height: 1.2;
+            white-space: normal;
+            text-align: left;
+            overflow-wrap: anywhere;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .has-reimburse .reimburse-outside {
+            display: block;
+        }
+
+        /* FOOTER DAN SUBTOTAL */
+
         .supplier-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 8px;
+            width: 92%;
             border-left: 1px solid #000;
             border-right: 1px solid #000;
             border-bottom: 1px solid #000;
             padding: 6px 7px;
             font-size: 9px;
+            box-sizing: border-box;
         }
 
         .approval-text {
@@ -195,6 +289,7 @@
             align-items: center;
             gap: 10px;
             white-space: nowrap;
+            margin-left: auto;
         }
 
         .subtotal-label,
@@ -206,9 +301,12 @@
             font-size: 10px;
         }
 
+        /* TOTAL INVOICE */
+
         .grand-total-container {
             display: flex;
             justify-content: flex-end;
+            width: 92%;
             margin: 12px 0 22px;
         }
 
@@ -227,7 +325,10 @@
             font-weight: bold;
         }
 
+        /* TANDA TANGAN */
+
         .signature-section {
+            width: 92%;
             margin-top: 18px;
         }
 
@@ -263,13 +364,13 @@
         }
 
         .signature-space {
-            height: 48px;
+            height: 75px;
         }
 
         .signature-line {
             border-bottom: 1px dashed #000;
             margin: 0 auto;
-            width: 80%;
+            width: 55%;
             height: 1px;
         }
 
@@ -283,6 +384,8 @@
             font-size: 11px;
             margin-bottom: 10px;
         }
+
+        /* CETAK A4 */
 
         @media print {
             @page {
@@ -322,6 +425,7 @@
             }
 
             .invoice-header {
+                width: 100% !important;
                 margin-bottom: 10px !important;
             }
 
@@ -343,17 +447,24 @@
             }
 
             .supplier-section {
+                width: 100% !important;
                 margin-bottom: 7px !important;
             }
 
-            .invoice-table {
+            .invoice-table-wrap {
                 width: 100% !important;
-                table-layout: fixed !important;
-                border-collapse: collapse !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: relative !important;
+                overflow: visible !important;
             }
 
-            .invoice-table thead {
-                display: table-header-group;
+            .invoice-table,
+            .invoice-column-header .invoice-table {
+                width: 92% !important;
+                margin: 0 !important;
+                table-layout: fixed !important;
+                border-collapse: collapse !important;
             }
 
             .invoice-table th,
@@ -368,12 +479,25 @@
                 font-size: 8px !important;
             }
 
-            .invoice-table tr {
-                break-inside: avoid;
-                page-break-inside: avoid;
+            .invoice-column-header .invoice-table thead th {
+                background-color: #6dad8f !important;
+                color: #ffffff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .reimburse-outside {
+                left: 92% !important;
+                width: 8% !important;
+                padding-left: 4px !important;
+                font-size: 8px !important;
+                font-weight: 700 !important;
+                white-space: normal !important;
+                overflow-wrap: anywhere !important;
             }
 
             .supplier-footer {
+                width: 92% !important;
                 padding: 5px 6px !important;
                 font-size: 8px !important;
             }
@@ -383,6 +507,7 @@
             }
 
             .grand-total-container {
+                width: 92% !important;
                 margin: 9px 0 15px !important;
                 break-inside: avoid;
                 page-break-inside: avoid;
@@ -393,17 +518,27 @@
             }
 
             .signature-section {
+                width: 92% !important;
                 margin-top: 12px !important;
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
 
             .signature-grid-top {
+                width: 100% !important;
                 margin-bottom: 10px !important;
             }
 
+            .signature-grid-bottom {
+                width: 100% !important;
+            }
+
             .signature-space {
-                height: 36px !important;
+                height: 55px !important;
+            }
+
+            .signature-line {
+                width: 55% !important;
             }
 
             .knowing-title {
@@ -443,6 +578,10 @@
                 font-size: 6.5px !important;
             }
 
+            .invoice-card.fit-compact-2 .reimburse-outside {
+                font-size: 7px !important;
+            }
+
             .invoice-card.fit-compact-2 .signature-space {
                 height: 20px !important;
             }
@@ -473,7 +612,7 @@
 
             <div class="action-buttons">
                 <a href="{{ route('invoices.nota-allocation', $invoice->id) }}"
-                class="btn btn-manage-nota">
+                   class="btn btn-manage-nota">
                     📋 Kelola Pembagian Nota
                 </a>
 
@@ -506,6 +645,7 @@
                 );
 
                 $yayasan = 'Yayasan Aghits Star International';
+                $ketuaYayasan = 'Teguh Hadi Susilo';
 
                 if (
                     str_contains($normalizedKitchen, 'MUNGKID') ||
@@ -514,10 +654,96 @@
                     str_contains($normalizedKitchen, 'PALEMBANG')
                 ) {
                     $yayasan = 'Yayasan La Tahzan Indonesia';
+                    $ketuaYayasan = 'Dwi Haryanti';
                 }
+
+                /*
+                 * Detail stok dikelompokkan berdasarkan supplier dan bagian.
+                 * Biaya non-stok dikelompokkan berdasarkan jenis biaya dan tanggal.
+                 */
+
+                $stockDetails = $invoice->details
+                    ->filter(function ($detail) {
+                        return ($detail->detail_type ?? 'stock') !== 'expense';
+                    });
+
+                $expenseDetails = $invoice->details
+                    ->filter(function ($detail) {
+                        return ($detail->detail_type ?? 'stock') === 'expense';
+                    });
+
+                $groupedStockDetails = $stockDetails
+                    ->groupBy(function ($detail) {
+                        $section = trim(
+                            (string) ($detail->section_name ?? '')
+                        );
+
+                        return ($detail->supplier_id ?? 0) . '|' . $section;
+                    })
+                    ->sortBy(function ($details) {
+                        $first = $details->first();
+
+                        $supplierName = strtoupper(
+                            trim($first?->supplier?->name ?? '')
+                        );
+
+                        if (
+                            str_contains($supplierName, 'KOPERASI') ||
+                            str_contains($supplierName, 'SUMBER REJEKI')
+                        ) {
+                            $supplierOrder = 1;
+                        } elseif (
+                            str_contains($supplierName, 'ZENZI') ||
+                            str_contains($supplierName, 'ZENZIE')
+                        ) {
+                            $supplierOrder = 2;
+                        } elseif (str_contains($supplierName, 'GEMILANG')) {
+                            $supplierOrder = 3;
+                        } elseif (
+                            str_contains($supplierName, 'TOPFAST') ||
+                            str_contains($supplierName, 'TOP FAST')
+                        ) {
+                            $supplierOrder = 4;
+                        } else {
+                            $supplierOrder = 5;
+                        }
+
+                        return sprintf(
+                            '%02d-%06d-%06d',
+                            $supplierOrder,
+                            (int) ($first?->supplier_id ?? 0),
+                            (int) ($first?->section_order ?? 0)
+                        );
+                    });
+
+                /*
+                 * Kunci pengelompokan biaya:
+                 * NAMA JENIS BIAYA + TANGGAL BIAYA.
+                 *
+                 * Contoh:
+                 * Insentif + 2026-10-01 = satu tabel.
+                 * Insentif + 2026-10-02 = tabel berbeda.
+                 * BPJS Relawan + 2026-10-01 = tabel berbeda.
+                 */
+
+                $groupedExpenseDetails = $expenseDetails
+                    ->groupBy(function ($detail) {
+                        $expenseType = strtoupper(trim(
+                            (string) ($detail->expenseType?->name ?? 'Biaya Non-Stok')
+                        ));
+
+                        $expenseDate = empty($detail->expense_date)
+                            ? 'tanpa-tanggal'
+                            : \Carbon\Carbon::parse($detail->expense_date)->format('Y-m-d');
+
+                        return $expenseType . '|' . $expenseDate;
+                    })
+                    ->sortKeys();
+
+                $rowNumber = 1;
             @endphp
 
-            {{-- HEADER --}}
+            {{-- HEADER INVOICE --}}
             <div class="invoice-header">
                 <div class="header-left">
                     <h1>INVOICE BELANJA PROGRAM MBG</h1>
@@ -545,135 +771,131 @@
             {{-- DETAIL INVOICE --}}
             @if($invoice->details->count() > 0)
 
-                @php
-                    /*
-                    * Kelompokkan berdasarkan supplier DAN bagian.
-                    * Bagian kosong tetap menjadi kelompok tanpa pembagian.
-                    */
-                    $groupedDetails = $invoice->details
-                        ->groupBy(function ($detail) {
-                            $section = trim((string) ($detail->section_name ?? ''));
+                {{-- HEADER KOLOM: SATU KALI SAJA --}}
+                <div class="invoice-column-header">
+                    <table class="invoice-table">
+                        <colgroup>
+                            <col style="width: 4%;">
+                            <col style="width: 17%;">
+                            <col style="width: 12%;">
+                            <col style="width: 24%;">
+                            <col style="width: 6%;">
+                            <col style="width: 7%;">
+                            <col style="width: 14%;">
+                            <col style="width: 16%;">
+                        </colgroup>
 
-                            return ($detail->supplier_id ?? 0)
-                                . '|'
-                                . $section;
-                        })
-                        ->sortBy(function ($details) {
-                            $first = $details->first();
+                        <thead>
+                            <tr>
+                                <th>NO</th>
+                                <th>SUPPLIER</th>
+                                <th>KODE BARANG</th>
+                                <th>JENIS BARANG</th>
+                                <th>QTY</th>
+                                <th>SATUAN</th>
+                                <th>HARGA</th>
+                                <th>JUMLAH</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
 
-                            $supplierName = strtoupper(
-                                trim($first?->supplier?->name ?? '')
-                            );
-
-                            if (
-                                str_contains($supplierName, 'KOPERASI') ||
-                                str_contains($supplierName, 'SUMBER REJEKI')
-                            ) {
-                                $supplierOrder = 1;
-                            } elseif (
-                                str_contains($supplierName, 'ZENZI') ||
-                                str_contains($supplierName, 'ZENZIE')
-                            ) {
-                                $supplierOrder = 2;
-                            } elseif (str_contains($supplierName, 'GEMILANG')) {
-                                $supplierOrder = 3;
-                            } elseif (
-                                str_contains($supplierName, 'TOPFAST') ||
-                                str_contains($supplierName, 'TOP FAST')
-                            ) {
-                                $supplierOrder = 4;
-                            } else {
-                                $supplierOrder = 5;
-                            }
-
-                            return sprintf(
-                                '%02d-%06d-%06d',
-                                $supplierOrder,
-                                $first?->supplier_id ?? 0,
-                                $first?->section_order ?? 0
-                            );
-                        });
-
-                    $rowNumber = 1;
-                @endphp
-
-                @foreach($groupedDetails as $details)
+                {{-- TABEL BARANG STOK --}}
+                @foreach($groupedStockDetails as $groupKey => $details)
 
                     @php
-                        $firstDetail = $details->first();
-
-                        $sectionName = trim(
-                            $firstDetail?->section_name ?? ''
-                        );
-
                         $supplierSubtotal = $details->sum('subtotal');
+
+                        $hasReimburse = $details->contains(function ($detail) {
+                            return trim((string) ($detail->notes ?? '')) === '*Reimburse';
+                        });
                     @endphp
 
-                    <div class="supplier-section">
+                    <div class="supplier-section {{ $hasReimburse ? 'has-reimburse' : '' }}">
 
-                        <table class="invoice-table">
-                            <colgroup>
-                                <col style="width: 4%;">
-                                <col style="width: 17%;">
-                                <col style="width: 12%;">
-                                <col style="width: 24%;">
-                                <col style="width: 6%;">
-                                <col style="width: 7%;">
-                                <col style="width: 14%;">
-                                <col style="width: 16%;">
-                            </colgroup>
+                        <div class="invoice-table-wrap">
+                            <table class="invoice-table">
+                                <colgroup>
+                                    <col style="width: 4%;">
+                                    <col style="width: 17%;">
+                                    <col style="width: 12%;">
+                                    <col style="width: 24%;">
+                                    <col style="width: 6%;">
+                                    <col style="width: 7%;">
+                                    <col style="width: 14%;">
+                                    <col style="width: 16%;">
+                                </colgroup>
 
-                            <thead>
-                                <tr>
-                                    <th>NO</th>
-                                    <th>SUPPLIER</th>
-                                    <th>KODE BARANG</th>
-                                    <th>JENIS BARANG</th>
-                                    <th>QTY</th>
-                                    <th>SATUAN</th>
-                                    <th>HARGA</th>
-                                    <th>JUMLAH</th>
-                                </tr>
-                            </thead>
+                                <tbody>
+                                    @foreach($details as $detail)
 
-                            <tbody>
+                                        @php
+                                            $supplierDisplay = $detail->supplier?->name ?? '-';
+                                            $itemDisplay = $detail->item?->name ?? '-';
+                                            $itemCode = $detail->item?->code ?? '-';
+
+                                            $isReimburse = trim(
+                                                (string) ($detail->notes ?? '')
+                                            ) === '*Reimburse';
+                                        @endphp
+
+                                        <tr
+                                            data-detail-id="{{ $detail->id }}"
+                                            @if($isReimburse)
+                                                data-reimburse="1"
+                                            @endif
+                                        >
+                                            <td class="text-center">
+                                                {{ $rowNumber++ }}
+                                            </td>
+
+                                            <td>
+                                                {{ strtoupper($supplierDisplay) }}
+                                            </td>
+
+                                            <td class="text-center">
+                                                {{ $itemCode }}
+                                            </td>
+
+                                            <td class="item-name-cell">
+                                                <div class="item-name-with-reimburse">
+                                                    <span class="item-name-text">
+                                                        {{ $itemDisplay }}
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            <td class="text-center">
+                                                {{ rtrim(rtrim(number_format((float) $detail->quantity, 2, ',', '.'), '0'), ',') }}
+                                            </td>
+
+                                            <td class="text-center">
+                                                {{ $detail->unit ?? '-' }}
+                                            </td>
+
+                                            <td class="text-right">
+                                                Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}
+                                            </td>
+
+                                            <td class="text-right">
+                                                Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+
+                            @if($hasReimburse)
                                 @foreach($details as $detail)
-                                    <tr>
-                                        <td class="text-center">
-                                            {{ $rowNumber++ }}
-                                        </td>
-
-                                        <td>
-                                            {{ strtoupper($detail->supplier?->name ?? '-') }}
-                                        </td>
-
-                                        <td class="text-center">
-                                            {{ $detail->item?->code ?? '-' }}
-                                        </td>
-
-                                        <td>
-                                            {{ $detail->item?->name ?? '-' }}
-                                        </td>
-
-                                        <td class="text-center">
-                                            {{ rtrim(rtrim(number_format((float) $detail->quantity, 2, ',', '.'), '0'), ',') }}
-                                        </td>
-
-                                        <td class="text-center">
-                                            {{ $detail->unit ?? '-' }}
-                                        </td>
-
-                                        <td class="text-right">
-                                            Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}
-                                        </td>
-
-                                        <td class="text-right">
-                                            Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}
-                                        </td>
-                                    </tr>
+                                    @if(trim((string) ($detail->notes ?? '')) === '*Reimburse')
+                                        <div
+                                            class="reimburse-outside"
+                                            data-reimburse-for="{{ $detail->id }}"
+                                        >*Reimburse</div>
+                                    @endif
                                 @endforeach
-                            </tbody>
-                        </table>
+                            @endif
+                        </div>
 
                         <div class="supplier-footer">
                             <div class="approval-text">
@@ -686,7 +908,6 @@
 
                             <div class="subtotal-wrapper">
                                 <span class="subtotal-label">SUBTOTAL</span>
-
                                 <span class="subtotal-val">
                                     Rp {{ number_format((float) $supplierSubtotal, 0, ',', '.') }}
                                 </span>
@@ -696,19 +917,148 @@
 
                 @endforeach
 
+                {{-- TABEL BIAYA NON-STOK: PER JENIS BIAYA DAN TANGGAL --}}
+                @foreach($groupedExpenseDetails as $expenseGroupKey => $details)
+
+                    @php
+                        $expenseSubtotal = $details->sum('subtotal');
+
+                        $hasReimburse = $details->contains(function ($detail) {
+                            return trim((string) ($detail->notes ?? '')) === '*Reimburse';
+                        });
+                    @endphp
+
+                    <div class="supplier-section {{ $hasReimburse ? 'has-reimburse' : '' }}">
+
+                        <div class="invoice-table-wrap">
+                            <table class="invoice-table">
+                                <colgroup>
+                                    <col style="width: 4%;">
+                                    <col style="width: 17%;">
+                                    <col style="width: 12%;">
+                                    <col style="width: 24%;">
+                                    <col style="width: 6%;">
+                                    <col style="width: 7%;">
+                                    <col style="width: 14%;">
+                                    <col style="width: 16%;">
+                                </colgroup>
+
+                                <tbody>
+                                    @foreach($details as $detail)
+
+                                        @php
+                                            $supplierDisplay = $detail->supplier_name ?: '-';
+                                            $itemDisplay = $detail->expenseType?->name ?? 'Biaya Non-Stok';
+
+                                            $isReimburse = trim(
+                                                (string) ($detail->notes ?? '')
+                                            ) === '*Reimburse';
+
+                                            $itemCode = !empty($detail->expense_date)
+                                                ? \Carbon\Carbon::parse($detail->expense_date)->format('d/m/Y')
+                                                : '-';
+                                        @endphp
+
+                                        <tr
+                                            data-detail-id="{{ $detail->id }}"
+                                            @if($isReimburse)
+                                                data-reimburse="1"
+                                            @endif
+                                        >
+                                            <td class="text-center">
+                                                {{ $rowNumber++ }}
+                                            </td>
+
+                                            <td>
+                                                {{ strtoupper($supplierDisplay) }}
+                                            </td>
+
+                                            <td class="text-center">
+                                                {{ $itemCode }}
+                                            </td>
+
+                                            <td class="item-name-cell">
+                                                <div class="item-name-with-reimburse">
+                                                    <span class="item-name-text">
+                                                        {{ $itemDisplay }}
+
+                                                        @if(!empty($detail->notes) && !$isReimburse)
+                                                            <br>
+                                                            <small>{{ $detail->notes }}</small>
+                                                        @endif
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            <td class="text-center">
+                                                {{ rtrim(rtrim(number_format((float) $detail->quantity, 2, ',', '.'), '0'), ',') }}
+                                            </td>
+
+                                            <td class="text-center">
+                                                {{ $detail->unit ?? '-' }}
+                                            </td>
+
+                                            <td class="text-right">
+                                                Rp {{ number_format((float) $detail->unit_price, 0, ',', '.') }}
+                                            </td>
+
+                                            <td class="text-right">
+                                                Rp {{ number_format((float) $detail->subtotal, 0, ',', '.') }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+
+                            @if($hasReimburse)
+                                @foreach($details as $detail)
+                                    @if(trim((string) ($detail->notes ?? '')) === '*Reimburse')
+                                        <div
+                                            class="reimburse-outside"
+                                            data-reimburse-for="{{ $detail->id }}"
+                                        >*Reimburse</div>
+                                    @endif
+                                @endforeach
+                            @endif
+                        </div>
+
+                        <div class="supplier-footer">
+                            <div class="approval-text">
+                                ☐ Approved
+                                &nbsp; ☐ Not Approved
+                                &nbsp; ☐ Pen
+                                &nbsp; | &nbsp;
+                                Date Approval: ______________
+                            </div>
+
+                            <div class="subtotal-wrapper">
+                                <span class="subtotal-label">SUBTOTAL</span>
+                                <span class="subtotal-val">
+                                    Rp {{ number_format((float) $expenseSubtotal, 0, ',', '.') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                @endforeach
+
             @else
                 <div class="empty-data">
-                    DETAIL BARANG INVOICE TIDAK DITEMUKAN
+                    DETAIL BARANG DAN BIAYA INVOICE TIDAK DITEMUKAN
                 </div>
             @endif
 
-            {{-- TOTAL --}}
+            {{-- TOTAL INVOICE --}}
             <div class="grand-total-container">
                 <div class="grand-total-box">
                     <span>TOTAL</span>
-
                     <span>
-                        Rp {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}
+                        Rp {{ number_format(
+                            (float) $invoice->details->sum('subtotal'),
+                            0,
+                            ',',
+                            '.'
+                        ) }}
                     </span>
                 </div>
             </div>
@@ -735,13 +1085,12 @@
                 </div>
 
                 <div class="signature-grid-bottom">
-
                     <div class="signature-box">
                         <div>Ketua {{ $yayasan }}</div>
                         <div class="signature-space"></div>
                         <div class="signature-line"></div>
                         <div class="signature-name-bold">
-                            Teguh Hadi Susilo
+                            {{ $ketuaYayasan }}
                         </div>
                     </div>
 
@@ -756,15 +1105,53 @@
                         <div class="signature-space"></div>
                         <div class="signature-line"></div>
                     </div>
-
                 </div>
+
             </div>
 
         </div>
     </div>
 
     <script>
-        window.addEventListener('beforeprint', function () {
+        /*
+        |--------------------------------------------------------------------------
+        | POSISI CATATAN REIMBURSE SESUAI BARIS
+        |--------------------------------------------------------------------------
+        */
+
+        function positionReimburseNotes() {
+            document.querySelectorAll('.invoice-table-wrap').forEach(function (wrapper) {
+                const table = wrapper.querySelector('.invoice-table');
+
+                if (!table) {
+                    return;
+                }
+
+                const wrapperRect = wrapper.getBoundingClientRect();
+
+                wrapper.querySelectorAll('.reimburse-outside').forEach(function (note) {
+                    const detailId = note.dataset.reimburseFor;
+
+                    const row = table.querySelector(
+                        'tbody tr[data-detail-id="' + detailId + '"]'
+                    );
+
+                    if (!row) {
+                        return;
+                    }
+
+                    const rowRect = row.getBoundingClientRect();
+
+                    note.style.top = (
+                        rowRect.top -
+                        wrapperRect.top +
+                        (rowRect.height - note.offsetHeight) / 2
+                    ) + 'px';
+                });
+            });
+        }
+
+        function fitInvoiceForPrint() {
             const invoice = document.querySelector('.invoice-card');
 
             if (!invoice) {
@@ -785,6 +1172,15 @@
             if (invoice.getBoundingClientRect().height > maxHeight) {
                 invoice.classList.add('fit-compact-2');
             }
+
+            positionReimburseNotes();
+        }
+
+        window.addEventListener('load', positionReimburseNotes);
+        window.addEventListener('resize', positionReimburseNotes);
+
+        window.addEventListener('beforeprint', function () {
+            fitInvoiceForPrint();
         });
 
         window.addEventListener('afterprint', function () {
@@ -796,6 +1192,8 @@
                     'fit-compact-2'
                 );
             }
+
+            positionReimburseNotes();
         });
     </script>
 </body>

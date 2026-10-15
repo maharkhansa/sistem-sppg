@@ -313,9 +313,9 @@
     @endforeach
 
     <footer class="dashboard-footer">
-        Sistem SPPG · Manajemen Persediaan dan Distribusi MBG
+        Sistem Yayasan La Tahzan Indonesia & Aghits Star International · Manajemen Persediaan dan Distribusi MBG
         <br>
-        &copy; {{ date('Y') }} Sistem SPPG
+        &copy; {{ date('Y') }} Sistem Yayasan
     </footer>
 
 @endsection

@@ -13,7 +13,11 @@ class InvoiceDetail extends Model
     protected $fillable = [
         'invoice_id',
         'supplier_id',
+        'supplier_name',
         'item_id',
+        'detail_type',
+        'expense_type_id',
+        'expense_date',
         'quantity',
         'unit',
         'unit_price',
@@ -27,36 +31,27 @@ class InvoiceDetail extends Model
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
-         'section_order' => 'integer',
+        'section_order' => 'integer',
+        'expense_date' => 'date',
     ];
 
-    /**
-     * Invoice
-     */
     public function invoice(): BelongsTo
     {
-        return $this->belongsTo(
-            Invoice::class
-        );
+        return $this->belongsTo(Invoice::class);
     }
 
-    /**
-     * Supplier
-     */
     public function supplier(): BelongsTo
     {
-        return $this->belongsTo(
-            Supplier::class
-        );
+        return $this->belongsTo(Supplier::class);
     }
 
-    /**
-     * Barang
-     */
     public function item(): BelongsTo
     {
-        return $this->belongsTo(
-            Item::class
-        );
+        return $this->belongsTo(Item::class);
+    }
+
+    public function expenseType(): BelongsTo
+    {
+        return $this->belongsTo(ExpenseType::class);
     }
 }

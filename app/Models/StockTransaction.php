@@ -17,6 +17,11 @@ class StockTransaction extends Model
         'transaction_date',
         'type',
         'supplier_id',
+        'vendor_name',
+        'purchase_note_number',
+        'porter_cost',
+        'purchase_discount_type',
+        'purchase_discount_value',
         'kitchen_id',
         'purchase_order_id',
         'notes',
@@ -25,6 +30,8 @@ class StockTransaction extends Model
 
     protected $casts = [
         'transaction_date' => 'date',
+        'porter_cost' => 'decimal:2',
+        'purchase_discount_value' => 'decimal:2',
     ];
 
     public function supplier(): BelongsTo
@@ -54,13 +61,11 @@ class StockTransaction extends Model
 
     public function invoice(): HasOne
     {
-    return $this->hasOne(Invoice::class);
+        return $this->hasOne(Invoice::class);
     }
 
     public function notaKeluars(): HasMany
     {
-    return $this->hasMany(
-        NotaKeluar::class
-    );
+        return $this->hasMany(NotaKeluar::class);
     }
 }

@@ -15,7 +15,7 @@
 
     .transaction-table {
         margin-bottom: 0;
-        min-width: 850px;
+        min-width: 1200px;
     }
 
     .transaction-table th {
@@ -39,6 +39,25 @@
         background-color: #d1e7dd;
         color: #0f5132;
         font-weight: 500;
+    }
+
+    .porter-cost {
+        color: #b45309;
+        font-weight: 600;
+    }
+
+    .grand-total {
+        color: #0d6efd;
+        font-weight: 700;
+    }
+
+    .subtotal-amount {
+        font-weight: 600;
+        color: #198754;
+    }
+
+    .discount-amount {
+        color: #dc3545;
     }
 
     .pagination {
@@ -89,6 +108,28 @@
     .empty-state i {
         font-size: 40px;
     }
+
+    .action-buttons {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .action-buttons .btn {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .filter-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #495057;
+    }
 </style>
 @endpush
 
@@ -103,13 +144,14 @@
                     <i class="bi bi-box-arrow-in-down me-2 text-primary"></i>
                     Daftar Barang Masuk
                 </h4>
+
                 <small class="text-muted">
-                    Daftar transaksi penerimaan barang dari supplier
+                    Daftar penerimaan barang dari vendor ke stok persediaan
                 </small>
             </div>
 
             <a href="{{ route('stock-transactions.create') }}"
-                class="btn btn-primary">
+               class="btn btn-primary">
                 <i class="bi bi-plus-lg me-1"></i>
                 Tambah Barang Masuk
             </a>
@@ -121,8 +163,10 @@
                 <i class="bi bi-check-circle me-1"></i>
                 {{ session('success') }}
 
-                <button type="button" class="btn-close"
-                    data-bs-dismiss="alert" aria-label="Tutup"></button>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                        aria-label="Tutup"></button>
             </div>
         @endif
 
@@ -132,8 +176,10 @@
                 <i class="bi bi-exclamation-triangle me-1"></i>
                 {{ session('error') }}
 
-                <button type="button" class="btn-close"
-                    data-bs-dismiss="alert" aria-label="Tutup"></button>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                        aria-label="Tutup"></button>
             </div>
         @endif
 
@@ -141,14 +187,17 @@
         @if ($errors->any())
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <strong>Terjadi kesalahan:</strong>
+
                 <ul class="mb-0 mt-2">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
                 </ul>
 
-                <button type="button" class="btn-close"
-                    data-bs-dismiss="alert" aria-label="Tutup"></button>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                        aria-label="Tutup"></button>
             </div>
         @endif
 
@@ -158,9 +207,9 @@
                 <form method="GET" action="{{ route('stock-transactions.index') }}">
                     <div class="row g-3 align-items-end">
 
-                        {{-- SEARCH --}}
-                        <div class="col-12 col-md-5">
-                            <label for="search" class="form-label small fw-semibold">
+                        {{-- PENCARIAN --}}
+                        <div class="col-12 col-md-6">
+                            <label for="search" class="form-label filter-label">
                                 Cari Transaksi
                             </label>
 
@@ -175,14 +224,14 @@
                                     name="search"
                                     class="form-control"
                                     value="{{ request('search') }}"
-                                    placeholder="Nomor transaksi atau supplier">
+                                    placeholder="Nomor transaksi atau vendor pengirim">
                             </div>
                         </div>
 
                         {{-- TANGGAL --}}
-                        <div class="col-12 col-md-3">
-                            <label for="date" class="form-label small fw-semibold">
-                                Tanggal
+                        <div class="col-12 col-md-4">
+                            <label for="date" class="form-label filter-label">
+                                Tanggal Barang Masuk
                             </label>
 
                             <input
@@ -193,38 +242,19 @@
                                 value="{{ request('date') }}">
                         </div>
 
-                        {{-- SUPPLIER --}}
-                        <div class="col-12 col-md-3">
-                            <label for="supplier_id" class="form-label small fw-semibold">
-                                Supplier
-                            </label>
-
-                            <select id="supplier_id" name="supplier_id"
-                                class="form-select">
-                                <option value="">Semua Supplier</option>
-
-                                @foreach ($suppliers as $supplier)
-                                    <option
-                                        value="{{ $supplier->id }}"
-                                        {{ (string) request('supplier_id') === (string) $supplier->id ? 'selected' : '' }}>
-                                        {{ $supplier->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        {{-- BUTTON --}}
-                        <div class="col-12 col-md-1 d-flex gap-2">
+                        {{-- CARI --}}
+                        <div class="col-12 col-md-2 d-flex gap-2">
                             <button type="submit"
-                                class="btn btn-primary flex-grow-1"
-                                title="Cari transaksi">
-                                <i class="bi bi-search"></i>
+                                    class="btn btn-primary flex-grow-1">
+                                <i class="bi bi-search me-1"></i>
+                                Cari
                             </button>
                         </div>
 
+                        {{-- RESET --}}
                         <div class="col-12">
                             <a href="{{ route('stock-transactions.index') }}"
-                                class="btn btn-sm btn-outline-secondary">
+                               class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i>
                                 Reset Filter
                             </a>
@@ -235,7 +265,7 @@
             </div>
         </div>
 
-        {{-- INFORMASI DATA --}}
+        {{-- INFORMASI JUMLAH DATA --}}
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <small class="text-muted">
                 Menampilkan
@@ -244,11 +274,11 @@
                 <strong>{{ $transactions->lastItem() ?? 0 }}</strong>
                 dari
                 <strong>{{ $transactions->total() }}</strong>
-                transaksi
+                transaksi barang masuk
             </small>
         </div>
 
-        {{-- TABLE --}}
+        {{-- TABEL TRANSAKSI --}}
         <div class="card transaction-card shadow-sm">
             <div class="card-body p-0">
 
@@ -259,12 +289,16 @@
                                 <tr>
                                     <th width="50" class="text-center">No</th>
                                     <th>No. Transaksi</th>
-                                    <th>Tanggal</th>
-                                    <th>Supplier</th>
+                                    <th>No. Nota Pembelian</th>
+                                    <th>Tanggal Masuk</th>
+                                    <th>Vendor Pengirim</th>
                                     <th class="text-center">Jenis Barang</th>
                                     <th class="text-end">Total Qty</th>
-                                    <th class="text-end">Total Nilai</th>
-                                    <th width="80" class="text-center">Aksi</th>
+                                    <th class="text-end">Subtotal Barang</th>
+                                    <th class="text-end">Diskon Tambahan</th>
+                                    <th class="text-end">Biaya Kuli</th>
+                                    <th class="text-end">Total Keseluruhan</th>
+                                    <th width="115" class="text-center">Aksi</th>
                                 </tr>
                             </thead>
 
@@ -273,8 +307,84 @@
                                     @php
                                         $details = $transaction->details;
 
-                                        $totalQty = $details->sum('quantity');
-                                        $totalAmount = $details->sum('subtotal');
+                                        /*
+                                         * Total kuantitas semua detail.
+                                         */
+                                        $totalQty = (float) $details->sum('quantity');
+
+                                        /*
+                                         * Subtotal barang harus berasal dari
+                                         * kolom subtotal detail yang tersimpan.
+                                         *
+                                         * Rumus penyimpanan yang benar:
+                                         * (quantity * unit_price) - discount
+                                         *
+                                         * Diskon barang tidak dipotong lagi
+                                         * di halaman Index.
+                                         */
+                                        $subtotalBarang = round(
+                                            (float) $details->sum('subtotal'),
+                                            2
+                                        );
+
+                                        /*
+                                         * Diskon tambahan nota:
+                                         * amount  = nominal rupiah.
+                                         * percent = persentase subtotal barang.
+                                         */
+                                        $discountType = $transaction->purchase_discount_type
+                                            ?: 'amount';
+
+                                        $discountValue = max(
+                                            0,
+                                            (float) ($transaction->purchase_discount_value ?? 0)
+                                        );
+
+                                        if ($discountType === 'percent') {
+                                            $diskonTambahan = round(
+                                                $subtotalBarang * $discountValue / 100,
+                                                2
+                                            );
+                                        } else {
+                                            $diskonTambahan = round(
+                                                $discountValue,
+                                                2
+                                            );
+                                        }
+
+                                        /*
+                                         * Batasi diskon tambahan agar tidak
+                                         * melebihi subtotal barang.
+                                         */
+                                        $diskonTambahan = min(
+                                            $subtotalBarang,
+                                            max(0, $diskonTambahan)
+                                        );
+
+                                        /*
+                                         * Biaya kuli.
+                                         */
+                                        $porterCost = round(
+                                            max(
+                                                0,
+                                                (float) ($transaction->porter_cost ?? 0)
+                                            ),
+                                            2
+                                        );
+
+                                        /*
+                                         * Total akhir:
+                                         * subtotal barang
+                                         * - diskon tambahan
+                                         * + biaya kuli.
+                                         */
+                                        $grandTotal = round(
+                                            max(
+                                                0,
+                                                $subtotalBarang - $diskonTambahan
+                                            ) + $porterCost,
+                                            2
+                                        );
                                     @endphp
 
                                     <tr>
@@ -290,19 +400,24 @@
                                             </span>
                                         </td>
 
-                                        {{-- TANGGAL --}}
+                                        {{-- NOMOR NOTA PEMBELIAN --}}
                                         <td>
+                                            {{ $transaction->purchase_note_number ?? '-' }}
+                                        </td>
+
+                                        {{-- TANGGAL --}}
+                                        <td class="text-nowrap">
                                             {{ $transaction->transaction_date
                                                 ? \Illuminate\Support\Carbon::parse($transaction->transaction_date)->format('d-m-Y')
                                                 : '-' }}
                                         </td>
 
-                                        {{-- SUPPLIER --}}
+                                        {{-- VENDOR --}}
                                         <td>
-                                            {{ $transaction->supplier->name ?? '-' }}
+                                            {{ $transaction->vendor_name ?? '-' }}
                                         </td>
 
-                                        {{-- JUMLAH JENIS BARANG --}}
+                                        {{-- JENIS BARANG --}}
                                         <td class="text-center">
                                             <span class="badge rounded-pill badge-in px-2 py-2">
                                                 {{ $details->count() }} item
@@ -311,23 +426,80 @@
 
                                         {{-- TOTAL QTY --}}
                                         <td class="text-end text-nowrap">
-                                            {{ number_format((float) $totalQty, 2, ',', '.') }}
+                                            {{ number_format($totalQty, 2, ',', '.') }}
                                         </td>
 
-                                        {{-- TOTAL NILAI --}}
-                                        <td class="text-end text-nowrap fw-semibold">
-                                            Rp {{ number_format((float) $totalAmount, 0, ',', '.') }}
+                                        {{-- SUBTOTAL BARANG --}}
+                                        <td class="text-end text-nowrap subtotal-amount">
+                                            Rp {{ number_format($subtotalBarang, 2, ',', '.') }}
                                         </td>
 
-                                        {{-- DETAIL --}}
+                                        {{-- DISKON TAMBAHAN --}}
+                                        <td class="text-end text-nowrap discount-amount">
+                                            @if ($diskonTambahan > 0)
+                                                − Rp {{ number_format($diskonTambahan, 2, ',', '.') }}
+
+                                                @if ($discountType === 'percent')
+                                                    <small class="d-block text-muted">
+                                                        {{ number_format($discountValue, 2, ',', '.') }}%
+                                                    </small>
+                                                @endif
+                                            @else
+                                                Rp 0,00
+                                            @endif
+                                        </td>
+
+                                        {{-- BIAYA KULI --}}
+                                        <td class="text-end text-nowrap porter-cost">
+                                            Rp {{ number_format($porterCost, 2, ',', '.') }}
+                                        </td>
+
+                                        {{-- TOTAL KESELURUHAN --}}
+                                        <td class="text-end text-nowrap grand-total">
+                                            Rp {{ number_format($grandTotal, 2, ',', '.') }}
+                                        </td>
+
+                                        {{-- AKSI --}}
                                         <td class="text-center">
-                                            <a
-                                                href="{{ route('stock-transactions.show', $transaction) }}"
-                                                class="btn btn-sm btn-outline-primary"
-                                                title="Lihat detail transaksi"
-                                                aria-label="Lihat detail transaksi">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
+                                            <div class="action-buttons">
+
+                                                @if ($transaction->type === 'IN')
+                                                    <a
+                                                        href="{{ route('stock-transactions.edit-in', $transaction) }}"
+                                                        class="btn btn-sm btn-outline-warning"
+                                                        title="Edit barang masuk"
+                                                        aria-label="Edit barang masuk">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </a>
+                                                @endif
+
+                                                <a
+                                                    href="{{ route('stock-transactions.show', $transaction) }}"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    title="Lihat detail transaksi"
+                                                    aria-label="Lihat detail transaksi">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+
+                                                <form
+                                                    action="{{ route('stock-transactions.destroy', $transaction->id) }}"
+                                                    method="POST"
+                                                    class="d-inline"
+                                                    onsubmit="return confirm('Apakah Anda yakin ingin menghapus transaksi {{ $transaction->transaction_number }}? Stok dan data terkait dapat terpengaruh.');">
+
+                                                    @csrf
+                                                    @method('DELETE')
+
+                                                    <button
+                                                        type="submit"
+                                                        class="btn btn-sm btn-outline-danger"
+                                                        title="Hapus transaksi"
+                                                        aria-label="Hapus transaksi">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -338,12 +510,10 @@
                     <div class="empty-state">
                         <i class="bi bi-inbox"></i>
 
-                        <h6 class="mt-3">Belum Ada Transaksi</h6>
+                        <h6 class="mt-3">Belum Ada Transaksi Barang Masuk</h6>
 
                         <p class="mb-3">
-                            @if (request()->filled('search')
-                                || request()->filled('date')
-                                || request()->filled('supplier_id'))
+                            @if (request()->filled('search') || request()->filled('date'))
                                 Tidak ada transaksi yang sesuai dengan filter.
                             @else
                                 Belum terdapat data transaksi barang masuk.
@@ -351,7 +521,7 @@
                         </p>
 
                         <a href="{{ route('stock-transactions.create') }}"
-                            class="btn btn-sm btn-primary">
+                           class="btn btn-sm btn-primary">
                             <i class="bi bi-plus-lg me-1"></i>
                             Tambah Barang Masuk
                         </a>
@@ -366,8 +536,10 @@
             <div class="d-flex flex-column align-items-center mt-4">
 
                 <div class="text-muted small text-center mb-3">
-                    Halaman <strong>{{ $transactions->currentPage() }}</strong>
-                    dari <strong>{{ $transactions->lastPage() }}</strong>
+                    Halaman
+                    <strong>{{ $transactions->currentPage() }}</strong>
+                    dari
+                    <strong>{{ $transactions->lastPage() }}</strong>
                 </div>
 
                 {{ $transactions->withQueryString()->links('pagination::bootstrap-5') }}

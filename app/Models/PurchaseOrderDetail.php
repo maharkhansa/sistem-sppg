@@ -13,7 +13,11 @@ class PurchaseOrderDetail extends Model
     protected $fillable = [
         'purchase_order_id',
         'supplier_id',
+        'supplier_name',
         'item_id',
+        'detail_type',
+        'expense_type_id',
+        'expense_date',
         'quantity',
         'unit',
         'unit_price',
@@ -28,6 +32,7 @@ class PurchaseOrderDetail extends Model
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'section_order' => 'integer',
+        'expense_date' => 'date',
     ];
 
     public function purchaseOrder(): BelongsTo
@@ -43,5 +48,10 @@ class PurchaseOrderDetail extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
+    }
+
+    public function expenseType(): BelongsTo
+    {
+        return $this->belongsTo(ExpenseType::class);
     }
 }

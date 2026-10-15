@@ -1,1032 +1,928 @@
-<!DOCTYPE html>
-<html lang="id">
+@extends('layouts.app')
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tambah Barang Masuk</title>
+@section('title', 'Tambah Barang Masuk')
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+@push('styles')
+<style>
+    .page-title {
+        font-size: 1.45rem;
+        font-weight: 700;
+    }
 
-    <style>
-        body {
-            background: #f8f9fa;
+    .purchase-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        background: #fff;
+    }
+
+    .purchase-card-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #f8fafc;
+        font-weight: 700;
+    }
+
+    .purchase-card-body {
+        padding: 20px;
+    }
+
+    .form-label {
+        font-weight: 600;
+    }
+
+    .table th {
+        white-space: nowrap;
+        font-size: .85rem;
+        background: #f8fafc;
+    }
+
+    .table td {
+        vertical-align: middle;
+    }
+
+    .item-number {
+        min-width: 100px;
+    }
+
+    .total-panel {
+        max-width: 460px;
+        margin-left: auto;
+        padding: 18px;
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 10px;
+    }
+
+    .total-grand {
+        padding-top: 12px;
+        margin-top: 12px;
+        border-top: 1px solid #d1d5db;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .currency {
+        white-space: nowrap;
+    }
+
+    .item-search-wrapper {
+        position: relative;
+    }
+
+    .item-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-top: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, .10);
+        display: none;
+    }
+
+    .item-search-results.show {
+        display: block;
+    }
+
+    .item-search-result {
+        display: block;
+        width: 100%;
+        padding: 11px 14px;
+        text-align: left;
+        background: #fff;
+        border: 0;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+    }
+
+    .item-search-result:last-child {
+        border-bottom: 0;
+    }
+
+    .item-search-result:hover,
+    .item-search-result:focus {
+        background: #f0f7ff;
+        outline: none;
+    }
+
+    .item-search-result:disabled {
+        cursor: not-allowed;
+        opacity: .6;
+        background: #f8fafc;
+    }
+
+    .item-search-result strong {
+        display: block;
+        color: #1f2937;
+    }
+
+    .item-search-result small {
+        color: #64748b;
+    }
+
+    .item-search-empty {
+        padding: 14px;
+        color: #64748b;
+        font-size: .9rem;
+    }
+
+    @media (max-width: 768px) {
+        .purchase-card-body {
+            padding: 14px;
         }
 
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
+        .total-panel {
+            max-width: 100%;
         }
+    }
+</style>
+@endpush
 
-        .supplier-card,
-        .supplier-selector-card {
-            overflow: hidden;
-            border-radius: 10px;
-        }
+@section('content')
+<div class="container-fluid py-3">
 
-        .supplier-search-filter {
-            padding: 16px;
-            margin-bottom: 20px;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-        }
-
-        .supplier-search-filter .form-label {
-            font-size: .875rem;
-            font-weight: 600;
-        }
-
-        .price-display {
-            margin-top: 4px;
-            color: #198754;
-            font-size: .78rem;
-            font-weight: 600;
-        }
-
-        .search-result-count,
-        .item-pagination-info {
-            color: #6c757d;
-            font-size: .83rem;
-        }
-
-        .item-pagination {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-            margin-top: 18px;
-        }
-
-        .item-pagination button {
-            min-width: 35px;
-            height: 35px;
-            padding: 0 9px;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            background: #fff;
-            color: #495057;
-            font-size: 13px;
-        }
-
-        .item-pagination button:hover:not(:disabled) {
-            background: #e9f7ef;
-            border-color: #198754;
-        }
-
-        .item-pagination button.active {
-            background: #198754;
-            border-color: #198754;
-            color: #fff;
-        }
-
-        .item-pagination button:disabled {
-            opacity: .45;
-            cursor: not-allowed;
-        }
-
-        .item-pagination-dots {
-            padding: 0 3px;
-            color: #6c757d;
-        }
-
-        .no-search-result td {
-            padding: 25px !important;
-            text-align: center;
-            color: #6c757d;
-        }
-
-        .table th {
-            white-space: nowrap;
-            font-size: .875rem;
-        }
-
-        .table td {
-            vertical-align: middle;
-        }
-
-        .table .form-control {
-            min-width: 90px;
-        }
-
-        @media (max-width: 768px) {
-            .page-header {
-                align-items: stretch !important;
-                flex-direction: column;
-                gap: 15px;
-            }
-
-            .page-header .btn-import {
-                width: 100%;
-            }
-
-            .supplier-card .card-footer .footer-content {
-                align-items: stretch !important;
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .supplier-card .card-footer .btn {
-                width: 100%;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-<div class="container my-5">
-
-    <div class="page-header d-flex justify-content-between align-items-start mb-4">
-        <div class="d-flex align-items-center">
-            <a href="{{ route('stock-transactions.index') }}"
-               class="btn btn-outline-secondary btn-sm me-3"
-               title="Kembali">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-
-            <div>
-                <h1 class="page-title text-dark mb-1">
-                    <i class="bi bi-box-arrow-in-down text-success me-2"></i>
-                    Tambah Stok Barang Masuk
-                </h1>
-                <p class="text-muted small mb-0">
-                    Pilih supplier dan isi jumlah barang yang benar-benar masuk.
-                </p>
-            </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <div>
+            <h1 class="page-title mb-1">Tambah Barang Masuk</h1>
+            <div class="text-muted">Catat pembelian barang dari nota supplier.</div>
         </div>
 
-        <button type="button"
-                class="btn btn-success btn-import"
-                data-bs-toggle="modal"
-                data-bs-target="#importHargaModal">
-            <i class="bi bi-file-earmark-excel me-1"></i>
-            Import Harga Excel
-        </button>
+        <a href="{{ route('stock-transactions.index') }}"
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Kembali
+        </a>
     </div>
 
     @if ($errors->any())
-        <div class="alert alert-danger alert-dismissible fade show">
-            <strong>
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                Terjadi kesalahan:
-            </strong>
-
-            <ul class="mb-0 mt-2">
+        <div class="alert alert-danger">
+            <div class="fw-bold mb-2">Terjadi kesalahan:</div>
+            <ul class="mb-0">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
-
-            <button type="button"
-                    class="btn-close"
-                    data-bs-dismiss="alert"></button>
         </div>
     @endif
 
-    @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show">
-            <i class="bi bi-check-circle-fill me-2"></i>
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    <form action="{{ route('stock-transactions.store') }}"
+          method="POST"
+          id="barangMasukForm">
+        @csrf
 
-    @if (session('error'))
-        <div class="alert alert-danger alert-dismissible fade show">
-            <i class="bi bi-x-circle-fill me-2"></i>
-            {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
-
-    <div class="alert alert-info border-0 shadow-sm mb-4">
-        <div class="d-flex">
-            <i class="bi bi-info-circle-fill fs-5 me-2"></i>
-            <div>
-                <strong>Informasi Barang Masuk</strong>
-                <div class="small mt-1">
-                    Jumlah awal setiap barang adalah <strong>0</strong>.
-                    Isi jumlah hanya untuk barang yang benar-benar masuk.<br>
-                    Harga satuan diambil dari master barang dan boleh bernilai Rp0.<br>
-                    Daftar barang dibatasi menjadi <strong>10 barang per halaman</strong>.<br>
-                    Barang berjumlah 0 tidak akan dimasukkan ke transaksi.<br>
-                    Hapus hanya mengeluarkan barang dari transaksi, bukan dari master barang.
-                </div>
+        {{-- INFORMASI NOTA --}}
+        <div class="purchase-card">
+            <div class="purchase-card-header">
+                <i class="bi bi-receipt me-2"></i>Informasi Nota Pembelian
             </div>
-        </div>
-    </div>
 
-    <div class="card border-0 shadow-sm mb-4 supplier-selector-card">
-        <div class="card-body p-4">
-            <label for="supplier_selector" class="form-label fw-bold">
-                <i class="bi bi-truck text-success me-2"></i>
-                Pilih Supplier
-            </label>
+            <div class="purchase-card-body">
+                <div class="row g-3">
 
-            <select id="supplier_selector" class="form-select">
-                <option value="">-- Pilih Supplier --</option>
+                    <div class="col-md-6">
+                        <label for="purchase_note_number" class="form-label">
+                            Nomor Nota Pembelian <span class="text-danger">*</span>
+                        </label>
 
-                @foreach ($suppliers as $supplier)
-                    @php
-                        $supplierItemCount = $items->filter(
-                            fn ($item) => (int) $item->supplier_id === (int) $supplier->id
-                        )->count();
-                    @endphp
+                        <input type="text"
+                               id="purchase_note_number"
+                               name="purchase_note_number"
+                               class="form-control @error('purchase_note_number') is-invalid @enderror"
+                               value="{{ old('purchase_note_number') }}"
+                               maxlength="100"
+                               required>
 
-                    @if ($supplierItemCount > 0)
-                        <option value="{{ $supplier->id }}"
-                            {{ (string) old('supplier_id') === (string) $supplier->id ? 'selected' : '' }}>
-                            {{ $supplier->name }} ({{ $supplierItemCount }} barang)
-                        </option>
-                    @endif
-                @endforeach
-            </select>
-
-            <div class="form-text">
-                Daftar barang akan tampil sesuai supplier yang dipilih.
-            </div>
-        </div>
-    </div>
-
-    @foreach ($suppliers as $supplier)
-        @php
-            $supplierItems = $items->filter(
-                fn ($item) => (int) $item->supplier_id === (int) $supplier->id
-            );
-
-            $supplierItemCount = $supplierItems->count();
-        @endphp
-
-        @if ($supplierItemCount > 0)
-            <div class="card supplier-card border-0 shadow-sm mb-4"
-                 data-supplier-id="{{ $supplier->id }}"
-                 style="display:none">
-
-                <div class="card-header bg-white border-bottom p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3"
-                                 style="width:42px;height:42px">
-                                <i class="bi bi-truck text-success fs-5"></i>
-                            </div>
-
-                            <div>
-                                <div class="fw-bold">{{ $supplier->name }}</div>
-                                <div class="small text-muted">
-                                    Kode Supplier: {{ $supplier->code ?? '-' }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <span class="badge bg-success supplier-item-badge">
-                            {{ $supplierItemCount }} Barang
-                        </span>
+                        @error('purchase_note_number')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
-                </div>
 
-                <form action="{{ route('stock-transactions.store') }}"
-                      method="POST"
-                      class="supplier-form">
+                    <div class="col-md-6">
+                        <label for="vendor_name" class="form-label">
+                            Nama Vendor / Supplier <span class="text-danger">*</span>
+                        </label>
 
-                    @csrf
+                        <input type="text"
+                               id="vendor_name"
+                               name="vendor_name"
+                               class="form-control @error('vendor_name') is-invalid @enderror"
+                               value="{{ old('vendor_name') }}"
+                               maxlength="150"
+                               required>
 
-                    <div class="card-body">
+                        @error('vendor_name')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
 
-                        <div class="supplier-search-filter">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-6">
-                                    <label for="search_barang_{{ $supplier->id }}"
-                                           class="form-label">
-                                        <i class="bi bi-search me-1"></i>
-                                        Cari Barang
-                                    </label>
+                    <div class="col-md-6">
+                        <label for="transaction_date" class="form-label">
+                            Tanggal Pembelian <span class="text-danger">*</span>
+                        </label>
 
-                                    <input type="search"
-                                           id="search_barang_{{ $supplier->id }}"
-                                           class="form-control supplier-item-search"
-                                           placeholder="Cari nama atau kode barang..."
-                                           autocomplete="off">
-                                </div>
+                        <input type="date"
+                               id="transaction_date"
+                               name="transaction_date"
+                               class="form-control @error('transaction_date') is-invalid @enderror"
+                               value="{{ old('transaction_date', date('Y-m-d')) }}"
+                               required>
 
-                                <div class="col-md-4">
-                                    <label for="filter_harga_{{ $supplier->id }}"
-                                           class="form-label">
-                                        <i class="bi bi-funnel me-1"></i>
-                                        Filter Harga
-                                    </label>
+                        @error('transaction_date')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
 
-                                    <select id="filter_harga_{{ $supplier->id }}"
-                                            class="form-select supplier-price-filter">
-                                        <option value="all">Semua Harga</option>
-                                        <option value="paid">Harga di atas Rp0</option>
-                                        <option value="zero">Harga Rp0</option>
-                                    </select>
-                                </div>
+                    <div class="col-md-6">
+                        <label for="porter_cost" class="form-label">
+                            Biaya Kuli / Angkut (Rp)
+                        </label>
 
-                                <div class="col-md-2">
-                                    <button type="button"
-                                            class="btn btn-outline-secondary w-100 reset-supplier-filter">
-                                        <i class="bi bi-arrow-counterclockwise me-1"></i>
-                                        Reset
-                                    </button>
-                                </div>
-                            </div>
+                        <input type="number"
+                               id="porter_cost"
+                               name="porter_cost"
+                               class="form-control @error('porter_cost') is-invalid @enderror"
+                               value="{{ old('porter_cost', 0) }}"
+                               min="0"
+                               step="0.01">
 
-                            <div class="search-result-count mt-3">
-                                Total hasil pencarian:
-                                <strong class="visible-item-count">{{ $supplierItemCount }}</strong>
-                                barang
-                            </div>
-                        </div>
+                        @error('porter_cost')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
 
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label for="transaction_date_{{ $supplier->id }}"
-                                       class="form-label fw-semibold">
-                                    Tanggal Barang Masuk
-                                </label>
+                    <div class="col-md-6">
+                        <label for="purchase_discount_type" class="form-label">
+                            Jenis Diskon Tambahan Nota
+                            <span class="text-danger">*</span>
+                        </label>
 
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white">
-                                        <i class="bi bi-calendar-event"></i>
-                                    </span>
+                        <select name="purchase_discount_type"
+                                id="purchase_discount_type"
+                                class="form-select @error('purchase_discount_type') is-invalid @enderror"
+                                required>
+                            <option value="amount"
+                                {{ old('purchase_discount_type', 'amount') === 'amount' ? 'selected' : '' }}>
+                                Nominal (Rp)
+                            </option>
 
-                                    <input type="date"
-                                           id="transaction_date_{{ $supplier->id }}"
-                                           name="transaction_date"
-                                           class="form-control"
-                                           value="{{ old('transaction_date', date('Y-m-d')) }}"
-                                           required>
-                                </div>
-                            </div>
+                            <option value="percent"
+                                {{ old('purchase_discount_type') === 'percent' ? 'selected' : '' }}>
+                                Persentase (%)
+                            </option>
+                        </select>
 
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Supplier</label>
+                        @error('purchase_discount_type')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
 
-                                <input type="text"
-                                       class="form-control bg-light"
-                                       value="{{ $supplier->name }}"
-                                       readonly>
+                    <div class="col-md-6">
+                        <label for="purchase_discount_value" class="form-label">
+                            Nilai Diskon Tambahan Nota
+                            <span class="text-danger">*</span>
+                        </label>
 
-                                <input type="hidden"
-                                       name="supplier_id"
-                                       value="{{ $supplier->id }}">
-                            </div>
-                        </div>
+                        <input type="number"
+                               name="purchase_discount_value"
+                               id="purchase_discount_value"
+                               class="form-control @error('purchase_discount_value') is-invalid @enderror"
+                               value="{{ old('purchase_discount_value', 0) }}"
+                               min="0"
+                               max="9999999999999.99"
+                               step="0.01"
+                               required>
 
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h5 fw-bold mb-0">
-                                <i class="bi bi-list-check text-primary me-2"></i>
-                                Detail Barang
-                            </h2>
+                        @error('purchase_discount_value')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
 
-                            <span class="badge bg-primary-subtle text-primary">
-                                10 barang per halaman
-                            </span>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-center" style="width:55px">No</th>
-                                        <th style="width:140px">Kode</th>
-                                        <th>Barang</th>
-                                        <th style="width:140px" class="text-center">Jumlah</th>
-                                        <th style="width:100px" class="text-center">Satuan</th>
-                                        <th style="width:180px" class="text-end">Harga Satuan</th>
-                                        <th style="width:180px" class="text-end">Subtotal</th>
-                                        <th style="width:75px" class="text-center">Aksi</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    @foreach ($supplierItems as $item)
-                                        @php
-                                            $itemPrice = (float) ($item->price ?? 0);
-                                        @endphp
-
-                                        <tr data-item-id="{{ $item->id }}"
-                                            data-item-name="{{ strtolower($item->name ?? '') }}"
-                                            data-item-code="{{ strtolower($item->code ?? '') }}"
-                                            data-has-price="{{ $itemPrice > 0 ? 'paid' : 'zero' }}">
-
-                                            <td class="text-center text-muted row-number">
-                                                {{ $loop->iteration }}
-                                            </td>
-
-                                            <td>
-                                                <span class="badge text-bg-light border">
-                                                    {{ $item->code ?? '-' }}
-                                                </span>
-                                            </td>
-
-                                            <td>
-                                                <div class="fw-semibold item-name">
-                                                    {{ $item->name }}
-                                                </div>
-
-                                                <input type="hidden"
-                                                       name="items[{{ $item->id }}][item_id]"
-                                                       value="{{ $item->id }}">
-                                            </td>
-
-                                            <td>
-                                                <input type="number"
-                                                       name="items[{{ $item->id }}][quantity]"
-                                                       class="form-control text-end quantity-input"
-                                                       value="{{ old('items.'.$item->id.'.quantity', 0) }}"
-                                                       min="0"
-                                                       step="0.01">
-                                            </td>
-
-                                            <td>
-                                                <input type="text"
-                                                       name="items[{{ $item->id }}][unit]"
-                                                       class="form-control bg-light text-center"
-                                                       value="{{ $item->unit }}"
-                                                       readonly>
-                                            </td>
-
-                                            <td>
-                                                <input type="number"
-                                                       name="items[{{ $item->id }}][unit_price]"
-                                                       class="form-control text-end unit-price"
-                                                       value="{{ old('items.'.$item->id.'.unit_price', $itemPrice) }}"
-                                                       min="0"
-                                                       step="0.01">
-
-                                                <div class="price-display">
-                                                    Rp {{ number_format($itemPrice, 0, ',', '.') }}
-                                                </div>
-                                            </td>
-
-                                            <td>
-                                                <input type="text"
-                                                       class="form-control bg-light text-end fw-semibold subtotal"
-                                                       value="0"
-                                                       readonly>
-                                            </td>
-
-                                            <td class="text-center">
-                                                <button type="button"
-                                                        class="btn btn-outline-danger btn-sm remove-item"
-                                                        title="Hapus dari transaksi"
-                                                        aria-label="Hapus dari transaksi">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-
-                                <tfoot class="table-light">
-                                    <tr>
-                                        <td colspan="6" class="text-end fw-bold">
-                                            Total Transaksi
-                                        </td>
-                                        <td>
-                                            <input type="text"
-                                                   class="form-control bg-white text-end fw-bold supplier-total"
-                                                   value="0"
-                                                   readonly>
-                                        </td>
-                                        <td></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        <div class="item-pagination"></div>
-                        <div class="item-pagination-info text-center mt-2"></div>
-
-                        <div class="mt-4">
-                            <label for="notes_{{ $supplier->id }}"
-                                   class="form-label fw-semibold">
-                                Catatan
-                            </label>
-
-                            <textarea name="notes"
-                                      id="notes_{{ $supplier->id }}"
-                                      class="form-control"
-                                      rows="2"
-                                      placeholder="Masukkan catatan transaksi">{{ old('notes') }}</textarea>
+                        <div class="form-text">
+                            Diskon persentase maksimal 100%. Diskon tambahan nota tidak boleh melebihi subtotal barang.
                         </div>
                     </div>
 
-                    <div class="card-footer bg-white border-top p-3">
-                        <div class="footer-content d-flex justify-content-between align-items-center">
-                            <div class="small text-muted">
-                                <i class="bi bi-box-seam me-1"></i>
-                                <span class="remaining-item-count">{{ $supplierItemCount }}</span>
-                                barang tersedia pada daftar
-                            </div>
+                    <div class="col-12">
+                        <label for="notes" class="form-label">Catatan</label>
 
-                            <button type="submit" class="btn btn-success px-4">
-                                <i class="bi bi-save me-1"></i>
-                                Simpan Barang Masuk
-                            </button>
-                        </div>
+                        <textarea name="notes"
+                                  id="notes"
+                                  rows="2"
+                                  maxlength="2000"
+                                  class="form-control @error('notes') is-invalid @enderror"
+                                  placeholder="Catatan tambahan (opsional)">{{ old('notes') }}</textarea>
+
+                        @error('notes')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
-                </form>
-            </div>
-        @endif
-    @endforeach
 
-    <div id="select-supplier-message" class="card border-0 shadow-sm mb-4">
-        <div class="card-body text-center py-5">
-            <i class="bi bi-hand-index-thumb fs-1 text-muted"></i>
-            <h3 class="h5 mt-3">Pilih Supplier Terlebih Dahulu</h3>
-            <p class="text-muted mb-0">
-                Gunakan dropdown di atas untuk menampilkan barang milik supplier.
-            </p>
-        </div>
-    </div>
-
-    @php
-        $supplierIdsWithItems = $items
-            ->pluck('supplier_id')
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique();
-
-        $suppliersWithoutItems = $suppliers->filter(
-            fn ($supplier) => !$supplierIdsWithItems->contains((int) $supplier->id)
-        );
-    @endphp
-
-    @if ($suppliersWithoutItems->count() > 0)
-        <div class="card border-warning shadow-sm mb-4">
-            <div class="card-header bg-warning-subtle">
-                <strong>
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    Supplier Belum Memiliki Barang
-                </strong>
-            </div>
-
-            <div class="card-body">
-                <p class="small text-muted">
-                    Supplier berikut belum memiliki barang pada master barang:
-                </p>
-
-                <div class="d-flex flex-wrap gap-2">
-                    @foreach ($suppliersWithoutItems as $supplier)
-                        <span class="badge bg-light text-dark border">
-                            {{ $supplier->name }}
-                        </span>
-                    @endforeach
                 </div>
             </div>
         </div>
-    @endif
 
-    <div class="text-end mb-5">
-        <a href="{{ route('stock-transactions.index') }}" class="btn btn-light border">
-            <i class="bi bi-arrow-left me-1"></i>
-            Kembali ke Barang Masuk
-        </a>
-    </div>
+        {{-- DAFTAR BARANG --}}
+        <div class="purchase-card">
+            <div class="purchase-card-header">
+                <i class="bi bi-box-seam me-2"></i>Daftar Barang Masuk
+            </div>
 
+            <div class="purchase-card-body">
+
+                <div class="row g-2 mb-3">
+                    <div class="col-12">
+                        <label for="itemSearch" class="form-label">
+                            Cari Nama atau Kode Barang
+                        </label>
+
+                        <div class="item-search-wrapper">
+                            <input type="text"
+                                   id="itemSearch"
+                                   class="form-control"
+                                   placeholder="Ketik nama atau kode barang..."
+                                   autocomplete="off">
+
+                            <div id="itemSearchResults"
+                                 class="item-search-results"></div>
+                        </div>
+
+                        <div class="form-text">
+                            Klik nama barang pada hasil pencarian untuk langsung memasukkannya ke daftar transaksi.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle" id="itemsTable">
+                        <thead>
+                            <tr>
+                                <th style="width:50px">No.</th>
+                                <th style="min-width:230px">Nama Barang</th>
+                                <th style="min-width:110px">Jumlah</th>
+                                <th style="min-width:150px">Harga Satuan (Rp)</th>
+                                <th style="min-width:170px">Diskon per Jenis Barang (Rp)</th>
+                                <th style="min-width:160px">Subtotal (Rp)</th>
+                                <th style="width:80px">Aksi</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="itemsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="text-muted small">
+                    Subtotal dihitung dari (jumlah × harga satuan) − diskon satu kali untuk jenis barang tersebut.
+                    Diskon tidak dikalikan dengan jumlah barang. Barang yang sama hanya dapat dimasukkan satu kali.
+                </div>
+
+                {{-- TOTAL PEMBELIAN --}}
+                <div class="total-panel mt-4">
+                    <div class="total-row">
+                        <span>Subtotal Barang</span>
+                        <strong class="currency" id="goodsTotalLabel">Rp0</strong>
+                    </div>
+
+                    <div class="total-row">
+                        <span>Diskon Tambahan Nota</span>
+                        <strong class="currency text-danger" id="purchaseDiscountLabel">− Rp0</strong>
+                    </div>
+
+                    <div class="total-row">
+                        <span>Biaya Kuli / Angkut</span>
+                        <strong class="currency" id="porterCostLabel">Rp0</strong>
+                    </div>
+
+                    <div class="total-row total-grand">
+                        <span>Total Pembelian</span>
+                        <strong class="currency" id="grandTotalLabel">Rp0</strong>
+                    </div>
+                </div>
+
+                <input type="hidden" id="goodsTotal" value="0">
+                <input type="hidden" id="purchaseDiscountAmount" value="0">
+                <input type="hidden" id="grandTotal" value="0">
+
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-end gap-2 mb-4">
+            <a href="{{ route('stock-transactions.index') }}"
+               class="btn btn-outline-secondary">
+                Batal
+            </a>
+
+            <button type="submit" class="btn btn-success" id="submitButton">
+                <i class="bi bi-save me-1"></i> Simpan Barang Masuk
+            </button>
+        </div>
+
+    </form>
 </div>
+@endsection
 
-<div class="modal fade"
-     id="importHargaModal"
-     tabindex="-1"
-     aria-labelledby="importHargaModalLabel"
-     aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title fs-5" id="importHargaModalLabel">
-                    <i class="bi bi-file-earmark-excel text-success me-2"></i>
-                    Import Harga dari Excel
-                </h2>
-
-                <button type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                        aria-label="Tutup"></button>
-            </div>
-
-            <form action="{{ route('items.import') }}"
-                  method="POST"
-                  enctype="multipart/form-data">
-
-                @csrf
-
-                <div class="modal-body">
-                    <div class="alert alert-info small">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Pastikan file Excel sesuai format import aplikasi.
-                    </div>
-
-                    <label for="file" class="form-label fw-semibold">
-                        Pilih File Excel
-                    </label>
-
-                    <input type="file"
-                           name="file"
-                           id="file"
-                           class="form-control"
-                           accept=".xlsx,.xls,.csv"
-                           required>
-
-                    <div class="form-text">Format: XLSX, XLS, atau CSV.</div>
-
-                    <div class="alert alert-warning small mt-3 mb-0">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        Import dapat memperbarui master barang sesuai logika controller.
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-light border"
-                            data-bs-dismiss="modal">
-                        Batal
-                    </button>
-
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-upload me-1"></i>
-                        Import Sekarang
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
+@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const supplierSelector = document.getElementById('supplier_selector');
-    const supplierCards = document.querySelectorAll('.supplier-card');
-    const selectMessage = document.getElementById('select-supplier-message');
-    const ITEMS_PER_PAGE = 10;
+    const items = {{ Illuminate\Support\Js::from(
+        $items->map(fn ($item) => [
+            'id' => $item->id,
+            'name' => $item->name,
+            'code' => $item->code ?? '',
+            'unit' => $item->unit ?? '',
+            'price' => (float) ($item->price ?? 0),
+        ])->values()
+    ) }};
 
-    function formatNumber(value) {
-        return (Number(value) || 0).toLocaleString('id-ID', {
-            maximumFractionDigits: 2
+    const oldItems = {{ Illuminate\Support\Js::from(old('items', [])) }};
+
+    const tbody = document.getElementById('itemsTableBody');
+    const itemSearch = document.getElementById('itemSearch');
+    const searchResults = document.getElementById('itemSearchResults');
+
+    const porterInput = document.getElementById('porter_cost');
+    const discountTypeInput = document.getElementById('purchase_discount_type');
+    const discountValueInput = document.getElementById('purchase_discount_value');
+    const form = document.getElementById('barangMasukForm');
+
+    let rowIndex = 0;
+
+    const formatNumber = value => new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(Number(value) || 0);
+
+    const formatRupiah = value => new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 2
+    }).format(Number(value) || 0);
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char]));
+    }
+
+    function getItem(itemId) {
+        return items.find(item => String(item.id) === String(itemId));
+    }
+
+    function isItemAlreadyAdded(itemId) {
+        return Array.from(tbody.querySelectorAll('.item-id-input'))
+            .some(input => String(input.value) === String(itemId));
+    }
+
+    function updateRowNumbers() {
+        tbody.querySelectorAll('tr').forEach((row, index) => {
+            const number = row.querySelector('.row-number');
+
+            if (number) {
+                number.textContent = index + 1;
+            }
         });
     }
 
-    function formatRupiah(value) {
-        return 'Rp ' + formatNumber(value);
+    function hideSearchResults() {
+        searchResults.classList.remove('show');
+        searchResults.innerHTML = '';
     }
 
-    function selectSupplier() {
-        const selectedId = supplierSelector.value;
-        let found = false;
+    function renderSearchResults() {
+        const keyword = itemSearch.value.trim().toLowerCase();
 
-        supplierCards.forEach(function (card) {
-            const selected = card.dataset.supplierId === selectedId;
-            card.style.display = selected ? '' : 'none';
+        hideSearchResults();
 
-            if (selected) {
-                found = true;
-            }
-        });
-
-        selectMessage.style.display = found ? 'none' : '';
-
-        const heading = selectMessage.querySelector('h3');
-        const description = selectMessage.querySelector('p');
-
-        if (!found && selectedId) {
-            heading.textContent = 'Supplier Belum Memiliki Barang';
-            description.textContent =
-                'Supplier ini belum memiliki barang pada master barang.';
-        } else if (!selectedId) {
-            heading.textContent = 'Pilih Supplier Terlebih Dahulu';
-            description.textContent =
-                'Gunakan dropdown di atas untuk menampilkan barang milik supplier.';
+        if (!keyword) {
+            return;
         }
+
+        const matches = items.filter(item => {
+            const name = String(item.name || '').toLowerCase();
+            const code = String(item.code || '').toLowerCase();
+
+            return name.includes(keyword) || code.includes(keyword);
+        }).slice(0, 30);
+
+        if (matches.length === 0) {
+            searchResults.innerHTML = `
+                <div class="item-search-empty">
+                    Barang tidak ditemukan. Periksa kembali nama atau kode barang.
+                </div>
+            `;
+
+            searchResults.classList.add('show');
+            return;
+        }
+
+        searchResults.innerHTML = matches.map(item => {
+            const alreadyAdded = isItemAlreadyAdded(item.id);
+
+            return `
+                <button type="button"
+                        class="item-search-result"
+                        data-item-id="${escapeHtml(item.id)}"
+                        ${alreadyAdded ? 'disabled' : ''}>
+                    <strong>${escapeHtml(
+                        (item.code ? item.code + ' - ' : '') + item.name
+                    )}</strong>
+
+                    <small>
+                        Satuan: ${escapeHtml(item.unit || '-')}
+                        &nbsp;|&nbsp;
+                        Harga: ${escapeHtml(formatRupiah(item.price))}
+                        ${alreadyAdded ? '&nbsp;|&nbsp; Sudah ditambahkan' : ''}
+                    </small>
+                </button>
+            `;
+        }).join('');
+
+        searchResults.classList.add('show');
     }
 
-    supplierSelector.addEventListener('change', selectSupplier);
+    /*
+     * Subtotal satu baris:
+     * (jumlah × harga satuan) - diskon satu jenis barang.
+     *
+     * Contoh:
+     * 10 × Rp7.000 = Rp70.000
+     * Rp70.000 - Rp1.000 = Rp69.000
+     */
+    function calculateRow(row) {
+        const quantity = Math.max(
+            0,
+            Number(row.querySelector('.quantity-input').value) || 0
+        );
 
-    supplierCards.forEach(function (card) {
-        const form = card.querySelector('.supplier-form');
-        const tbody = card.querySelector('tbody');
-        const searchInput = card.querySelector('.supplier-item-search');
-        const priceFilter = card.querySelector('.supplier-price-filter');
-        const resetButton = card.querySelector('.reset-supplier-filter');
-        const pagination = card.querySelector('.item-pagination');
-        const paginationInfo = card.querySelector('.item-pagination-info');
-        const countDisplay = card.querySelector('.visible-item-count');
+        const price = Math.max(
+            0,
+            Number(row.querySelector('.price-input').value) || 0
+        );
 
-        let currentPage = 1;
+        const discount = Math.max(
+            0,
+            Number(row.querySelector('.discount-input').value) || 0
+        );
 
-        function getRows() {
-            return Array.from(tbody.querySelectorAll('tr[data-item-name]'));
-        }
+        const subtotalBeforeDiscount = quantity * price;
+        const safeDiscount = Math.min(discount, subtotalBeforeDiscount);
+        const subtotal = Math.max(0, subtotalBeforeDiscount - safeDiscount);
 
-        const emptyRow = document.createElement('tr');
-        emptyRow.className = 'no-search-result';
-        emptyRow.style.display = 'none';
+        row.querySelector('.subtotal-input').value = formatNumber(subtotal);
+        row.querySelector('.subtotal-value').value = subtotal.toFixed(2);
 
-        const emptyCell = document.createElement('td');
-        emptyCell.colSpan = 8;
-        emptyCell.textContent = 'Barang tidak ditemukan. Coba kata kunci atau filter lain.';
+        return subtotal;
+    }
 
-        emptyRow.appendChild(emptyCell);
-        tbody.appendChild(emptyRow);
+    function calculateTotals() {
+        let goodsTotal = 0;
 
-        function calculateTotal() {
-            let total = 0;
-
-            getRows().forEach(function (row) {
-                const quantityInput = row.querySelector('.quantity-input');
-                const priceInput = row.querySelector('.unit-price');
-                const subtotalInput = row.querySelector('.subtotal');
-                const priceDisplay = row.querySelector('.price-display');
-
-                const quantity = Math.max(0, Number(quantityInput.value) || 0);
-                const price = Math.max(0, Number(priceInput.value) || 0);
-                const subtotal = quantity * price;
-
-                subtotalInput.value = formatNumber(subtotal);
-                priceDisplay.textContent = formatRupiah(price);
-                row.dataset.hasPrice = price > 0 ? 'paid' : 'zero';
-
-                total += subtotal;
-            });
-
-            card.querySelector('.supplier-total').value = formatNumber(total);
-        }
-
-        function updateCounts(visibleCount) {
-            card.querySelector('.remaining-item-count').textContent = getRows().length;
-            card.querySelector('.supplier-item-badge').textContent =
-                getRows().length + ' Barang';
-            countDisplay.textContent = visibleCount;
-        }
-
-        function getFilteredRows() {
-            const keyword = searchInput.value.trim().toLowerCase();
-            const selectedPrice = priceFilter.value;
-
-            return getRows().filter(function (row) {
-                const matchesSearch =
-                    (row.dataset.itemName || '').includes(keyword) ||
-                    (row.dataset.itemCode || '').includes(keyword);
-
-                const matchesPrice =
-                    selectedPrice === 'all' ||
-                    selectedPrice === row.dataset.hasPrice;
-
-                return matchesSearch && matchesPrice;
-            });
-        }
-
-        function addPageButton(label, page, disabled, active, title) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.textContent = label;
-            button.disabled = disabled;
-            button.title = title || '';
-
-            if (active) {
-                button.classList.add('active');
-                button.setAttribute('aria-current', 'page');
-            }
-
-            button.addEventListener('click', function () {
-                currentPage = page;
-                renderPagination();
-            });
-
-            pagination.appendChild(button);
-        }
-
-        function addDots() {
-            const dots = document.createElement('span');
-            dots.className = 'item-pagination-dots';
-            dots.textContent = '…';
-            pagination.appendChild(dots);
-        }
-
-        function renderPagination() {
-            const filteredRows = getFilteredRows();
-            const totalItems = filteredRows.length;
-            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-
-            if (totalPages === 0) {
-                currentPage = 1;
-            } else if (currentPage > totalPages) {
-                currentPage = totalPages;
-            }
-
-            getRows().forEach(function (row) {
-                row.style.display = 'none';
-            });
-
-            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-
-            filteredRows.slice(startIndex, endIndex).forEach(function (row) {
-                row.style.display = '';
-            });
-
-            emptyRow.style.display = totalItems === 0 ? '' : 'none';
-
-            updateCounts(totalItems);
-
-            paginationInfo.textContent = totalItems === 0
-                ? 'Tidak ada barang yang ditampilkan.'
-                : 'Menampilkan ' + (startIndex + 1) + '–' + endIndex +
-                  ' dari ' + totalItems + ' barang';
-
-            pagination.innerHTML = '';
-
-            if (totalPages <= 1) {
-                return;
-            }
-
-            addPageButton('‹', currentPage - 1, currentPage === 1, false, 'Halaman sebelumnya');
-
-            let startPage = Math.max(1, currentPage - 2);
-            let endPage = Math.min(totalPages, startPage + 4);
-            startPage = Math.max(1, endPage - 4);
-
-            if (startPage > 1) {
-                addPageButton('1', 1, false, currentPage === 1, 'Halaman 1');
-
-                if (startPage > 2) {
-                    addDots();
-                }
-            }
-
-            for (let page = startPage; page <= endPage; page++) {
-                addPageButton(
-                    String(page),
-                    page,
-                    false,
-                    page === currentPage,
-                    'Halaman ' + page
-                );
-            }
-
-            if (endPage < totalPages) {
-                if (endPage < totalPages - 1) {
-                    addDots();
-                }
-
-                addPageButton(
-                    String(totalPages),
-                    totalPages,
-                    false,
-                    currentPage === totalPages,
-                    'Halaman terakhir'
-                );
-            }
-
-            addPageButton(
-                '›',
-                currentPage + 1,
-                currentPage === totalPages,
-                false,
-                'Halaman berikutnya'
-            );
-        }
-
-        function applyFilter() {
-            currentPage = 1;
-            renderPagination();
-        }
-
-        searchInput.addEventListener('input', applyFilter);
-        priceFilter.addEventListener('change', applyFilter);
-
-        resetButton.addEventListener('click', function () {
-            searchInput.value = '';
-            priceFilter.value = 'all';
-            applyFilter();
-            searchInput.focus();
+        tbody.querySelectorAll('tr').forEach(row => {
+            goodsTotal += calculateRow(row);
         });
 
-        tbody.addEventListener('click', function (event) {
-            const button = event.target.closest('.remove-item');
+        const type = discountTypeInput.value;
+        const value = Math.max(
+            0,
+            Number(discountValueInput.value) || 0
+        );
 
-            if (!button) {
-                return;
-            }
+        let discountAmount = type === 'percent'
+            ? goodsTotal * value / 100
+            : value;
 
-            const row = button.closest('tr[data-item-name]');
+        discountAmount = Math.min(
+            goodsTotal,
+            Math.max(0, discountAmount)
+        );
 
-            if (!row) {
-                return;
-            }
+        const porterCost = Math.max(
+            0,
+            Number(porterInput.value) || 0
+        );
 
-            const name =
-                row.querySelector('.item-name')?.textContent.trim() || 'barang ini';
+        const grandTotal = Math.max(
+            0,
+            goodsTotal - discountAmount + porterCost
+        );
 
-            if (!confirm(
-                'Hapus "' + name + '" dari transaksi ini?\n\n' +
-                'Barang hanya dikeluarkan dari transaksi saat ini, bukan dari master barang.'
-            )) {
-                return;
-            }
+        document.getElementById('goodsTotal').value = goodsTotal.toFixed(2);
+        document.getElementById('purchaseDiscountAmount').value = discountAmount.toFixed(2);
+        document.getElementById('grandTotal').value = grandTotal.toFixed(2);
 
+        document.getElementById('goodsTotalLabel').textContent =
+            formatRupiah(goodsTotal);
+
+        document.getElementById('purchaseDiscountLabel').textContent =
+            '− ' + formatRupiah(discountAmount);
+
+        document.getElementById('porterCostLabel').textContent =
+            formatRupiah(porterCost);
+
+        document.getElementById('grandTotalLabel').textContent =
+            formatRupiah(grandTotal);
+    }
+
+    function addRow(data = {}) {
+        const item = getItem(data.item_id);
+
+        if (!item) {
+            alert('Barang tidak ditemukan. Silakan cari barang kembali.');
+            return false;
+        }
+
+        if (isItemAlreadyAdded(item.id)) {
+            alert('Barang "' + item.name + '" sudah ada dalam daftar.');
+            return false;
+        }
+
+        const row = document.createElement('tr');
+        const index = rowIndex++;
+
+        const quantity = data.quantity ?? 1;
+        const unitPrice = data.unit_price ?? item.price ?? 0;
+        const discount = data.discount ?? 0;
+        const unit = data.unit || item.unit || '';
+
+        row.innerHTML = `
+            <td class="text-center row-number"></td>
+
+            <td>
+                <input type="hidden"
+                       name="items[${index}][item_id]"
+                       class="item-id-input"
+                       value="${escapeHtml(item.id)}">
+
+                <input type="hidden"
+                       name="items[${index}][unit]"
+                       value="${escapeHtml(unit)}">
+
+                <div class="fw-semibold">
+                    ${escapeHtml(item.name)}
+                </div>
+
+                <div class="small text-muted">
+                    ${escapeHtml(item.code || 'Tanpa kode')}
+                    ${unit ? ' · Satuan: ' + escapeHtml(unit) : ''}
+                </div>
+            </td>
+
+            <td>
+                <input type="number"
+                       name="items[${index}][quantity]"
+                       class="form-control item-number quantity-input"
+                       value="${escapeHtml(quantity)}"
+                       min="0"
+                       step="0.001"
+                       required>
+            </td>
+
+            <td>
+                <input type="number"
+                       name="items[${index}][unit_price]"
+                       class="form-control item-number price-input"
+                       value="${escapeHtml(unitPrice)}"
+                       min="0"
+                       step="0.01"
+                       required>
+            </td>
+
+            <td>
+                <input type="number"
+                       name="items[${index}][discount]"
+                       class="form-control item-number discount-input"
+                       value="${escapeHtml(discount)}"
+                       min="0"
+                       step="0.01">
+            </td>
+
+            <td>
+                <input type="text"
+                       class="form-control subtotal-input text-end"
+                       value="0,00"
+                       readonly>
+
+                <input type="hidden"
+                       class="subtotal-value">
+            </td>
+
+            <td class="text-center">
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger remove-row"
+                        title="Hapus barang">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(row);
+
+        row.querySelectorAll('.quantity-input, .price-input, .discount-input')
+            .forEach(input => {
+                input.addEventListener('input', function () {
+                    const quantityValue = Number(
+                        row.querySelector('.quantity-input').value
+                    );
+
+                    const priceValue = Number(
+                        row.querySelector('.price-input').value
+                    );
+
+                    const discountInput = row.querySelector('.discount-input');
+                    const discountValue = Number(discountInput.value) || 0;
+
+                    const quantity = Number.isFinite(quantityValue)
+                        ? Math.max(0, quantityValue)
+                        : 0;
+
+                    const price = Number.isFinite(priceValue)
+                        ? Math.max(0, priceValue)
+                        : 0;
+
+                    const subtotalBeforeDiscount = quantity * price;
+
+                    if (discountValue > subtotalBeforeDiscount) {
+                        discountInput.setCustomValidity(
+                            'Diskon tidak boleh melebihi subtotal jumlah barang.'
+                        );
+                    } else {
+                        discountInput.setCustomValidity('');
+                    }
+
+                    calculateTotals();
+                });
+            });
+
+        row.querySelector('.remove-row').addEventListener('click', function () {
             row.remove();
-
-            getRows().forEach(function (itemRow, index) {
-                itemRow.querySelector('.row-number').textContent = index + 1;
-            });
-
-            calculateTotal();
-            applyFilter();
+            updateRowNumbers();
+            calculateTotals();
+            renderSearchResults();
         });
 
-        form.addEventListener('input', function (event) {
-            if (event.target.matches('.quantity-input, .unit-price')) {
-                calculateTotal();
+        updateRowNumbers();
+        calculateTotals();
 
-                if (event.target.matches('.unit-price')) {
-                    applyFilter();
-                }
-            }
+        return true;
+    }
+
+    // Ketik nama atau kode barang untuk mencari.
+    itemSearch.addEventListener('input', renderSearchResults);
+
+    // Klik hasil pencarian langsung menambahkan barang ke tabel.
+    searchResults.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-item-id]');
+
+        if (!button || button.disabled) {
+            return;
+        }
+
+        const item = getItem(button.dataset.itemId);
+
+        if (!item) {
+            return;
+        }
+
+        const added = addRow({
+            item_id: item.id,
+            quantity: 1,
+            unit_price: item.price,
+            discount: 0,
+            unit: item.unit
         });
 
-        form.addEventListener('submit', function (event) {
-            if (supplierSelector.value !== card.dataset.supplierId) {
-                event.preventDefault();
-                alert('Silakan pilih supplier yang sesuai sebelum menyimpan.');
-                return;
-            }
-
-            const rows = getRows();
-            let valid = true;
-            let selectedCount = 0;
-
-            rows.forEach(function (row) {
-                const quantity = row.querySelector('.quantity-input');
-                const price = row.querySelector('.unit-price');
-
-                const qty = Number(quantity.value);
-                const unitPrice = Number(price.value);
-
-                quantity.setCustomValidity('');
-                price.setCustomValidity('');
-
-                if (
-                    quantity.value.trim() === '' ||
-                    !Number.isFinite(qty) ||
-                    qty < 0
-                ) {
-                    valid = false;
-                    quantity.setCustomValidity('Jumlah harus 0 atau lebih.');
-                    quantity.reportValidity();
-                    return;
-                }
-
-                // Jumlah nol berarti barang tidak dibeli dan tidak dikirim.
-                if (qty === 0) {
-                    return;
-                }
-
-                selectedCount++;
-
-                if (
-                    price.value.trim() === '' ||
-                    !Number.isFinite(unitPrice) ||
-                    unitPrice < 0
-                ) {
-                    valid = false;
-                    price.setCustomValidity('Harga harus diisi dengan angka 0 atau lebih.');
-                    price.reportValidity();
-                }
-            });
-
-            if (!valid) {
-                event.preventDefault();
-                return;
-            }
-
-            if (selectedCount === 0) {
-                event.preventDefault();
-                alert('Isi jumlah minimal satu barang yang benar-benar masuk.');
-                return;
-            }
-
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                form.reportValidity();
-            }
-        });
-
-        calculateTotal();
-        renderPagination();
+        if (added) {
+            itemSearch.value = '';
+            hideSearchResults();
+            itemSearch.focus();
+        }
     });
 
-    selectSupplier();
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('.item-search-wrapper')) {
+            hideSearchResults();
+        }
+    });
+
+    porterInput.addEventListener('input', calculateTotals);
+    discountTypeInput.addEventListener('change', calculateTotals);
+    discountValueInput.addEventListener('input', calculateTotals);
+
+    // Validasi form sebelum dikirim.
+    form.addEventListener('submit', function (event) {
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        if (rows.length === 0) {
+            event.preventDefault();
+            alert('Tambahkan minimal satu barang.');
+            return;
+        }
+
+        const selectedIds = rows.map(row => {
+            return row.querySelector('.item-id-input').value;
+        });
+
+        if (selectedIds.some(id => !id)) {
+            event.preventDefault();
+            alert('Pastikan semua barang sudah dipilih dengan benar.');
+            return;
+        }
+
+        if (new Set(selectedIds).size !== selectedIds.length) {
+            event.preventDefault();
+            alert('Barang yang sama tidak boleh ditambahkan dua kali.');
+            return;
+        }
+
+        for (const row of rows) {
+            const quantity = Number(
+                row.querySelector('.quantity-input').value
+            );
+
+            const price = Number(
+                row.querySelector('.price-input').value
+            );
+
+            const discount = Number(
+                row.querySelector('.discount-input').value
+            ) || 0;
+
+            const subtotalBeforeDiscount = quantity * price;
+
+            if (
+                !Number.isFinite(quantity) ||
+                !Number.isFinite(price) ||
+                !Number.isFinite(discount) ||
+                quantity <= 0 ||
+                price < 0 ||
+                discount < 0 ||
+                discount > subtotalBeforeDiscount
+            ) {
+                event.preventDefault();
+
+                alert(
+                    'Periksa jumlah, harga satuan, dan diskon setiap barang. ' +
+                    'Diskon tidak boleh melebihi subtotal jumlah barang.'
+                );
+
+                return;
+            }
+        }
+
+        const discountType = discountTypeInput.value;
+        const discountValue = Number(discountValueInput.value);
+
+        if (
+            !discountType ||
+            !Number.isFinite(discountValue) ||
+            discountValue < 0
+        ) {
+            event.preventDefault();
+            alert('Jenis dan nilai diskon tambahan nota wajib diisi dengan benar.');
+            return;
+        }
+
+        if (discountType === 'percent' && discountValue > 100) {
+            event.preventDefault();
+            alert('Diskon persentase tidak boleh lebih dari 100%.');
+            return;
+        }
+
+        const goodsTotal =
+            Number(document.getElementById('goodsTotal').value) || 0;
+
+        const discountAmount =
+            Number(document.getElementById('purchaseDiscountAmount').value) || 0;
+
+        if (discountAmount > goodsTotal) {
+            event.preventDefault();
+            alert('Diskon tambahan nota tidak boleh melebihi subtotal barang.');
+        }
+    });
+
+    // Pulihkan barang lama jika validasi server gagal.
+    if (Array.isArray(oldItems) && oldItems.length > 0) {
+        oldItems.forEach(item => {
+            addRow(item);
+        });
+    }
+
+    calculateTotals();
 });
 </script>
-
-</body>
-</html>
+@endpush

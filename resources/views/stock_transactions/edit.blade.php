@@ -48,14 +48,58 @@
             min-height: 38px;
         }
 
-        .item-select { min-width: 200px; }
-        .item-supplier { min-width: 170px; }
-        .item-section { min-width: 160px; }
-        .item-code { min-width: 120px; }
-        .item-unit { min-width: 90px; }
+        .item-select {
+            min-width: 200px;
+        }
+
+        .item-supplier {
+            min-width: 170px;
+        }
+
+        .item-section {
+            min-width: 160px;
+        }
+
+        .item-code {
+            min-width: 120px;
+        }
+
+        .item-unit {
+            min-width: 90px;
+        }
+
         .item-quantity,
-        .item-price { min-width: 120px; }
-        .item-subtotal { min-width: 130px; }
+        .item-price {
+            min-width: 120px;
+        }
+
+        .item-subtotal {
+            min-width: 130px;
+        }
+
+        .reimburse-option {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 8px;
+            padding: 7px 9px;
+            background: #fff8e1;
+            border: 1px solid #ffe69c;
+            border-radius: 6px;
+            width: fit-content;
+        }
+
+        .reimburse-option .form-check-input {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .reimburse-option .form-check-label {
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            color: #805b00;
+        }
 
         .total-box {
             background: #f8f9fa;
@@ -70,10 +114,14 @@
             color: #198754;
         }
 
-        .required-mark { color: #dc3545; }
+        .required-mark {
+            color: #dc3545;
+        }
 
         @media (max-width: 768px) {
-            .main-card { padding: 15px; }
+            .main-card {
+                padding: 15px;
+            }
         }
     </style>
 </head>
@@ -90,7 +138,9 @@
         </div>
 
         <a href="{{ route('stock-transactions.out') }}"
-           class="btn btn-outline-secondary">Kembali</a>
+           class="btn btn-outline-secondary">
+            Kembali
+        </a>
     </div>
 
     @if (session('success'))
@@ -184,9 +234,8 @@
 
             @php
                 /*
-                 * Jika detail Barang Keluar belum memiliki Bagian,
-                 * coba ambil nama Bagian dari detail PO berdasarkan barang
-                 * dan supplier yang sama.
+                 * Pertahankan informasi Bagian PO.
+                 * Status Reimburse dibaca dari detail transaksi atau detail PO.
                  */
                 $purchaseOrderDetails = $stockTransaction->purchaseOrder?->details ?? collect();
 
@@ -204,6 +253,9 @@
                                 );
                         });
 
+                        $detailNotes = trim((string) ($detail->notes ?? ''));
+                        $poNotes = trim((string) ($poDetail?->notes ?? ''));
+
                         return [
                             'item_id' => $detail->item_id,
                             'supplier_id' => $detail->supplier_id
@@ -220,6 +272,10 @@
                             'section_order' => $detail->section_order
                                 ?? $poDetail?->section_order
                                 ?? 0,
+                            'reimburse' => (
+                                $detailNotes === '*Reimburse'
+                                || $poNotes === '*Reimburse'
+                            ) ? 1 : 0,
                         ];
                     })->toArray();
                 }
@@ -237,6 +293,8 @@
                     <h5 class="fw-bold mb-1">Daftar Barang Keluar</h5>
                     <small class="text-muted">
                         Isi Bagian sesuai PO. Gunakan nama Bagian yang sama untuk barang dalam tabel Invoice yang sama.
+                        Barang yang sama boleh ditambahkan pada baris berbeda.
+                        Centang Reimburse jika barang dibeli menggunakan uang pribadi dan perlu diganti.
                     </small>
                 </div>
 
@@ -257,7 +315,7 @@
                 <table class="table table-bordered" id="itemsTable">
                     <thead>
                         <tr>
-                            <th>Nama Barang</th>
+                            <th>Nama Barang / Reimburse</th>
                             <th>Supplier</th>
                             <th>Bagian PO</th>
                             <th>Kode Barang</th>
@@ -276,6 +334,7 @@
                             $itemCode = $detail['code'] ?? ($selectedItem->code ?? '');
                             $itemUnit = $detail['unit'] ?? ($selectedItem->unit ?? '');
                             $selectedSupplierId = $detail['supplier_id'] ?? ($selectedItem->supplier_id ?? '');
+                            $reimburseChecked = (string) ($detail['reimburse'] ?? 0) === '1';
                         @endphp
 
                         <tr class="item-row">
@@ -284,6 +343,7 @@
                                         class="form-select item-select"
                                         required>
                                     <option value="">-- Pilih Barang --</option>
+
                                     @foreach ($items as $item)
                                         <option value="{{ $item->id }}"
                                                 data-code="{{ $item->code }}"
@@ -295,6 +355,24 @@
                                         </option>
                                     @endforeach
                                 </select>
+
+                                <div class="reimburse-option">
+                                    <input type="hidden"
+                                           name="items[{{ $index }}][reimburse]"
+                                           value="0">
+
+                                    <input type="checkbox"
+                                           name="items[{{ $index }}][reimburse]"
+                                           value="1"
+                                           class="form-check-input item-reimburse"
+                                           id="reimburse_{{ $index }}"
+                                           @checked($reimburseChecked)>
+
+                                    <label class="form-check-label"
+                                           for="reimburse_{{ $index }}">
+                                        *Reimburse
+                                    </label>
+                                </div>
                             </td>
 
                             <td>
@@ -302,6 +380,7 @@
                                         class="form-select item-supplier"
                                         required>
                                     <option value="">-- Pilih Supplier --</option>
+
                                     @foreach ($suppliers as $supplier)
                                         <option value="{{ $supplier->id }}"
                                             @selected((string) $selectedSupplierId === (string) $supplier->id)>
@@ -383,6 +462,7 @@
                                         class="form-select item-select"
                                         required>
                                     <option value="">-- Pilih Barang --</option>
+
                                     @foreach ($items as $item)
                                         <option value="{{ $item->id }}"
                                                 data-code="{{ $item->code }}"
@@ -393,6 +473,23 @@
                                         </option>
                                     @endforeach
                                 </select>
+
+                                <div class="reimburse-option">
+                                    <input type="hidden"
+                                           name="items[0][reimburse]"
+                                           value="0">
+
+                                    <input type="checkbox"
+                                           name="items[0][reimburse]"
+                                           value="1"
+                                           class="form-check-input item-reimburse"
+                                           id="reimburse_0">
+
+                                    <label class="form-check-label"
+                                           for="reimburse_0">
+                                        *Reimburse
+                                    </label>
+                                </div>
                             </td>
 
                             <td>
@@ -400,8 +497,11 @@
                                         class="form-select item-supplier"
                                         required>
                                     <option value="">-- Pilih Supplier --</option>
+
                                     @foreach ($suppliers as $supplier)
-                                        <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                                        <option value="{{ $supplier->id }}">
+                                            {{ $supplier->name }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </td>
@@ -412,6 +512,7 @@
                                        class="form-control item-section"
                                        list="sectionOptions"
                                        placeholder="Nama Bagian">
+
                                 <input type="hidden"
                                        name="items[0][section_order]"
                                        class="item-section-order"
@@ -419,30 +520,45 @@
                             </td>
 
                             <td>
-                                <input type="text" name="items[0][code]"
-                                       class="form-control item-code" placeholder="Kode barang">
+                                <input type="text"
+                                       name="items[0][code]"
+                                       class="form-control item-code"
+                                       placeholder="Kode barang">
                             </td>
 
                             <td>
-                                <input type="text" name="items[0][unit]"
-                                       class="form-control item-unit" placeholder="Satuan" required>
+                                <input type="text"
+                                       name="items[0][unit]"
+                                       class="form-control item-unit"
+                                       placeholder="Satuan"
+                                       required>
                             </td>
 
                             <td>
-                                <input type="number" name="items[0][quantity]"
-                                       class="form-control item-quantity" value="1"
-                                       min="0.01" step="0.01" required>
+                                <input type="number"
+                                       name="items[0][quantity]"
+                                       class="form-control item-quantity"
+                                       value="1"
+                                       min="0.01"
+                                       step="0.01"
+                                       required>
                             </td>
 
                             <td>
-                                <input type="number" name="items[0][unit_price]"
-                                       class="form-control item-price" value="0"
-                                       min="0" step="0.01" required>
+                                <input type="number"
+                                       name="items[0][unit_price]"
+                                       class="form-control item-price"
+                                       value="0"
+                                       min="0"
+                                       step="0.01"
+                                       required>
                             </td>
 
                             <td>
-                                <input type="text" class="form-control item-subtotal"
-                                       value="0" readonly>
+                                <input type="text"
+                                       class="form-control item-subtotal"
+                                       value="0"
+                                       readonly>
                             </td>
 
                             <td class="text-center">
@@ -460,14 +576,21 @@
             <div class="total-box mt-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="fw-bold">TOTAL BARANG KELUAR</span>
-                    <span class="total-value">Rp <span id="grandTotal">0</span></span>
+                    <span class="total-value">
+                        Rp <span id="grandTotal">0</span>
+                    </span>
                 </div>
             </div>
 
             <div class="d-flex flex-wrap justify-content-end gap-2">
                 <a href="{{ route('stock-transactions.out') }}"
-                   class="btn btn-secondary">Batal</a>
-                <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                   class="btn btn-secondary">
+                    Batal
+                </a>
+
+                <button type="submit" class="btn btn-primary">
+                    Simpan Perubahan
+                </button>
             </div>
         </form>
     </div>
@@ -512,10 +635,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function updateSectionOrders() {
-        /*
-         * Bagian dengan nama yang sama dan supplier yang sama
-         * mendapat urutan yang sama.
-         */
         const orders = new Map();
         let nextOrder = 1;
 
@@ -598,6 +717,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     );
                 }
             });
+
+            const reimburseCheckbox = row.querySelector('.item-reimburse');
+            const reimburseLabel = row.querySelector('label[for^="reimburse_"]');
+
+            if (reimburseCheckbox) {
+                reimburseCheckbox.id = 'reimburse_' + index;
+            }
+
+            if (reimburseLabel) {
+                reimburseLabel.htmlFor = 'reimburse_' + index;
+            }
         });
 
         nextIndex = tableBody.querySelectorAll('.item-row').length;
@@ -611,14 +741,33 @@ document.addEventListener('DOMContentLoaded', function () {
         row.innerHTML = `
             <td>
                 <select name="items[${index}][item_id]"
-                        class="form-select item-select" required>
+                        class="form-select item-select"
+                        required>
                     ${itemOptions}
                 </select>
+
+                <div class="reimburse-option">
+                    <input type="hidden"
+                           name="items[${index}][reimburse]"
+                           value="0">
+
+                    <input type="checkbox"
+                           name="items[${index}][reimburse]"
+                           value="1"
+                           class="form-check-input item-reimburse"
+                           id="reimburse_${index}">
+
+                    <label class="form-check-label"
+                           for="reimburse_${index}">
+                        *Reimburse
+                    </label>
+                </div>
             </td>
 
             <td>
                 <select name="items[${index}][supplier_id]"
-                        class="form-select item-supplier" required>
+                        class="form-select item-supplier"
+                        required>
                     ${supplierOptions}
                 </select>
             </td>
@@ -629,6 +778,7 @@ document.addEventListener('DOMContentLoaded', function () {
                        class="form-control item-section"
                        list="sectionOptions"
                        placeholder="Nama Bagian">
+
                 <input type="hidden"
                        name="items[${index}][section_order]"
                        class="item-section-order"
@@ -636,34 +786,50 @@ document.addEventListener('DOMContentLoaded', function () {
             </td>
 
             <td>
-                <input type="text" name="items[${index}][code]"
-                       class="form-control item-code" placeholder="Kode barang">
+                <input type="text"
+                       name="items[${index}][code]"
+                       class="form-control item-code"
+                       placeholder="Kode barang">
             </td>
 
             <td>
-                <input type="text" name="items[${index}][unit]"
-                       class="form-control item-unit" placeholder="Satuan" required>
+                <input type="text"
+                       name="items[${index}][unit]"
+                       class="form-control item-unit"
+                       placeholder="Satuan"
+                       required>
             </td>
 
             <td>
-                <input type="number" name="items[${index}][quantity]"
-                       class="form-control item-quantity" value="1"
-                       min="0.01" step="0.01" required>
+                <input type="number"
+                       name="items[${index}][quantity]"
+                       class="form-control item-quantity"
+                       value="1"
+                       min="0.01"
+                       step="0.01"
+                       required>
             </td>
 
             <td>
-                <input type="number" name="items[${index}][unit_price]"
-                       class="form-control item-price" value="0"
-                       min="0" step="0.01" required>
+                <input type="number"
+                       name="items[${index}][unit_price]"
+                       class="form-control item-price"
+                       value="0"
+                       min="0"
+                       step="0.01"
+                       required>
             </td>
 
             <td>
-                <input type="text" class="form-control item-subtotal"
-                       value="0" readonly>
+                <input type="text"
+                       class="form-control item-subtotal"
+                       value="0"
+                       readonly>
             </td>
 
             <td class="text-center">
-                <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                <button type="button"
+                        class="btn btn-sm btn-outline-danger remove-item">
                     Hapus
                 </button>
             </td>
@@ -683,24 +849,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!row) return;
 
+        /*
+         * Barang yang sama boleh dipilih pada lebih dari satu baris.
+         * Setiap baris tetap menyimpan supplier, jumlah, harga, dan bagian sendiri.
+         */
         if (event.target.classList.contains('item-select')) {
-            const selectedId = event.target.value;
-
-            if (selectedId) {
-                const duplicate = Array.from(
-                    tableBody.querySelectorAll('.item-select')
-                ).some(function (select) {
-                    return select !== event.target && select.value === selectedId;
-                });
-
-                if (duplicate) {
-                    alert('Barang tersebut sudah ada dalam daftar transaksi.');
-                    event.target.value = '';
-                    updateRow(row, true);
-                    return;
-                }
-            }
-
             updateRow(row, true);
             return;
         }
@@ -751,8 +904,6 @@ document.addEventListener('DOMContentLoaded', function () {
         let hasValidItem = false;
         let hasMissingSupplier = false;
         let hasMissingUnit = false;
-        let hasDuplicateItem = false;
-        const selectedIds = new Set();
 
         rows.forEach(function (row) {
             const itemId = row.querySelector('.item-select').value;
@@ -763,26 +914,19 @@ document.addEventListener('DOMContentLoaded', function () {
             if (itemId && quantity > 0) {
                 hasValidItem = true;
 
-                if (!supplierId) hasMissingSupplier = true;
-                if (!unit) hasMissingUnit = true;
-
-                if (selectedIds.has(itemId)) {
-                    hasDuplicateItem = true;
+                if (!supplierId) {
+                    hasMissingSupplier = true;
                 }
 
-                selectedIds.add(itemId);
+                if (!unit) {
+                    hasMissingUnit = true;
+                }
             }
         });
 
         if (!hasValidItem) {
             event.preventDefault();
             alert('Pilih minimal satu barang dengan jumlah lebih dari nol.');
-            return;
-        }
-
-        if (hasDuplicateItem) {
-            event.preventDefault();
-            alert('Barang yang sama tidak boleh dimasukkan lebih dari satu kali.');
             return;
         }
 

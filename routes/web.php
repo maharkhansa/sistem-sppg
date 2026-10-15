@@ -13,6 +13,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\NotaKeluarController;
 use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\LPDHController;
+use App\Http\Controllers\InvoiceExpenseDetailController;
 
 /*
 |--------------------------------------------------------------------------
@@ -133,6 +134,17 @@ Route::post(
     [StockTransactionController::class, 'store']
 )->name('stock-transactions.store');
 
+// Edit Barang Masuk
+Route::get(
+    '/stock-transactions/{stockTransaction}/edit-in',
+    [StockTransactionController::class, 'editIn']
+)->name('stock-transactions.edit-in');
+
+Route::delete(
+    '/stock-transactions/{id}',
+    [StockTransactionController::class, 'destroy']
+)->name('stock-transactions.destroy');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -152,13 +164,13 @@ Route::get(
     [StockTransactionController::class, 'edit']
 )->name('stock-transactions.edit');
 
-// Simpan Perubahan Barang Keluar
+// Simpan Perubahan Barang Masuk maupun Barang Keluar
 Route::put(
     '/stock-transactions/{stockTransaction}',
     [StockTransactionController::class, 'update']
 )->name('stock-transactions.update');
 
-// Hapus Barang Keluar
+// Hapus Transaksi
 Route::delete(
     '/stock-transactions/{id}',
     [StockTransactionController::class, 'destroy']
@@ -231,6 +243,18 @@ Route::get(
     [InvoiceController::class, 'index']
 )->name('invoices.index');
 
+// Edit biaya non-stok pada Invoice
+Route::get(
+    '/invoices/{invoice}/expenses/edit',
+    [InvoiceExpenseDetailController::class, 'edit']
+)->name('invoices.expenses.edit');
+
+// Simpan perubahan biaya non-stok
+Route::put(
+    '/invoices/{invoice}/expenses',
+    [InvoiceExpenseDetailController::class, 'update']
+)->name('invoices.expenses.update');
+
 // Detail Invoice
 Route::get(
     '/invoices/{invoice}',
@@ -281,7 +305,7 @@ Route::post(
 */
 
 // Total Invoice untuk LPDH
-Route::get(
+Route::post(
     '/lpdhs/invoice-total',
     [LPDHController::class, 'invoiceTotal']
 )->name('lpdhs.invoice-total');

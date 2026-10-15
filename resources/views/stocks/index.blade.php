@@ -28,6 +28,10 @@
     .stock-number {
         font-variant-numeric: tabular-nums;
     }
+
+    .stock-info {
+        border-left: 4px solid var(--bs-primary);
+    }
 </style>
 @endpush
 
@@ -45,7 +49,8 @@
                         Stok Barang
                     </h2>
                     <p class="text-muted small mb-0">
-                        Informasi persediaan dan status stok barang.
+                        Informasi persediaan berdasarkan barang, kategori,
+                        dan pemasok internal yayasan.
                     </p>
                 </div>
 
@@ -56,7 +61,23 @@
                 </a>
             </div>
 
-            {{-- FILTER SUPPLIER --}}
+            {{-- INFORMASI PEMASOK DAN VENDOR --}}
+            <div class="alert alert-primary stock-info d-flex align-items-start gap-2 mb-4">
+                <i class="bi bi-info-circle-fill mt-1"></i>
+                <div>
+                    <div class="fw-semibold mb-1">
+                        Pemasok Internal dan Vendor Pembelian
+                    </div>
+                    <div class="small">
+                        Pemasok internal menunjukkan pengelompokan barang
+                        dalam yayasan. Vendor pembelian adalah toko atau pihak
+                        tempat barang dibeli dan dicatat pada transaksi Barang Masuk,
+                        beserta nomor nota pembeliannya.
+                    </div>
+                </div>
+            </div>
+
+            {{-- FILTER PEMASOK INTERNAL --}}
             <form action="{{ route('stocks.index') }}" method="GET"
                 class="card border-0 bg-light mb-4">
                 <div class="card-body">
@@ -65,12 +86,12 @@
                         <div class="col-md-6 col-lg-5">
                             <label for="supplier_id" class="form-label fw-semibold">
                                 <i class="bi bi-funnel me-1"></i>
-                                Filter Supplier
+                                Filter Pemasok Internal
                             </label>
 
                             <select name="supplier_id" id="supplier_id"
                                 class="form-select">
-                                <option value="">Semua Supplier</option>
+                                <option value="">Semua Pemasok Internal</option>
 
                                 @foreach ($suppliers as $supplier)
                                     <option value="{{ $supplier->id }}"
@@ -110,7 +131,7 @@
                 <div class="alert alert-info d-flex align-items-center mb-4">
                     <i class="bi bi-info-circle-fill me-2"></i>
                     <div>
-                        Menampilkan stok supplier:
+                        Menampilkan stok dengan pemasok internal:
                         <strong>{{ $selectedSupplier?->name ?? '-' }}</strong>
                     </div>
                 </div>
@@ -208,7 +229,7 @@
                             <th class="text-center" style="width:60px">No</th>
                             <th style="min-width:120px">Kode Barang</th>
                             <th style="min-width:180px">Nama Barang</th>
-                            <th style="min-width:160px">Supplier</th>
+                            <th style="min-width:180px">Pemasok Internal</th>
                             <th style="min-width:130px">Kategori</th>
                             <th class="text-center">Satuan</th>
                             <th class="text-center">Stok</th>
@@ -246,11 +267,11 @@
                                 <td>
                                     @if ($item->supplier)
                                         <span class="badge bg-primary-subtle text-primary-emphasis px-2 py-1">
-                                            <i class="bi bi-truck me-1"></i>
+                                            <i class="bi bi-building me-1"></i>
                                             {{ $item->supplier->name }}
                                         </span>
                                     @else
-                                        <span class="text-muted">-</span>
+                                        <span class="text-muted">Belum ditentukan</span>
                                     @endif
                                 </td>
 
@@ -295,7 +316,7 @@
                                     <i class="bi bi-inbox fs-2 d-block mb-2"></i>
 
                                     @if (request()->filled('supplier_id'))
-                                        Tidak ada barang untuk supplier yang dipilih.
+                                        Tidak ada barang untuk pemasok internal yang dipilih.
                                     @else
                                         Belum ada data barang.
                                     @endif
@@ -384,10 +405,12 @@
                 </div>
             @endif
 
+            {{-- KETERANGAN --}}
             <div class="text-muted small mt-4">
                 <i class="bi bi-info-circle me-1"></i>
                 Status stok minimum ditentukan berdasarkan jumlah stok saat ini
-                dibandingkan dengan minimum stok barang.
+                dibandingkan dengan minimum stok barang. Riwayat vendor pembelian
+                dapat ditelusuri melalui transaksi Barang Masuk.
             </div>
 
         </div>

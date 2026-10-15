@@ -17,7 +17,9 @@ class StockTransactionDetail extends Model
         'quantity',
         'unit',
         'unit_price',
+        'discount',
         'subtotal',
+        'allocated_porter_cost',
         'section_name',
         'section_order',
     ];
@@ -25,7 +27,9 @@ class StockTransactionDetail extends Model
     protected $casts = [
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
+        'discount' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'allocated_porter_cost' => 'decimal:2',
         'section_order' => 'integer',
     ];
 

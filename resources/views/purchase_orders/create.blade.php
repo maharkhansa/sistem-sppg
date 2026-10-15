@@ -1,24 +1,22 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tambah Purchase Order</title>
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: Arial, sans-serif;
             margin: 30px;
             background: #f5f5f5;
+            color: #212529;
         }
 
         .container {
-            max-width: 1500px;
+            max-width: 1600px;
             margin: auto;
             background: white;
             padding: 25px;
@@ -26,13 +24,8 @@
             overflow-x: auto;
         }
 
-        h1 {
-            margin-bottom: 25px;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
+        h1 { margin-bottom: 25px; }
+        .form-group { margin-bottom: 15px; }
 
         label {
             display: block;
@@ -40,9 +33,7 @@
             font-weight: bold;
         }
 
-        input,
-        select,
-        textarea {
+        input, select, textarea {
             width: 100%;
             padding: 8px;
             border: 1px solid #ced4da;
@@ -50,22 +41,27 @@
             font-size: 14px;
         }
 
+        input:disabled, select:disabled {
+            background: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        input[readonly] { background: #f1f3f5; }
+
         table {
             width: 100%;
-            min-width: 1250px;
+            min-width: 1450px;
             border-collapse: collapse;
             margin-top: 20px;
         }
 
-        table th,
-        table td {
+        table th, table td {
             border: 1px solid #ddd;
             padding: 8px;
+            vertical-align: middle;
         }
 
-        table th {
-            background: #f0f0f0;
-        }
+        table th { background: #f0f0f0; }
 
         .btn {
             padding: 9px 14px;
@@ -83,29 +79,23 @@
             margin-top: 15px;
         }
 
-        .btn-section {
-            background: #6f42c1;
+        .btn-expense {
+            background: #0d6efd;
             color: white;
             margin-top: 15px;
             margin-left: 5px;
         }
 
-        .btn-delete {
-            background: #dc3545;
+        .btn-section {
+            background: #6f42c1;
             color: white;
+            margin-top: 15px;
+            margin-right: 5px;
         }
 
-        .btn-save {
-            background: #0d6efd;
-            color: white;
-            margin-top: 20px;
-        }
-
-        .btn-back {
-            background: #6c757d;
-            color: white;
-            margin-bottom: 20px;
-        }
+        .btn-delete { background: #dc3545; color: white; }
+        .btn-save { background: #0d6efd; color: white; margin-top: 20px; }
+        .btn-back { background: #6c757d; color: white; margin-bottom: 20px; }
 
         .error {
             background: #f8d7da;
@@ -115,13 +105,8 @@
             border-radius: 5px;
         }
 
-        .subtotal {
-            background: #f8f9fa;
-        }
-
-        .row-number {
-            text-align: center;
-        }
+        .subtotal { background: #f8f9fa; }
+        .row-number { text-align: center; }
 
         .total-container {
             margin-top: 20px;
@@ -147,28 +132,99 @@
             font-size: 13px;
         }
 
-        .section-select {
-            min-width: 145px;
+        .feature-info {
+            margin-top: 12px;
+            padding: 12px;
+            background: #eaf4ff;
+            border: 1px solid #b6d7ff;
+            border-radius: 5px;
+            color: #164578;
+            font-size: 13px;
+            line-height: 1.6;
         }
 
-        .section-order {
+        .section-select { min-width: 145px; }
+        .section-order { display: none; }
+
+        .reimburse-control {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 8px;
+            margin-bottom: 0;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: normal;
+            color: #b42318;
+        }
+
+        .reimburse-control input {
+            width: 15px;
+            height: 15px;
+            margin: 0;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .reimburse-label {
             display: none;
+            color: #b42318;
+            background: #fff0ee;
+            border: 1px solid #f2b8b5;
+            border-radius: 4px;
+            padding: 3px 7px;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .item-row.is-reimburse { background: #fffaf9; }
+
+        .item-row.is-reimburse .reimburse-label {
+            display: inline-block;
+        }
+
+        .type-select { min-width: 140px; font-weight: bold; }
+        .detail-type-stock { color: #146c43; }
+        .detail-type-expense { color: #084298; }
+
+        .expense-date { min-width: 145px; }
+        .expense-cell { background: #f3f8ff; }
+        .stock-cell { background: #f7fbf8; }
+
+        .field-label {
+            display: block;
+            font-size: 11px;
+            color: #6c757d;
+            margin: 4px 0;
+        }
+
+        .empty-expense-types {
+            font-size: 11px;
+            color: #b42318;
+            margin-top: 4px;
+        }
+
+        .expense-supplier-name {
+            border-color: #86b7fe;
+            background: #fff;
+        }
+
+        .supplier-hint {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 5px;
+            line-height: 1.4;
         }
 
         @media (max-width: 768px) {
-            body {
-                margin: 10px;
-            }
-
-            .container {
-                padding: 15px;
-            }
+            body { margin: 10px; }
+            .container { padding: 15px; }
         }
     </style>
 </head>
 
 <body>
-
 <div class="container">
 
     <a href="{{ route('purchase-orders.index') }}" class="btn btn-back">
@@ -189,12 +245,18 @@
     @endif
 
     @if (session('error'))
+        <div class="error">{{ session('error') }}</div>
+    @endif
+
+    @if (!isset($expenseTypes))
         <div class="error">
-            {{ session('error') }}
+            Data Jenis Biaya belum dikirim oleh controller.
+            Pastikan method create() pada PurchaseOrderController mengirim
+            variabel expenseTypes ke view.
         </div>
     @endif
 
-    <form action="{{ route('purchase-orders.store') }}" method="POST">
+    <form action="{{ route('purchase-orders.store') }}" method="POST" id="purchaseOrderForm">
         @csrf
 
         <div class="form-group">
@@ -210,10 +272,8 @@
 
         <div class="form-group">
             <label for="kitchen_id">SPPG</label>
-
             <select name="kitchen_id" id="kitchen_id" required>
                 <option value="">-- Pilih SPPG --</option>
-
                 @foreach ($kitchens as $kitchen)
                     <option
                         value="{{ $kitchen->id }}"
@@ -227,7 +287,6 @@
 
         <div class="form-group">
             <label for="notes">Catatan</label>
-
             <textarea
                 name="notes"
                 id="notes"
@@ -236,41 +295,52 @@
             >{{ old('notes') }}</textarea>
         </div>
 
-        <h3>Detail Barang</h3>
+        <h3>Detail Purchase Order</h3>
+
+        <div class="feature-info">
+            <strong>Jenis rincian PO:</strong><br>
+            <strong>Barang persediaan</strong> menggunakan master barang.
+            Supplier terisi otomatis berdasarkan data master barang dan tidak diketik manual.
+            Barang akan mengikuti proses stok ketika PO diproses menjadi Barang Keluar.<br>
+
+            <strong>Biaya non-stok</strong> menggunakan master Jenis Biaya, seperti
+            insentif relawan, PLN, PDAM, dan biaya lainnya. Untuk rincian ini, nama supplier,
+            penerima, atau penyedia jasa diisi manual pada kolom Supplier.
+            Biaya masuk ke total PO, tetapi tidak menjadi barang persediaan dan tidak mengurangi stok.<br>
+
+            <strong>Catatan:</strong> biaya non-stok tidak dimasukkan ke alokasi Nota Keluar.
+        </div>
 
         <div class="section-info">
             <strong>Pembagian bagian barang (opsional)</strong><br>
-            Klik tombol <strong>+ Tambah Bagian</strong> untuk membuat nama bagian.
-            Setelah itu, pilih bagian pada masing-masing barang. Barang yang tidak
-            perlu dibagi cukup pilih <strong>Tanpa bagian</strong>.
+            Klik <strong>+ Tambah Bagian</strong> untuk membuat nama bagian.
+            Barang yang tidak perlu dibagi dapat memilih <strong>Tanpa bagian</strong>.<br><br>
+            <strong>Reimburse:</strong> penanda ini hanya tersedia untuk barang persediaan.
         </div>
 
-        <button
-            type="button"
-            class="btn btn-section"
-            onclick="addSection()"
-        >
+        <button type="button" class="btn btn-section" onclick="addSection()">
             + Tambah Bagian
         </button>
 
-        <button
-            type="button"
-            class="btn btn-add"
-            onclick="addRow()"
-        >
+        <button type="button" class="btn btn-add" onclick="addRow('stock')">
             + Tambah Barang
+        </button>
+
+        <button type="button" class="btn btn-expense" onclick="addRow('expense')">
+            + Tambah Biaya Non-Stok
         </button>
 
         <table id="itemsTable">
             <thead>
                 <tr>
                     <th width="45">No</th>
-                    <th width="220">Nama Barang</th>
-                    <th width="170">Supplier</th>
-                    <th width="130">Kode Barang</th>
+                    <th width="145">Jenis Rincian</th>
+                    <th width="240">Barang / Jenis Biaya</th>
+                    <th width="220">Supplier / Penerima</th>
+                    <th width="160">Kode / Tanggal Biaya</th>
                     <th width="90">Qty</th>
                     <th width="100">Satuan</th>
-                    <th width="130">Harga</th>
+                    <th width="130">Harga Satuan</th>
                     <th width="140">Jumlah</th>
                     <th width="180">Bagian (Opsional)</th>
                     <th width="80">Aksi</th>
@@ -278,52 +348,140 @@
             </thead>
 
             <tbody id="itemsBody">
-                <tr class="item-row">
+                <tr class="item-row" data-type="stock">
                     <td class="row-number">1</td>
 
                     <td>
                         <select
-                            name="items[0][item_id]"
-                            class="item-select"
+                            name="items[0][detail_type]"
+                            class="type-select"
+                            onchange="changeRowType(this)"
                             required
                         >
-                            <option value="">-- Pilih Barang --</option>
-
-                            @foreach ($items as $item)
-                                <option
-                                    value="{{ $item->id }}"
-                                    data-code="{{ $item->code }}"
-                                    data-unit="{{ $item->unit }}"
-                                    data-supplier="{{ $item->supplier?->name ?? '-' }}"
-                                    data-supplier-id="{{ $item->supplier_id }}"
-                                    data-price="{{ $item->last_purchase_price ?? 0 }}"
-                                    {{ old('items.0.item_id') == $item->id ? 'selected' : '' }}
-                                >
-                                    {{ $item->name }}
-                                </option>
-                            @endforeach
+                            <option value="stock" selected>Barang Persediaan</option>
+                            <option value="expense">Biaya Non-Stok</option>
                         </select>
                     </td>
 
-                    <td>
-                        <input type="text" class="supplier-name" readonly>
+                    <td class="stock-cell">
+                        <div class="stock-fields">
+                            <select name="items[0][item_id]" class="item-select" required>
+                                <option value="">-- Pilih Barang --</option>
+                                @foreach ($items as $item)
+                                    <option
+                                        value="{{ $item->id }}"
+                                        data-code="{{ $item->code }}"
+                                        data-unit="{{ $item->unit }}"
+                                        data-supplier="{{ $item->supplier?->name ?? '-' }}"
+                                        data-supplier-id="{{ $item->supplier_id }}"
+                                        data-price="{{ $item->last_purchase_price ?? 0 }}"
+                                        {{ old('items.0.item_id') == $item->id ? 'selected' : '' }}
+                                    >
+                                        {{ $item->name }}
+                                    </option>
+                                @endforeach
+                            </select>
 
-                        <input
-                            type="hidden"
-                            name="items[0][supplier_id]"
-                            class="supplier-id"
-                            value="{{ old('items.0.supplier_id') }}"
-                        >
+                            <label class="reimburse-control">
+                                <input
+                                    type="checkbox"
+                                    name="items[0][reimburse]"
+                                    value="1"
+                                    class="reimburse-checkbox"
+                                    {{ old('items.0.reimburse') ? 'checked' : '' }}
+                                >
+                                <span>*Reimburse</span>
+                            </label>
+
+                            <span class="reimburse-label">*Reimburse</span>
+                        </div>
+
+                        <div class="expense-fields" hidden>
+                            <label class="field-label">Jenis Biaya</label>
+                            <select
+                                name="items[0][expense_type_id]"
+                                class="expense-type-select"
+                                disabled
+                            >
+                                <option value="">-- Pilih Jenis Biaya --</option>
+                                @foreach (($expenseTypes ?? collect()) as $expenseType)
+                                    <option
+                                        value="{{ $expenseType->id }}"
+                                        {{ old('items.0.expense_type_id') == $expenseType->id ? 'selected' : '' }}
+                                    >
+                                        {{ $expenseType->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+
+                            @if (isset($expenseTypes) && $expenseTypes->isEmpty())
+                                <div class="empty-expense-types">
+                                    Belum ada jenis biaya. Tambahkan terlebih dahulu melalui menu Jenis Biaya.
+                                </div>
+                            @endif
+                        </div>
                     </td>
 
                     <td>
-                        <input
-                            type="text"
-                            name="items[0][code]"
-                            class="item-code"
-                            value="{{ old('items.0.code') }}"
-                            placeholder="Kode barang"
-                        >
+                        <div class="stock-fields">
+                            <input
+                                type="text"
+                                class="supplier-name"
+                                value=""
+                                placeholder="Otomatis dari master barang"
+                                readonly
+                            >
+
+                            <input
+                                type="hidden"
+                                name="items[0][supplier_id]"
+                                class="supplier-id"
+                                value="{{ old('items.0.supplier_id') }}"
+                            >
+
+                            <div class="supplier-hint">
+                                Supplier otomatis dari master barang.
+                            </div>
+                        </div>
+
+                        <div class="expense-fields" hidden>
+                            <input
+                                type="text"
+                                name="items[0][supplier_name]"
+                                class="expense-supplier-name"
+                                value="{{ old('items.0.supplier_name') }}"
+                                placeholder="Ketik nama supplier atau penerima"
+                                maxlength="255"
+                                disabled
+                            >
+
+                            <div class="supplier-hint">
+                                Isi nama supplier, penerima, atau penyedia jasa untuk biaya ini.
+                            </div>
+                        </div>
+                    </td>
+
+                    <td>
+                        <div class="stock-fields">
+                            <input
+                                type="text"
+                                name="items[0][code]"
+                                class="item-code"
+                                value="{{ old('items.0.code') }}"
+                                placeholder="Kode barang"
+                            >
+                        </div>
+
+                        <div class="expense-fields" hidden>
+                            <label class="field-label">Tanggal Biaya</label>
+                            <input
+                                type="date"
+                                name="items[0][expense_date]"
+                                class="expense-date"
+                                value="{{ old('items.0.expense_date', date('Y-m-d')) }}"
+                                disabled
+                            >
+                        </div>
                     </td>
 
                     <td>
@@ -371,10 +529,7 @@
                     </td>
 
                     <td>
-                        <select
-                            name="items[0][section_name]"
-                            class="section-select"
-                        >
+                        <select name="items[0][section_name]" class="section-select">
                             <option value="">Tanpa bagian</option>
                         </select>
 
@@ -387,11 +542,7 @@
                     </td>
 
                     <td>
-                        <button
-                            type="button"
-                            class="btn btn-delete"
-                            onclick="removeRow(this)"
-                        >
+                        <button type="button" class="btn btn-delete" onclick="removeRow(this)">
                             Hapus
                         </button>
                     </td>
@@ -412,12 +563,9 @@
 
 <script>
     let rowIndex = 1;
+    let sectionNames = [];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Data barang untuk pilihan dropdown
-    |--------------------------------------------------------------------------
-    */
+    const oldItems = @json(old('items', []));
 
     const itemOptions = `
         @foreach ($items as $item)
@@ -432,90 +580,59 @@
         @endforeach
     `;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Daftar bagian yang dibuat pengguna
-    |--------------------------------------------------------------------------
-    */
+    const expenseOptions = `
+        @foreach (($expenseTypes ?? collect()) as $expenseType)
+            <option value="{{ $expenseType->id }}">{{ $expenseType->name }}</option>
+        @endforeach
+    `;
 
-    let sectionNames = [];
+    const hasExpenseTypes = @json(isset($expenseTypes) && $expenseTypes->isNotEmpty());
 
-    /*
-     * Pulihkan pilihan bagian yang sebelumnya dikirim ketika validasi gagal.
-     */
-    const oldSections = @json(
-        collect(old('items', []))
-            ->pluck('section_name')
-            ->filter(fn ($name) => is_string($name) && trim($name) !== '')
-            ->unique()
-            ->values()
-    );
-
-    sectionNames = oldSections.map(name => String(name).trim());
-
-    /*
-    |--------------------------------------------------------------------------
-    | Tambah bagian
-    |--------------------------------------------------------------------------
-    */
+    sectionNames = [
+        ...new Set(
+            oldItems
+                .map(item => item.section_name || '')
+                .filter(name => typeof name === 'string' && name.trim() !== '')
+                .map(name => name.trim())
+        )
+    ];
 
     function addSection() {
         const input = prompt(
-            'Masukkan nama bagian, contoh: Bagian 1, Bagian 2, atau Pengiriman Pagi:'
+            'Masukkan nama bagian, contoh: Bagian 1 atau Pengiriman Pagi:'
         );
 
-        if (input === null) {
-            return;
-        }
+        if (input === null) return;
 
-        const sectionName = input.trim();
+        const name = input.trim();
 
-        if (sectionName === '') {
+        if (!name) {
             alert('Nama bagian tidak boleh kosong.');
             return;
         }
 
-        if (sectionName.length > 100) {
+        if (name.length > 100) {
             alert('Nama bagian maksimal 100 karakter.');
             return;
         }
 
-        const alreadyExists = sectionNames.some(
-            name => name.toLowerCase() === sectionName.toLowerCase()
-        );
-
-        if (alreadyExists) {
+        if (sectionNames.some(existing => existing.toLowerCase() === name.toLowerCase())) {
             alert('Nama bagian tersebut sudah tersedia.');
             return;
         }
 
-        sectionNames.push(sectionName);
-
+        sectionNames.push(name);
         refreshSectionOptions();
-
-        alert(
-            'Bagian "' + sectionName + '" berhasil ditambahkan. ' +
-            'Silakan pilih bagian tersebut pada barang yang sesuai.'
-        );
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Isi pilihan bagian untuk semua baris barang
-    |--------------------------------------------------------------------------
-    */
 
     function refreshSectionOptions() {
         document.querySelectorAll('.item-row').forEach(row => {
             const select = row.querySelector('.section-select');
             const orderInput = row.querySelector('.section-order');
 
-            if (!select) {
-                return;
-            }
+            if (!select) return;
 
             const previousValue = select.value;
-
             select.innerHTML = '';
 
             const defaultOption = document.createElement('option');
@@ -538,91 +655,238 @@
         });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Simpan urutan bagian
-    |--------------------------------------------------------------------------
-    */
+    function updateSectionOrder(select, input) {
+        if (!select || !input) return;
 
-    function updateSectionOrder(select, orderInput) {
-        if (!select || !orderInput) {
+        if (!select.value) {
+            input.value = '';
             return;
         }
 
-        const selectedName = select.value;
-
-        if (!selectedName) {
-            orderInput.value = '';
-            return;
-        }
-
-        const index = sectionNames.indexOf(selectedName);
-
-        orderInput.value = index >= 0 ? index + 1 : '';
+        const index = sectionNames.indexOf(select.value);
+        input.value = index >= 0 ? index + 1 : '';
     }
 
-    document.addEventListener('change', function(event) {
-        if (!event.target.classList.contains('section-select')) {
+    function updateReimburseRow(row) {
+        if (!row) return;
+
+        const checkbox = row.querySelector('.reimburse-checkbox');
+
+        row.classList.toggle(
+            'is-reimburse',
+            Boolean(checkbox && checkbox.checked && row.dataset.type === 'stock')
+        );
+    }
+
+    function fillStockSupplier(row) {
+        const itemSelect = row.querySelector('.item-select');
+
+        if (!itemSelect) return;
+
+        const option = itemSelect.options[itemSelect.selectedIndex];
+
+        if (!option || !option.value) {
+            row.querySelector('.supplier-name').value = '';
+            row.querySelector('.supplier-id').value = '';
             return;
         }
 
-        const row = event.target.closest('.item-row');
+        row.querySelector('.supplier-name').value = option.dataset.supplier || '-';
+        row.querySelector('.supplier-id').value = option.dataset.supplierId || '';
+    }
 
-        updateSectionOrder(
-            event.target,
-            row.querySelector('.section-order')
-        );
-    });
+    function changeRowType(select) {
+        const row = select.closest('.item-row');
+        const type = select.value;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Tambah baris barang
-    |--------------------------------------------------------------------------
-    */
+        row.dataset.type = type;
 
-    function addRow() {
+        const stockFields = row.querySelectorAll('.stock-fields');
+        const expenseFields = row.querySelectorAll('.expense-fields');
+
+        stockFields.forEach(container => {
+            container.hidden = type !== 'stock';
+
+            container.querySelectorAll('input, select').forEach(input => {
+                input.disabled = type !== 'stock';
+
+                if (input.classList.contains('item-select')) {
+                    input.required = type === 'stock';
+                }
+
+                if (input.classList.contains('reimburse-checkbox') && type === 'expense') {
+                    input.checked = false;
+                }
+            });
+        });
+
+        expenseFields.forEach(container => {
+            container.hidden = type !== 'expense';
+
+            container.querySelectorAll('input, select').forEach(input => {
+                input.disabled = type !== 'expense';
+
+                if (input.classList.contains('expense-type-select')) {
+                    input.required = type === 'expense';
+                }
+
+                if (input.classList.contains('expense-date')) {
+                    input.required = type === 'expense';
+                }
+
+                if (input.classList.contains('expense-supplier-name')) {
+                    input.required = false;
+                }
+            });
+        });
+
+        const sectionSelect = row.querySelector('.section-select');
+        const sectionOrder = row.querySelector('.section-order');
+
+        if (type === 'expense') {
+            if (!hasExpenseTypes) {
+                alert('Jenis Biaya belum tersedia. Tambahkan Jenis Biaya terlebih dahulu.');
+            }
+
+            if (sectionSelect) {
+                sectionSelect.value = '';
+                sectionSelect.disabled = true;
+            }
+
+            if (sectionOrder) sectionOrder.value = '';
+
+            const checkbox = row.querySelector('.reimburse-checkbox');
+            if (checkbox) checkbox.checked = false;
+
+            row.classList.remove('is-reimburse');
+        } else {
+            if (sectionSelect) sectionSelect.disabled = false;
+            fillStockSupplier(row);
+        }
+
+        calculateSubtotal(row);
+        updateReimburseRow(row);
+    }
+
+    function addRow(type = 'stock') {
         const tbody = document.getElementById('itemsBody');
+        const index = rowIndex++;
         const row = document.createElement('tr');
 
-        row.classList.add('item-row');
+        row.className = 'item-row';
+        row.dataset.type = type;
 
         row.innerHTML = `
             <td class="row-number"></td>
 
             <td>
                 <select
-                    name="items[${rowIndex}][item_id]"
-                    class="item-select"
+                    name="items[${index}][detail_type]"
+                    class="type-select"
+                    onchange="changeRowType(this)"
                     required
                 >
-                    <option value="">-- Pilih Barang --</option>
-                    ${itemOptions}
+                    <option value="stock" ${type === 'stock' ? 'selected' : ''}>Barang Persediaan</option>
+                    <option value="expense" ${type === 'expense' ? 'selected' : ''}>Biaya Non-Stok</option>
                 </select>
             </td>
 
-            <td>
-                <input type="text" class="supplier-name" readonly>
+            <td class="${type === 'stock' ? 'stock-cell' : 'expense-cell'}">
+                <div class="stock-fields" ${type === 'expense' ? 'hidden' : ''}>
+                    <select
+                        name="items[${index}][item_id]"
+                        class="item-select"
+                        ${type === 'stock' ? 'required' : 'disabled'}
+                    >
+                        <option value="">-- Pilih Barang --</option>
+                        ${itemOptions}
+                    </select>
 
-                <input
-                    type="hidden"
-                    name="items[${rowIndex}][supplier_id]"
-                    class="supplier-id"
-                >
+                    <label class="reimburse-control">
+                        <input
+                            type="checkbox"
+                            name="items[${index}][reimburse]"
+                            value="1"
+                            class="reimburse-checkbox"
+                        >
+                        <span>*Reimburse</span>
+                    </label>
+
+                    <span class="reimburse-label">*Reimburse</span>
+                </div>
+
+                <div class="expense-fields" ${type === 'stock' ? 'hidden' : ''}>
+                    <label class="field-label">Jenis Biaya</label>
+                    <select
+                        name="items[${index}][expense_type_id]"
+                        class="expense-type-select"
+                        ${type === 'expense' ? 'required' : 'disabled'}
+                    >
+                        <option value="">-- Pilih Jenis Biaya --</option>
+                        ${expenseOptions}
+                    </select>
+                </div>
             </td>
 
             <td>
-                <input
-                    type="text"
-                    name="items[${rowIndex}][code]"
-                    class="item-code"
-                    placeholder="Kode barang"
-                >
+                <div class="stock-fields" ${type === 'expense' ? 'hidden' : ''}>
+                    <input
+                        type="text"
+                        class="supplier-name"
+                        placeholder="Otomatis dari master barang"
+                        readonly
+                    >
+                    <input
+                        type="hidden"
+                        name="items[${index}][supplier_id]"
+                        class="supplier-id"
+                    >
+                    <div class="supplier-hint">
+                        Supplier otomatis dari master barang.
+                    </div>
+                </div>
+
+                <div class="expense-fields" ${type === 'stock' ? 'hidden' : ''}>
+                    <input
+                        type="text"
+                        name="items[${index}][supplier_name]"
+                        class="expense-supplier-name"
+                        placeholder="Ketik nama supplier atau penerima"
+                        maxlength="255"
+                        ${type === 'stock' ? 'disabled' : ''}
+                    >
+                    <div class="supplier-hint">
+                        Isi nama supplier, penerima, atau penyedia jasa untuk biaya ini.
+                    </div>
+                </div>
+            </td>
+
+            <td>
+                <div class="stock-fields" ${type === 'expense' ? 'hidden' : ''}>
+                    <input
+                        type="text"
+                        name="items[${index}][code]"
+                        class="item-code"
+                        placeholder="Kode barang"
+                    >
+                </div>
+
+                <div class="expense-fields" ${type === 'stock' ? 'hidden' : ''}>
+                    <label class="field-label">Tanggal Biaya</label>
+                    <input
+                        type="date"
+                        name="items[${index}][expense_date]"
+                        class="expense-date"
+                        value="${new Date().toLocaleDateString('en-CA')}"
+                        ${type === 'stock' ? 'disabled' : 'required'}
+                    >
+                </div>
             </td>
 
             <td>
                 <input
                     type="number"
-                    name="items[${rowIndex}][quantity]"
+                    name="items[${index}][quantity]"
                     class="quantity"
                     min="0.01"
                     step="0.01"
@@ -633,7 +897,7 @@
             <td>
                 <input
                     type="text"
-                    name="items[${rowIndex}][unit]"
+                    name="items[${index}][unit]"
                     class="unit"
                     placeholder="Satuan"
                     required
@@ -643,85 +907,66 @@
             <td>
                 <input
                     type="number"
-                    name="items[${rowIndex}][unit_price]"
+                    name="items[${index}][unit_price]"
                     class="unit-price"
                     min="0"
                     step="0.01"
+                    value="0"
                     required
                 >
             </td>
 
             <td>
-                <input
-                    type="number"
-                    class="subtotal"
-                    readonly
-                    value="0.00"
-                >
+                <input type="number" class="subtotal" readonly value="0.00">
             </td>
 
             <td>
                 <select
-                    name="items[${rowIndex}][section_name]"
+                    name="items[${index}][section_name]"
                     class="section-select"
+                    ${type === 'expense' ? 'disabled' : ''}
                 >
                     <option value="">Tanpa bagian</option>
                 </select>
 
                 <input
                     type="hidden"
-                    name="items[${rowIndex}][section_order]"
+                    name="items[${index}][section_order]"
                     class="section-order"
-                    value=""
                 >
             </td>
 
             <td>
-                <button
-                    type="button"
-                    class="btn btn-delete"
-                    onclick="removeRow(this)"
-                >
+                <button type="button" class="btn btn-delete" onclick="removeRow(this)">
                     Hapus
                 </button>
             </td>
         `;
 
         tbody.appendChild(row);
-
         refreshSectionOptions();
-
-        rowIndex++;
-
         updateRowNumbers();
-        updateGrandTotal();
-    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Hapus baris barang
-    |--------------------------------------------------------------------------
-    */
+        if (type === 'expense') {
+            changeRowType(row.querySelector('.type-select'));
+        }
+
+        updateReimburseRow(row);
+        calculateSubtotal(row);
+    }
 
     function removeRow(button) {
         const rows = document.querySelectorAll('.item-row');
 
         if (rows.length <= 1) {
-            alert('Minimal harus ada 1 barang.');
+            alert('Minimal harus ada satu rincian PO.');
             return;
         }
 
         button.closest('tr').remove();
-
         updateRowNumbers();
         updateGrandTotal();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Nomor urut baris
-    |--------------------------------------------------------------------------
-    */
 
     function updateRowNumbers() {
         document.querySelectorAll('.item-row').forEach((row, index) => {
@@ -729,55 +974,42 @@
         });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Saat barang dipilih
-    |--------------------------------------------------------------------------
-    */
-
     document.addEventListener('change', function(event) {
-        if (!event.target.classList.contains('item-select')) {
-            return;
+        const target = event.target;
+
+        if (target.classList.contains('section-select')) {
+            const row = target.closest('.item-row');
+            updateSectionOrder(target, row.querySelector('.section-order'));
         }
 
-        const select = event.target;
-        const row = select.closest('.item-row');
-        const option = select.options[select.selectedIndex];
+        if (target.classList.contains('reimburse-checkbox')) {
+            updateReimburseRow(target.closest('.item-row'));
+        }
 
-        if (!option.value) {
-            row.querySelector('.item-code').value = '';
-            row.querySelector('.supplier-name').value = '';
-            row.querySelector('.supplier-id').value = '';
-            row.querySelector('.unit').value = '';
-            row.querySelector('.unit-price').value = '';
+        if (target.classList.contains('item-select')) {
+            const row = target.closest('.item-row');
+            const option = target.options[target.selectedIndex];
+
+            if (!option.value) {
+                row.querySelector('.item-code').value = '';
+                row.querySelector('.supplier-name').value = '';
+                row.querySelector('.supplier-id').value = '';
+                row.querySelector('.unit').value = '';
+                row.querySelector('.unit-price').value = '';
+
+                calculateSubtotal(row);
+                return;
+            }
+
+            row.querySelector('.item-code').value = option.dataset.code || '';
+            row.querySelector('.supplier-name').value = option.dataset.supplier || '-';
+            row.querySelector('.supplier-id').value = option.dataset.supplierId || '';
+            row.querySelector('.unit').value = option.dataset.unit || '';
+            row.querySelector('.unit-price').value = option.dataset.price || 0;
 
             calculateSubtotal(row);
-            return;
         }
-
-        row.querySelector('.item-code').value =
-            option.dataset.code || '';
-
-        row.querySelector('.supplier-name').value =
-            option.dataset.supplier || '';
-
-        row.querySelector('.supplier-id').value =
-            option.dataset.supplierId || '';
-
-        row.querySelector('.unit').value =
-            option.dataset.unit || '';
-
-        row.querySelector('.unit-price').value =
-            option.dataset.price || 0;
-
-        calculateSubtotal(row);
     });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Hitung subtotal saat qty atau harga berubah
-    |--------------------------------------------------------------------------
-    */
 
     document.addEventListener('input', function(event) {
         if (
@@ -789,34 +1021,21 @@
     });
 
     function calculateSubtotal(row) {
-        if (!row) {
-            return;
-        }
+        if (!row) return;
 
-        const quantity =
-            parseFloat(row.querySelector('.quantity').value) || 0;
+        const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
+        const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
 
-        const unitPrice =
-            parseFloat(row.querySelector('.unit-price').value) || 0;
-
-        row.querySelector('.subtotal').value =
-            (quantity * unitPrice).toFixed(2);
+        row.querySelector('.subtotal').value = (quantity * unitPrice).toFixed(2);
 
         updateGrandTotal();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Hitung total PO
-    |--------------------------------------------------------------------------
-    */
 
     function updateGrandTotal() {
         let total = 0;
 
         document.querySelectorAll('.item-row').forEach(row => {
-            total +=
-                parseFloat(row.querySelector('.subtotal').value) || 0;
+            total += parseFloat(row.querySelector('.subtotal').value) || 0;
         });
 
         document.getElementById('grandTotal').value =
@@ -826,49 +1045,168 @@
             });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Inisialisasi form saat halaman dibuka
-    |--------------------------------------------------------------------------
-    */
+    function restoreOldItems() {
+        if (!Array.isArray(oldItems) || oldItems.length === 0) {
+            const firstRow = document.querySelector('.item-row');
+
+            if (firstRow) {
+                const select = firstRow.querySelector('.item-select');
+
+                if (select && select.value) {
+                    const option = select.options[select.selectedIndex];
+
+                    firstRow.querySelector('.supplier-name').value = option.dataset.supplier || '-';
+                    firstRow.querySelector('.supplier-id').value = option.dataset.supplierId || '';
+                    firstRow.querySelector('.item-code').value =
+                        firstRow.querySelector('.item-code').value || option.dataset.code || '';
+                    firstRow.querySelector('.unit').value =
+                        firstRow.querySelector('.unit').value || option.dataset.unit || '';
+                    firstRow.querySelector('.unit-price').value =
+                        firstRow.querySelector('.unit-price').value || option.dataset.price || 0;
+                }
+
+                calculateSubtotal(firstRow);
+            }
+
+            return;
+        }
+
+        const tbody = document.getElementById('itemsBody');
+        tbody.innerHTML = '';
+
+        // Indeks baru harus selalu dimulai dari nol ketika baris lama dibuat ulang.
+        rowIndex = 0;
+
+        oldItems.forEach((item, index) => {
+            const type = item.detail_type === 'expense' ? 'expense' : 'stock';
+
+            addRow(type);
+
+            const row = tbody.lastElementChild;
+
+            row.querySelector('.type-select').value = type;
+            changeRowType(row.querySelector('.type-select'));
+
+            if (type === 'stock') {
+                const itemSelect = row.querySelector('.item-select');
+                itemSelect.value = item.item_id || '';
+
+                if (itemSelect.value) {
+                    const option = itemSelect.options[itemSelect.selectedIndex];
+
+                    row.querySelector('.supplier-name').value = option.dataset.supplier || '-';
+                    row.querySelector('.supplier-id').value =
+                        item.supplier_id || option.dataset.supplierId || '';
+                    row.querySelector('.item-code').value = item.code || option.dataset.code || '';
+                    row.querySelector('.unit').value = item.unit || option.dataset.unit || '';
+                    row.querySelector('.unit-price').value =
+                        item.unit_price ?? option.dataset.price ?? 0;
+                } else {
+                    row.querySelector('.supplier-id').value = item.supplier_id || '';
+                    row.querySelector('.item-code').value = item.code || '';
+                    row.querySelector('.unit').value = item.unit || '';
+                    row.querySelector('.unit-price').value = item.unit_price ?? 0;
+                }
+
+                const reimburse = row.querySelector('.reimburse-checkbox');
+
+                if (reimburse) {
+                    reimburse.checked = item.reimburse == 1 || item.reimburse === true;
+                }
+            } else {
+                row.querySelector('.expense-type-select').value = item.expense_type_id || '';
+                row.querySelector('.expense-date').value =
+                    item.expense_date || document.getElementById('po_date').value;
+
+                // Pulihkan nama supplier/penerima untuk biaya non-stok.
+                row.querySelector('.expense-supplier-name').value = item.supplier_name || '';
+
+                row.querySelector('.unit').value = item.unit || '';
+                row.querySelector('.unit-price').value = item.unit_price ?? 0;
+            }
+
+            row.querySelector('.quantity').value = item.quantity ?? '';
+            row.querySelector('.unit').value = item.unit || row.querySelector('.unit').value;
+            row.querySelector('.unit-price').value =
+                item.unit_price ?? row.querySelector('.unit-price').value;
+
+            const sectionSelect = row.querySelector('.section-select');
+
+            if (type === 'stock' && item.section_name) {
+                if (!sectionNames.includes(item.section_name)) {
+                    sectionNames.push(item.section_name);
+                }
+
+                refreshSectionOptions();
+                sectionSelect.value = item.section_name;
+                updateSectionOrder(sectionSelect, row.querySelector('.section-order'));
+            }
+
+            updateReimburseRow(row);
+            calculateSubtotal(row);
+        });
+
+        updateRowNumbers();
+        updateGrandTotal();
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
         refreshSectionOptions();
 
-        document.querySelectorAll('.item-row').forEach(row => {
-            const select = row.querySelector('.item-select');
+        // Kembalikan rincian lama apabila validasi server gagal.
+        restoreOldItems();
 
-            if (select.value) {
-                const option = select.options[select.selectedIndex];
+        updateRowNumbers();
+        updateGrandTotal();
+    });
 
-                row.querySelector('.supplier-name').value =
-                    option.dataset.supplier || '';
+    document.getElementById('purchaseOrderForm').addEventListener('submit', function(event) {
+        const rows = document.querySelectorAll('.item-row');
 
-                if (!row.querySelector('.supplier-id').value) {
-                    row.querySelector('.supplier-id').value =
-                        option.dataset.supplierId || '';
-                }
+        if (rows.length === 0) {
+            event.preventDefault();
+            alert('Tambahkan minimal satu rincian PO.');
+            return;
+        }
 
-                if (!row.querySelector('.item-code').value) {
-                    row.querySelector('.item-code').value =
-                        option.dataset.code || '';
-                }
+        for (const row of rows) {
+            const type = row.querySelector('.type-select').value;
+            const quantity = parseFloat(row.querySelector('.quantity').value);
+            const price = parseFloat(row.querySelector('.unit-price').value);
 
-                if (!row.querySelector('.unit').value) {
-                    row.querySelector('.unit').value =
-                        option.dataset.unit || '';
-                }
-
-                if (!row.querySelector('.unit-price').value) {
-                    row.querySelector('.unit-price').value =
-                        option.dataset.price || 0;
-                }
+            if (!Number.isFinite(quantity) || quantity <= 0) {
+                event.preventDefault();
+                alert('Jumlah pada setiap rincian harus lebih dari nol.');
+                return;
             }
 
-            calculateSubtotal(row);
-        });
+            if (!Number.isFinite(price) || price < 0) {
+                event.preventDefault();
+                alert('Harga satuan tidak boleh negatif.');
+                return;
+            }
+
+            if (type === 'stock' && !row.querySelector('.item-select').value) {
+                event.preventDefault();
+                alert('Pilih barang untuk setiap rincian barang persediaan.');
+                return;
+            }
+
+            if (type === 'expense') {
+                if (!row.querySelector('.expense-type-select').value) {
+                    event.preventDefault();
+                    alert('Pilih Jenis Biaya untuk setiap rincian biaya non-stok.');
+                    return;
+                }
+
+                if (!row.querySelector('.expense-date').value) {
+                    event.preventDefault();
+                    alert('Tanggal biaya wajib diisi.');
+                    return;
+                }
+            }
+        }
     });
 </script>
-
 </body>
 </html>

@@ -29,43 +29,28 @@ class InvoiceController extends Controller
             'kitchen',
             'details.item',
             'details.supplier',
+            'details.expenseType',
         ])->latest();
 
-        // Pencarian nomor Invoice atau nama dapur.
         if ($request->filled('search')) {
             $search = trim($request->search);
 
             $query->where(function ($q) use ($search) {
                 $q->where('invoice_number', 'like', "%{$search}%")
                     ->orWhereHas('kitchen', function ($kitchenQuery) use ($search) {
-                        $kitchenQuery->where(
-                            'name',
-                            'like',
-                            "%{$search}%"
-                        );
+                        $kitchenQuery->where('name', 'like', "%{$search}%");
                     });
             });
         }
 
-        // Filter tanggal awal.
         if ($request->filled('date_from')) {
-            $query->whereDate(
-                'invoice_date',
-                '>=',
-                $request->date_from
-            );
+            $query->whereDate('invoice_date', '>=', $request->date_from);
         }
 
-        // Filter tanggal akhir.
         if ($request->filled('date_to')) {
-            $query->whereDate(
-                'invoice_date',
-                '<=',
-                $request->date_to
-            );
+            $query->whereDate('invoice_date', '<=', $request->date_to);
         }
 
-        // Maksimal 15 Invoice per halaman.
         $invoices = $query->paginate(15)->withQueryString();
 
         return view('invoices.index', compact('invoices'));
@@ -85,6 +70,7 @@ class InvoiceController extends Controller
             'purchaseOrder',
             'details.item',
             'details.supplier',
+            'details.expenseType',
             'expenses',
         ]);
 
@@ -175,10 +161,15 @@ class InvoiceController extends Controller
                     'created_by' => auth()->id() ?? 1,
                 ]);
 
-                $totalAmount = 0;
+                $totalBarang = 0;
+
                 $purchaseOrderDetails = $stockTransaction
                     ->purchaseOrder?->details ?? collect();
 
+                /*
+                 * Salin barang stok dari transaksi OUT.
+                 * Detail biaya tidak dibuat menjadi transaksi stok.
+                 */
                 foreach ($stockTransaction->details as $outDetail) {
                     $supplierId = $this->resolveDetailSupplierId(
                         $outDetail,
@@ -192,33 +183,70 @@ class InvoiceController extends Controller
                     );
 
                     $invoice->details()->create([
+                        'detail_type' => 'stock',
                         'supplier_id' => $supplierId,
                         'item_id' => $outDetail->item_id,
+                        'expense_type_id' => null,
+                        'expense_date' => null,
                         'quantity' => $outDetail->quantity,
                         'unit' => $outDetail->unit,
                         'unit_price' => $outDetail->unit_price,
                         'subtotal' => $subtotal,
-
-                        // Pembagian bagian diwariskan dari Barang Keluar.
                         'section_name' => $outDetail->section_name ?: null,
                         'section_order' => $outDetail->section_name
                             ? $outDetail->section_order
                             : null,
-
-                        'notes' => null,
+                        'notes' => $outDetail->notes,
                     ]);
 
-                    $totalAmount += $subtotal;
+                    $totalBarang += $subtotal;
+                }
+
+                /*
+                 * Salin biaya dari PO ke Invoice.
+                 * Biaya tidak memiliki item_id dan supplier_id.
+                 */
+                $totalBiaya = 0;
+
+                foreach ($purchaseOrderDetails as $poDetail) {
+                    if (($poDetail->detail_type ?? 'stock') !== 'expense') {
+                        continue;
+                    }
+
+                    $subtotal = round(
+                        (float) $poDetail->subtotal,
+                        2
+                    );
+
+                    $invoice->details()->create([
+                        'detail_type' => 'expense',
+                        'supplier_id' => null,
+                        'item_id' => null,
+                        'expense_type_id' => $poDetail->expense_type_id,
+                        'expense_date' => $poDetail->expense_date,
+                        'quantity' => $poDetail->quantity,
+                        'unit' => $poDetail->unit,
+                        'unit_price' => $poDetail->unit_price,
+                        'subtotal' => $subtotal,
+                        'section_name' => $poDetail->section_name ?: null,
+                        'section_order' => $poDetail->section_name
+                            ? $poDetail->section_order
+                            : null,
+                        'notes' => $poDetail->notes,
+                    ]);
+
+                    $totalBiaya += $subtotal;
                 }
 
                 $invoice->update([
-                    'total_amount' => $totalAmount,
+                    'total_amount' => round(
+                        $totalBarang + $totalBiaya,
+                        2
+                    ),
                 ]);
 
                 if (!$invoice->details()->exists()) {
-                    throw new Exception(
-                        'Detail Invoice gagal dibuat.'
-                    );
+                    throw new Exception('Detail Invoice gagal dibuat.');
                 }
 
                 return $invoice->id;
@@ -247,9 +275,8 @@ class InvoiceController extends Controller
     | SINKRONISASI INVOICE DARI BARANG KELUAR
     |--------------------------------------------------------------------------
     |
-    | Mempertahankan ID InvoiceDetail yang masih cocok.
-    | Detail yang baru ditambahkan akan dibuat.
-    | Detail yang benar-benar dihapus dari OUT akan dihapus dari Invoice.
+    | Hanya detail stok yang dicocokkan dengan transaksi OUT.
+    | Detail biaya tetap dipertahankan dan tidak dihapus.
     |--------------------------------------------------------------------------
     */
 
@@ -277,15 +304,30 @@ class InvoiceController extends Controller
                 'purchaseOrder.details',
             ]);
 
-            $existingDetails = $invoice->details()
+            $allInvoiceDetails = $invoice->details()
                 ->lockForUpdate()
                 ->get();
 
-            $unusedDetails = $existingDetails->keyBy('id');
+            /*
+             * Pisahkan biaya dari barang stok.
+             * Biaya tidak boleh masuk daftar penghapusan detail OUT.
+             */
+            $stockInvoiceDetails = $allInvoiceDetails->filter(
+                fn ($detail) =>
+                    ($detail->detail_type ?? 'stock') !== 'expense'
+            );
+
+            $expenseDetails = $allInvoiceDetails->filter(
+                fn ($detail) =>
+                    ($detail->detail_type ?? 'stock') === 'expense'
+            );
+
+            $unusedDetails = $stockInvoiceDetails->keyBy('id');
+
             $purchaseOrderDetails = $stockTransaction
                 ->purchaseOrder?->details ?? collect();
 
-            $totalAmount = 0;
+            $totalBarang = 0;
 
             foreach ($stockTransaction->details as $outDetail) {
                 $supplierId = $this->resolveDetailSupplierId(
@@ -299,10 +341,6 @@ class InvoiceController extends Controller
                     2
                 );
 
-                /*
-                 * Cocokkan berdasarkan barang, supplier, dan satuan.
-                 * Harga dan jumlah boleh berubah tanpa mengganti ID.
-                 */
                 $matched = $unusedDetails->first(
                     function ($detail) use ($outDetail, $supplierId) {
                         return (int) $detail->item_id
@@ -319,17 +357,20 @@ class InvoiceController extends Controller
                 );
 
                 $attributes = [
+                    'detail_type' => 'stock',
                     'supplier_id' => $supplierId,
                     'item_id' => $outDetail->item_id,
+                    'expense_type_id' => null,
+                    'expense_date' => null,
                     'quantity' => $outDetail->quantity,
                     'unit' => $outDetail->unit,
                     'unit_price' => $outDetail->unit_price,
                     'subtotal' => $subtotal,
-
                     'section_name' => $outDetail->section_name ?: null,
                     'section_order' => $outDetail->section_name
                         ? $outDetail->section_order
                         : null,
+                    'notes' => $outDetail->notes,
                 ];
 
                 if ($matched) {
@@ -339,13 +380,12 @@ class InvoiceController extends Controller
                     $invoice->details()->create($attributes);
                 }
 
-                $totalAmount += $subtotal;
+                $totalBarang += $subtotal;
             }
 
             /*
-             * Hapus hanya detail yang tidak lagi ditemukan pada OUT.
-             * Foreign key alokasi harus menggunakan ON DELETE CASCADE
-             * atau alokasi terkait dihapus secara eksplisit.
+             * Hapus alokasi dan detail yang sudah tidak ada pada OUT.
+             * Daftar ini hanya berisi detail stok.
              */
             foreach ($unusedDetails as $unusedDetail) {
                 InvoiceNotaAllocation::where(
@@ -356,16 +396,28 @@ class InvoiceController extends Controller
                 $unusedDetail->delete();
             }
 
+            /*
+             * Hitung biaya yang masih tersimpan pada Invoice.
+             * Jangan mengambilnya dari tabel expenses karena itu
+             * fitur terpisah dan dapat menyebabkan hitung ganda.
+             */
+            $totalBiaya = (float) $expenseDetails->sum(
+                fn ($detail) => (float) $detail->subtotal
+            );
+
             $invoice->update([
                 'invoice_date' => $stockTransaction->transaction_date,
                 'purchase_order_id' => $stockTransaction->purchase_order_id,
                 'kitchen_id' => $stockTransaction->kitchen_id,
-                'total_amount' => $totalAmount,
+                'total_amount' => round(
+                    $totalBarang + $totalBiaya,
+                    2
+                ),
             ]);
 
             /*
-             * Hitung ulang total Nota berdasarkan alokasi detail Invoice.
-             * Nota lama tidak dihapus otomatis.
+             * Hitung ulang total Nota hanya berdasarkan detail
+             * yang memang memiliki alokasi Nota.
              */
             $notes = NotaKeluar::where(
                 'stock_transaction_id',
@@ -413,7 +465,16 @@ class InvoiceController extends Controller
             $purchaseOrderDetails = $invoice
                 ->purchaseOrder?->details ?? collect();
 
-            $supplierIds = $invoice->details
+            /*
+             * Hanya detail stok yang menentukan supplier Nota.
+             * Biaya non-stok dilewati.
+             */
+            $stockDetails = $invoice->details->filter(
+                fn ($detail) =>
+                    ($detail->detail_type ?? 'stock') !== 'expense'
+            );
+
+            $supplierIds = $stockDetails
                 ->map(function ($detail) use ($purchaseOrderDetails) {
                     return $this->resolveDetailSupplierId(
                         $detail,
@@ -445,10 +506,6 @@ class InvoiceController extends Controller
                     ->lockForUpdate()
                     ->get();
 
-                /*
-                 * Buat satu Nota awal hanya jika supplier belum memiliki Nota.
-                 * Tidak ada aturan minimal tiga Nota.
-                 */
                 if ($existingNotes->isEmpty()) {
                     $this->createNotaForSupplier(
                         $invoice,
@@ -486,10 +543,6 @@ class InvoiceController extends Controller
 
         $suppliers = Supplier::orderBy('name')->get();
 
-        /*
-         * Data $notes dan $suppliers tetap kompatibel dengan
-         * halaman invoices.nota-allocation yang sudah ada.
-         */
         return view('invoices.nota-allocation', compact(
             'invoice',
             'notes',
@@ -553,12 +606,21 @@ class InvoiceController extends Controller
             'stockTransaction.purchaseOrder.details',
         ]);
 
-        $details = $invoice->details->keyBy('id');
+        /*
+         * Hanya barang stok yang diwajibkan masuk ke Nota.
+         * Biaya non-stok tidak termasuk dalam validasi alokasi.
+         */
+        $details = $invoice->details
+            ->filter(
+                fn ($detail) =>
+                    ($detail->detail_type ?? 'stock') !== 'expense'
+            )
+            ->keyBy('id');
 
         if ($details->isEmpty()) {
             return back()->with(
                 'error',
-                'Invoice belum memiliki detail barang.'
+                'Invoice belum memiliki detail barang stok untuk dialokasikan ke Nota.'
             );
         }
 
@@ -568,7 +630,9 @@ class InvoiceController extends Controller
         $resolvedNotes = [];
 
         $purchaseOrderDetails = $invoice
-            ->stockTransaction?->purchaseOrder?->details ?? collect();
+            ->stockTransaction?->purchaseOrder?->details
+            ?? $invoice->purchaseOrder?->details
+            ?? collect();
 
         /*
          * Validasi sebelum mengubah alokasi di database.
@@ -624,12 +688,16 @@ class InvoiceController extends Controller
             }
 
             foreach ($detailIds as $detailId) {
+                /*
+                 * Karena $details hanya berisi stok, biaya akan
+                 * otomatis ditolak jika dikirim sebagai alokasi.
+                 */
                 if (!$details->has($detailId)) {
                     return back()
                         ->withInput()
                         ->withErrors([
                             'notes' =>
-                                'Terdapat detail barang yang bukan milik Invoice ini.',
+                                'Terdapat detail stok yang bukan milik Invoice ini.',
                         ]);
                 }
 
@@ -686,7 +754,8 @@ class InvoiceController extends Controller
         }
 
         /*
-         * Setiap detail Invoice wajib masuk tepat ke satu Nota.
+         * Setiap detail stok wajib masuk tepat ke satu Nota.
+         * Detail biaya tidak diperiksa pada bagian ini.
          */
         $missingDetailIds = $details->keys()
             ->map(fn ($id) => (int) $id)
@@ -697,7 +766,7 @@ class InvoiceController extends Controller
                 ->withInput()
                 ->withErrors([
                     'notes' =>
-                        'Semua barang Invoice harus dialokasikan tepat ke satu Nota. '
+                        'Semua barang stok pada Invoice harus dialokasikan tepat ke satu Nota. '
                         . 'Masih ada '
                         . $missingDetailIds->count()
                         . ' detail barang yang belum dialokasikan.',
@@ -746,10 +815,6 @@ class InvoiceController extends Controller
                     $supplierId = $row['supplier_id'];
                     $detailIds = $row['detail_ids'];
 
-                    /*
-                     * Baris Nota baru yang tidak berisi barang dilewati.
-                     * Nota lama yang kosong tetap dipertahankan.
-                     */
                     if (!$noteId && empty($detailIds)) {
                         continue;
                     }
@@ -981,6 +1046,14 @@ class InvoiceController extends Controller
         $detail,
         $purchaseOrderDetails = null
     ): ?int {
+        /*
+         * Detail biaya tidak mempunyai supplier barang.
+         * Jangan mencari supplier berdasarkan item_id yang kosong.
+         */
+        if (($detail->detail_type ?? 'stock') === 'expense') {
+            return null;
+        }
+
         $supplierId = $detail->supplier_id
             ?? $detail->supplier?->id
             ?? $detail->item?->supplier_id
@@ -994,7 +1067,8 @@ class InvoiceController extends Controller
 
         $poDetail = $purchaseOrderDetails->first(
             fn ($row) =>
-                (int) $row->item_id === (int) $detail->item_id
+                ($row->detail_type ?? 'stock') !== 'expense'
+                && (int) $row->item_id === (int) $detail->item_id
                 && !empty($row->supplier_id)
         );
 

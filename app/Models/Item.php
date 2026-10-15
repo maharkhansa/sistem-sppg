@@ -13,10 +13,20 @@ class Item extends Model
     use HasFactory;
 
     protected $fillable = [
-        'category_id', 'supplier_id', 'code', 'name', 'unit', 'price', 'minimum_stock', 'status', ];
+        'category_id',
+        'supplier_id',
+        'code',
+        'name',
+        'unit',
+        'price',
+        'minimum_stock',
+        'status',
+        'track_stock',
+    ];
 
     protected $casts = [
         'status' => 'boolean',
+        'track_stock' => 'boolean',
         'price' => 'decimal:2',
         'minimum_stock' => 'decimal:2',
     ];
@@ -33,22 +43,16 @@ class Item extends Model
 
     public function purchaseOrderDetails(): HasMany
     {
-        return $this->hasMany(
-            PurchaseOrderDetail::class
-        );
+        return $this->hasMany(PurchaseOrderDetail::class);
     }
 
     public function stockTransactionDetails(): HasMany
     {
-        return $this->hasMany(
-            StockTransactionDetail::class
-        );
+        return $this->hasMany(StockTransactionDetail::class);
     }
 
     public function stock(): HasOne
     {
-        return $this->hasOne(
-            Stock::class
-        );
+        return $this->hasOne(Stock::class);
     }
 }

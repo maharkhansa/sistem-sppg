@@ -16,6 +16,7 @@ class NotaKeluar extends Model
         'purchase_order_id',
         'kitchen_id',
         'supplier_id',
+        'nota_type',
         'section_name',
         'section_order',
         'nota_number',
@@ -32,81 +33,37 @@ class NotaKeluar extends Model
         'section_order' => 'integer',
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relasi Barang Keluar
-    |--------------------------------------------------------------------------
-    */
     public function stockTransaction(): BelongsTo
     {
         return $this->belongsTo(StockTransaction::class);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relasi Purchase Order
-    |--------------------------------------------------------------------------
-    */
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relasi Dapur SPPG
-    |--------------------------------------------------------------------------
-    */
     public function kitchen(): BelongsTo
     {
         return $this->belongsTo(Kitchen::class);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relasi Supplier
-    |--------------------------------------------------------------------------
-    */
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Detail Nota Lama
-    |--------------------------------------------------------------------------
-    | Dipertahankan untuk kompatibilitas dengan kode lama.
-    | Data utama tampilan Nota menggunakan detail Invoice.
-    |--------------------------------------------------------------------------
-    */
     public function details(): HasMany
     {
         return $this->hasMany(NotaKeluarDetail::class);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Alokasi Detail Invoice ke Nota
-    |--------------------------------------------------------------------------
-    | Digunakan agar setiap Nota menampilkan barang dari Invoice
-    | sesuai supplier dan bagian yang bersangkutan.
-    |--------------------------------------------------------------------------
-    */
     public function invoiceNotaAllocations(): HasMany
     {
-        return $this->hasMany(
-            InvoiceNotaAllocation::class,
-            'nota_keluar_id'
-        );
+        return $this->hasMany(InvoiceNotaAllocation::class);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Scope Filter Barang Keluar
-    |--------------------------------------------------------------------------
-    */
-    public function scopeForStockTransaction($query, int $stockTransactionId)
+    public function scopeForStockTransaction($query, $stockTransactionId)
     {
         return $query->where(
             'stock_transaction_id',
@@ -114,28 +71,14 @@ class NotaKeluar extends Model
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Scope Filter Supplier
-    |--------------------------------------------------------------------------
-    */
-    public function scopeForSupplier($query, int $supplierId)
+    public function scopeForSupplier($query, $supplierId)
     {
         return $query->where('supplier_id', $supplierId);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Scope Filter Bagian
-    |--------------------------------------------------------------------------
-    | Bagian kosong berarti Nota tanpa pembagian bagian.
-    |--------------------------------------------------------------------------
-    */
-    public function scopeForSection($query, ?string $sectionName)
+    public function scopeForSection($query, $sectionName)
     {
-        $sectionName = trim((string) $sectionName);
-
-        if ($sectionName === '') {
+        if ($sectionName === null || trim((string) $sectionName) === '') {
             return $query->where(function ($q) {
                 $q->whereNull('section_name')
                     ->orWhere('section_name', '');
@@ -143,5 +86,15 @@ class NotaKeluar extends Model
         }
 
         return $query->where('section_name', $sectionName);
+    }
+
+    public function scopeForType($query, string $type)
+    {
+        return $query->where('nota_type', $type);
+    }
+
+    public function isExpenseNota(): bool
+    {
+        return $this->nota_type === 'expense';
     }
 }
