@@ -478,29 +478,28 @@ class LPDHController extends Controller
                  */
 
                 if ($detailType === 'expense') {
-                    $category = $this->getExpenseCategory($detail);
+                    // Ambil hanya biaya pada tanggal layanan LPDH.
+                    $expenseDate = $detail->expense_date
+                        ? \Illuminate\Support\Carbon::parse(
+                            $detail->expense_date
+                        )->toDateString()
+                        : null;
 
-                    $expenseDescription = $this->normalizeText(
-                        ($detail->description ?? '')
-                        . ' '
-                        . ($detail->item_name ?? '')
-                        . ' '
-                        . ($detail->name ?? '')
-                        . ' '
-                        . ($detail->supplier_name ?? '')
-                    );
+                    if ($expenseDate !== $serviceDate) {
+                        continue;
+                    }
 
-                    $isOperational =
-                        str_contains($category, 'operasional')
-                        || str_contains($category, 'operational')
-                        || str_contains($category, 'fasilitassppg')
-                        || str_contains($expenseDescription, 'insentiffasilitassppg')
-                        || str_contains($expenseDescription, 'operasional')
-                        || str_contains($expenseDescription, 'operational');
+                    // expense_type_id = 4 merupakan Insentif Fasilitas SPPG.
+                    // Perluas daftar ini jika jenis biaya operasional lain
+                    // sudah ditambahkan ke master jenis biaya.
+                    $isOperationalExpense =
+                        (int) ($detail->expense_type_id ?? 0) === 4;
 
-                    if ($isOperational) {
+                    if ($isOperationalExpense) {
                         $operationalTotal += $amount;
                     }
+
+                    continue;
                 }
             }
 

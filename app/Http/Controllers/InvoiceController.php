@@ -10,7 +10,6 @@ use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 use Exception;
 
 class InvoiceController extends Controller
@@ -161,15 +160,12 @@ class InvoiceController extends Controller
                     'created_by' => auth()->id() ?? 1,
                 ]);
 
-                $totalBarang = 0;
-
                 $purchaseOrderDetails = $stockTransaction
                     ->purchaseOrder?->details ?? collect();
 
-                /*
-                 * Salin barang stok dari transaksi OUT.
-                 * Detail biaya tidak dibuat menjadi transaksi stok.
-                 */
+                $totalBarang = 0;
+                $totalBiaya = 0;
+
                 foreach ($stockTransaction->details as $outDetail) {
                     $supplierId = $this->resolveDetailSupplierId(
                         $outDetail,
@@ -202,21 +198,12 @@ class InvoiceController extends Controller
                     $totalBarang += $subtotal;
                 }
 
-                /*
-                 * Salin biaya dari PO ke Invoice.
-                 * Biaya tidak memiliki item_id dan supplier_id.
-                 */
-                $totalBiaya = 0;
-
                 foreach ($purchaseOrderDetails as $poDetail) {
                     if (($poDetail->detail_type ?? 'stock') !== 'expense') {
                         continue;
                     }
 
-                    $subtotal = round(
-                        (float) $poDetail->subtotal,
-                        2
-                    );
+                    $subtotal = round((float) $poDetail->subtotal, 2);
 
                     $invoice->details()->create([
                         'detail_type' => 'expense',
@@ -274,10 +261,6 @@ class InvoiceController extends Controller
     |--------------------------------------------------------------------------
     | SINKRONISASI INVOICE DARI BARANG KELUAR
     |--------------------------------------------------------------------------
-    |
-    | Hanya detail stok yang dicocokkan dengan transaksi OUT.
-    | Detail biaya tetap dipertahankan dan tidak dihapus.
-    |--------------------------------------------------------------------------
     */
 
     public function syncFromOut(StockTransaction $stockTransaction): void
@@ -308,10 +291,6 @@ class InvoiceController extends Controller
                 ->lockForUpdate()
                 ->get();
 
-            /*
-             * Pisahkan biaya dari barang stok.
-             * Biaya tidak boleh masuk daftar penghapusan detail OUT.
-             */
             $stockInvoiceDetails = $allInvoiceDetails->filter(
                 fn ($detail) =>
                     ($detail->detail_type ?? 'stock') !== 'expense'
@@ -383,10 +362,6 @@ class InvoiceController extends Controller
                 $totalBarang += $subtotal;
             }
 
-            /*
-             * Hapus alokasi dan detail yang sudah tidak ada pada OUT.
-             * Daftar ini hanya berisi detail stok.
-             */
             foreach ($unusedDetails as $unusedDetail) {
                 InvoiceNotaAllocation::where(
                     'invoice_detail_id',
@@ -396,11 +371,6 @@ class InvoiceController extends Controller
                 $unusedDetail->delete();
             }
 
-            /*
-             * Hitung biaya yang masih tersimpan pada Invoice.
-             * Jangan mengambilnya dari tabel expenses karena itu
-             * fitur terpisah dan dapat menyebabkan hitung ganda.
-             */
             $totalBiaya = (float) $expenseDetails->sum(
                 fn ($detail) => (float) $detail->subtotal
             );
@@ -416,13 +386,15 @@ class InvoiceController extends Controller
             ]);
 
             /*
-             * Hitung ulang total Nota hanya berdasarkan detail
-             * yang memang memiliki alokasi Nota.
+             * Hanya Nota yang memiliki alokasi yang disinkronkan.
+             * Nota historis tanpa alokasi tidak diubah.
              */
             $notes = NotaKeluar::where(
                 'stock_transaction_id',
                 $stockTransaction->id
-            )->get();
+            )
+                ->whereHas('invoiceNotaAllocations')
+                ->get();
 
             foreach ($notes as $nota) {
                 $notaTotal = InvoiceNotaAllocation::where(
@@ -465,10 +437,6 @@ class InvoiceController extends Controller
             $purchaseOrderDetails = $invoice
                 ->purchaseOrder?->details ?? collect();
 
-            /*
-             * Hanya detail stok yang menentukan supplier Nota.
-             * Biaya non-stok dilewati.
-             */
             $stockDetails = $invoice->details->filter(
                 fn ($detail) =>
                     ($detail->detail_type ?? 'stock') !== 'expense'
@@ -506,23 +474,17 @@ class InvoiceController extends Controller
                     ->lockForUpdate()
                     ->get();
 
+                /*
+                 * Buat Nota awal hanya jika supplier ini belum
+                 * mempunyai Nota untuk transaksi tersebut.
+                 * Nota historis tidak dihapus atau ditimpa.
+                 */
                 if ($existingNotes->isEmpty()) {
                     $this->createNotaForSupplier(
                         $invoice,
                         $supplier,
                         $noteDate
                     );
-
-                    continue;
-                }
-
-                foreach ($existingNotes as $index => $nota) {
-                    if (!$nota->section_name) {
-                        $nota->update([
-                            'section_name' => 'Bagian ' . ($index + 1),
-                            'section_order' => $index + 1,
-                        ]);
-                    }
                 }
             }
         });
@@ -604,12 +566,9 @@ class InvoiceController extends Controller
             'details.item.supplier',
             'details.supplier',
             'stockTransaction.purchaseOrder.details',
+            'purchaseOrder.details',
         ]);
 
-        /*
-         * Hanya barang stok yang diwajibkan masuk ke Nota.
-         * Biaya non-stok tidak termasuk dalam validasi alokasi.
-         */
         $details = $invoice->details
             ->filter(
                 fn ($detail) =>
@@ -634,9 +593,6 @@ class InvoiceController extends Controller
             ?? $invoice->purchaseOrder?->details
             ?? collect();
 
-        /*
-         * Validasi sebelum mengubah alokasi di database.
-         */
         foreach ($submittedNotes as $index => $noteData) {
             $supplierId = (int) ($noteData['supplier_id'] ?? 0);
 
@@ -688,10 +644,6 @@ class InvoiceController extends Controller
             }
 
             foreach ($detailIds as $detailId) {
-                /*
-                 * Karena $details hanya berisi stok, biaya akan
-                 * otomatis ditolak jika dikirim sebagai alokasi.
-                 */
                 if (!$details->has($detailId)) {
                     return back()
                         ->withInput()
@@ -753,10 +705,6 @@ class InvoiceController extends Controller
             ];
         }
 
-        /*
-         * Setiap detail stok wajib masuk tepat ke satu Nota.
-         * Detail biaya tidak diperiksa pada bagian ini.
-         */
         $missingDetailIds = $details->keys()
             ->map(fn ($id) => (int) $id)
             ->diff(array_keys($assignedDetailIds));
@@ -794,7 +742,10 @@ class InvoiceController extends Controller
                     ->get();
 
                 /*
-                 * Hapus alokasi lama, bukan Nota-nya.
+                 * Hapus alokasi lama agar detail tidak tercatat
+                 * pada lebih dari satu Nota setelah disimpan ulang.
+                 *
+                 * Data Nota tidak dihapus.
                  */
                 if ($existingNotes->isNotEmpty()) {
                     InvoiceNotaAllocation::whereIn(
@@ -803,13 +754,11 @@ class InvoiceController extends Controller
                     )->delete();
                 }
 
-                foreach ($existingNotes as $existingNote) {
-                    $existingNote->update([
-                        'total_amount' => 0,
-                        'nota_date' => $noteDate,
-                    ]);
-                }
-
+                /*
+                 * Jangan mengubah total dan detail semua Nota di sini.
+                 * Hanya Nota yang dikirim dalam alokasi yang akan
+                 * diperbarui secara eksplisit di bawah.
+                 */
                 foreach ($resolvedNotes as $row) {
                     $noteId = $row['nota_keluar_id'];
                     $supplierId = $row['supplier_id'];
@@ -844,6 +793,12 @@ class InvoiceController extends Controller
                             ?: 'Bagian ' . $row['section_order'];
                     }
 
+                    /*
+                     * Penggantian detail dilakukan hanya untuk Nota
+                     * yang dipilih untuk disimpan ulang.
+                     */
+                    $nota->details()->delete();
+
                     $totalAmount = 0;
 
                     foreach ($detailIds as $detailId) {
@@ -853,19 +808,30 @@ class InvoiceController extends Controller
                             continue;
                         }
 
+                        $quantity = (float) $detail->quantity;
+                        $unitPrice = (float) $detail->unit_price;
+
+                        $subtotal = $detail->subtotal !== null
+                            ? (float) $detail->subtotal
+                            : $quantity * $unitPrice;
+
                         InvoiceNotaAllocation::create([
                             'nota_keluar_id' => $nota->id,
                             'invoice_detail_id' => $detail->id,
-                            'quantity' => $detail->quantity,
+                            'quantity' => $quantity,
                         ]);
 
-                        $totalAmount += (float) (
-                            $detail->subtotal
-                            ?? (
-                                (float) $detail->quantity
-                                * (float) $detail->unit_price
-                            )
-                        );
+                        $nota->details()->create([
+                            'supplier_id' => $supplierId,
+                            'item_id' => $detail->item_id,
+                            'quantity' => $quantity,
+                            'unit' => $detail->unit,
+                            'unit_price' => $unitPrice,
+                            'subtotal' => $subtotal,
+                            'notes' => $detail->notes,
+                        ]);
+
+                        $totalAmount += $subtotal;
                     }
 
                     $nota->update([
@@ -873,7 +839,7 @@ class InvoiceController extends Controller
                         'section_name' => $sectionName,
                         'section_order' => $row['section_order'],
                         'nota_date' => $noteDate,
-                        'total_amount' => $totalAmount,
+                        'total_amount' => round($totalAmount, 2),
                     ]);
                 }
             });
@@ -1046,10 +1012,6 @@ class InvoiceController extends Controller
         $detail,
         $purchaseOrderDetails = null
     ): ?int {
-        /*
-         * Detail biaya tidak mempunyai supplier barang.
-         * Jangan mencari supplier berdasarkan item_id yang kosong.
-         */
         if (($detail->detail_type ?? 'stock') === 'expense') {
             return null;
         }
@@ -1091,7 +1053,8 @@ class InvoiceController extends Controller
 
         return match (true) {
             str_contains($source, 'gemilang') => 'GM',
-            str_contains($source, 'zenzi') => 'ZN',
+            str_contains($source, 'zenzi'),
+            str_contains($source, 'zenzie') => 'ZN',
             str_contains($source, 'sumber') => 'SR',
             str_contains($source, 'top fast'),
             str_contains($source, 'topfast') => 'TF',

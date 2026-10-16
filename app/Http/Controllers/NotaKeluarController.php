@@ -14,6 +14,12 @@ use Carbon\Carbon;
 
 class NotaKeluarController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | DAFTAR NOTA
+    |--------------------------------------------------------------------------
+    */
+
     public function index()
     {
         $notaKeluars = NotaKeluar::with([
@@ -34,12 +40,22 @@ class NotaKeluarController extends Controller
         return view('nota_keluars.index', compact('notaKeluars'));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | DETAIL NOTA
+    |--------------------------------------------------------------------------
+    */
+
     public function show(NotaKeluar $notaKeluar)
     {
         $notaId = $notaKeluar->id;
 
         $invoice = $this->findInvoiceForNota($notaKeluar);
 
+        /*
+         * Method ini tidak menghapus atau membuat ulang Nota.
+         * Detail akan dibaca berdasarkan alokasi yang tersimpan.
+         */
         if ($invoice && $notaKeluar->stockTransaction) {
             $this->syncNotasFromInvoice(
                 $invoice,
@@ -63,8 +79,8 @@ class NotaKeluarController extends Controller
             return redirect()
                 ->route('nota-keluars.index')
                 ->with(
-                    'success',
-                    'Daftar Nota telah disesuaikan dengan Invoice terbaru.'
+                    'error',
+                    'Nota tidak ditemukan.'
                 );
         }
 
@@ -82,9 +98,22 @@ class NotaKeluarController extends Controller
             fn ($detail) => (float) ($detail->subtotal ?? 0)
         );
 
-        $notaKeluar->update([
-            'total_amount' => $notaTotalAmount,
-        ]);
+        /*
+         * Total hanya disinkronkan jika Nota memiliki alokasi Invoice.
+         * Nota lama tanpa alokasi mempertahankan nominal historisnya.
+         */
+        $hasInvoiceAllocation = InvoiceNotaAllocation::where(
+            'nota_keluar_id',
+            $notaKeluar->id
+        )->exists();
+
+        if ($hasInvoiceAllocation) {
+            $notaKeluar->update([
+                'total_amount' => $notaTotalAmount,
+            ]);
+        } else {
+            $notaTotalAmount = (float) $notaKeluar->total_amount;
+        }
 
         $barcodeRaw = $notaKeluar->barcode_number;
 
@@ -126,9 +155,16 @@ class NotaKeluarController extends Controller
         ));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | CETAK NOTA
+    |--------------------------------------------------------------------------
+    */
+
     public function print(NotaKeluar $notaKeluar)
     {
         $notaId = $notaKeluar->id;
+
         $invoice = $this->findInvoiceForNota($notaKeluar);
 
         if ($invoice && $notaKeluar->stockTransaction) {
@@ -143,6 +179,8 @@ class NotaKeluarController extends Controller
             'purchaseOrder',
             'kitchen',
             'supplier',
+            'details.item',
+            'details.supplier',
             'invoiceNotaAllocations.invoiceDetail.item',
             'invoiceNotaAllocations.invoiceDetail.supplier',
             'invoiceNotaAllocations.invoiceDetail.expenseType',
@@ -152,8 +190,8 @@ class NotaKeluarController extends Controller
             return redirect()
                 ->route('nota-keluars.index')
                 ->with(
-                    'success',
-                    'Nota telah disesuaikan dengan Invoice terbaru.'
+                    'error',
+                    'Nota tidak ditemukan.'
                 );
         }
 
@@ -171,9 +209,18 @@ class NotaKeluarController extends Controller
             fn ($detail) => (float) ($detail->subtotal ?? 0)
         );
 
-        $notaKeluar->update([
-            'total_amount' => $total,
-        ]);
+        $hasInvoiceAllocation = InvoiceNotaAllocation::where(
+            'nota_keluar_id',
+            $notaKeluar->id
+        )->exists();
+
+        if ($hasInvoiceAllocation) {
+            $notaKeluar->update([
+                'total_amount' => $total,
+            ]);
+        } else {
+            $total = (float) $notaKeluar->total_amount;
+        }
 
         $barcodeRaw = $notaKeluar->barcode_number;
 
@@ -201,6 +248,12 @@ class NotaKeluarController extends Controller
             'deliveryDate'
         ));
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MEMBUAT / MEMBUKA NOTA DARI BARANG KELUAR
+    |--------------------------------------------------------------------------
+    */
 
     public function createFromOut(StockTransaction $stockTransaction)
     {
@@ -247,22 +300,26 @@ class NotaKeluarController extends Controller
             );
         }
 
+        /*
+         * Tidak membangun ulang Nota secara otomatis.
+         * Pembagian Nota harus dilakukan melalui halaman alokasi Invoice.
+         */
         $this->syncNotasFromInvoice($invoice, $stockTransaction);
 
         $firstNota = NotaKeluar::where(
             'stock_transaction_id',
             $stockTransaction->id
         )
+            ->orderBy('supplier_id')
             ->orderBy('section_order')
-            ->orderByRaw("CASE WHEN nota_type = 'stock' THEN 0 ELSE 1 END")
             ->orderBy('id')
             ->first();
 
         if (!$firstNota) {
             return back()->with(
                 'error',
-                'Belum ada detail Invoice dengan supplier yang dapat '
-                . 'digunakan untuk membuat Nota. Periksa detail Invoice.'
+                'Nota belum tersedia. Buka halaman pembagian Nota pada Invoice, '
+                . 'kemudian simpan alokasinya terlebih dahulu.'
             );
         }
 
@@ -270,7 +327,7 @@ class NotaKeluarController extends Controller
             ->route('nota-keluars.show', $firstNota)
             ->with(
                 'success',
-                'Nota barang dan biaya berhasil disinkronkan dengan Invoice.'
+                'Nota dibuka. Detail mengikuti alokasi Invoice yang tersimpan.'
             );
     }
 
@@ -279,207 +336,27 @@ class NotaKeluarController extends Controller
     | SINKRONISASI NOTA DARI INVOICE
     |--------------------------------------------------------------------------
     |
-    | Satu Nota untuk setiap kombinasi:
-    | jenis detail + supplier + nama bagian.
+    | Sinkronisasi otomatis tidak membuat, menghapus, atau
+    | mengalokasikan ulang Nota.
     |
-    | nota_type:
-    | - stock   = barang stok
-    | - expense = biaya non-stok
-    |
+    | Alokasi Nota dikelola melalui InvoiceController.
+    | Method ini dipertahankan agar pemanggilan dari method lama
+    | tetap berjalan tanpa mengubah data Nota historis.
+    |--------------------------------------------------------------------------
     */
 
     private function syncNotasFromInvoice(
         Invoice $invoice,
         StockTransaction $stockTransaction
     ): void {
-        $invoice->loadMissing([
-            'details.item',
-            'details.supplier',
-            'details.expenseType',
-        ]);
-
-        DB::transaction(function () use (
-            $invoice,
-            $stockTransaction
-        ) {
-            $invoiceDetails = $invoice->details
-                ->filter(fn ($detail) => !empty($detail->supplier_id))
-                ->values();
-
-            $groups = $invoiceDetails->groupBy(function ($detail) {
-                $type = $this->getNotaTypeForDetail($detail);
-
-                return json_encode([
-                    $type,
-                    (int) $detail->supplier_id,
-                    trim((string) ($detail->section_name ?? '')),
-                ]);
-            });
-
-            $existingNotas = NotaKeluar::where(
-                'stock_transaction_id',
-                $stockTransaction->id
-            )
-                ->lockForUpdate()
-                ->get();
-
-            $usedNotaIds = [];
-
-            $transactionDate = $invoice->invoice_date
-                ?? $stockTransaction->transaction_date
-                ?? now()->toDateString();
-
-            $customerOrderNumber = $this->generateCustomerOrderNumber(
-                $stockTransaction->kitchen_id,
-                $stockTransaction->id
-            );
-
-            foreach ($groups as $groupDetails) {
-                $firstDetail = $groupDetails->first();
-
-                $notaType = $this->getNotaTypeForDetail($firstDetail);
-                $supplierId = (int) $firstDetail->supplier_id;
-
-                $sectionName = trim(
-                    (string) ($firstDetail->section_name ?? '')
-                );
-
-                $sectionName = $sectionName !== ''
-                    ? $sectionName
-                    : null;
-
-                $sectionOrder = max(
-                    1,
-                    (int) ($firstDetail->section_order ?? 1)
-                );
-
-                $notaKeluar = $existingNotas->first(
-                    function ($nota) use (
-                        $notaType,
-                        $supplierId,
-                        $sectionName,
-                        $usedNotaIds
-                    ) {
-                        if (in_array(
-                            (int) $nota->id,
-                            $usedNotaIds,
-                            true
-                        )) {
-                            return false;
-                        }
-
-                        $existingType = $nota->nota_type ?: 'stock';
-
-                        $existingSection = trim(
-                            (string) ($nota->section_name ?? '')
-                        );
-
-                        $wantedSection = trim(
-                            (string) ($sectionName ?? '')
-                        );
-
-                        return $existingType === $notaType
-                            && (int) $nota->supplier_id === $supplierId
-                            && $existingSection === $wantedSection;
-                    }
-                );
-
-                $totalAmount = $groupDetails->sum(
-                    fn ($detail) => (float) (
-                        $detail->subtotal
-                        ?? (
-                            (float) $detail->quantity
-                            * (float) $detail->unit_price
-                        )
-                    )
-                );
-
-                $supplier = Supplier::find($supplierId);
-
-                if (!$supplier) {
-                    continue;
-                }
-
-                if (!$notaKeluar) {
-                    $notaKeluar = NotaKeluar::create([
-                        'stock_transaction_id' => $stockTransaction->id,
-                        'purchase_order_id' => $stockTransaction->purchase_order_id,
-                        'kitchen_id' => $stockTransaction->kitchen_id,
-                        'supplier_id' => $supplierId,
-                        'nota_type' => $notaType,
-                        'section_name' => $sectionName,
-                        'section_order' => $sectionOrder,
-                        'nota_number' => $this->generateNotaNumber($transactionDate),
-                        'barcode_number' => null,
-                        'customer_order_number' => $customerOrderNumber,
-                        'nota_date' => $transactionDate,
-                        'total_amount' => $totalAmount,
-                    ]);
-
-                    $notaKeluar->update([
-                        'barcode_number' => $this->generateBarcodeNumber(
-                            $supplier,
-                            $transactionDate,
-                            $notaKeluar->id
-                        ),
-                    ]);
-                } else {
-                    $notaKeluar->update([
-                        'purchase_order_id' => $stockTransaction->purchase_order_id,
-                        'kitchen_id' => $stockTransaction->kitchen_id,
-                        'supplier_id' => $supplierId,
-                        'nota_type' => $notaType,
-                        'section_name' => $sectionName,
-                        'section_order' => $sectionOrder,
-                        'nota_date' => $transactionDate,
-                        'total_amount' => $totalAmount,
-                    ]);
-                }
-
-                $usedNotaIds[] = (int) $notaKeluar->id;
-
-                $notaKeluar->invoiceNotaAllocations()->delete();
-                $notaKeluar->details()->delete();
-
-                foreach ($groupDetails as $detail) {
-                    InvoiceNotaAllocation::create([
-                        'nota_keluar_id' => $notaKeluar->id,
-                        'invoice_detail_id' => $detail->id,
-                        'quantity' => $detail->quantity,
-                    ]);
-
-                    $notaKeluar->details()->create([
-                        'item_id' => $this->getNotaTypeForDetail($detail) === 'stock'
-                            ? $detail->item_id
-                            : null,
-                        'supplier_id' => $supplierId,
-                        'quantity' => $detail->quantity,
-                        'unit' => $detail->unit ?? $detail->item?->unit,
-                        'unit_price' => $detail->unit_price,
-                        'subtotal' => $detail->subtotal
-                            ?? (
-                                (float) $detail->quantity
-                                * (float) $detail->unit_price
-                            ),
-                        'notes' => $detail->notes,
-                    ]);
-                }
-            }
-
-            $staleNotas = $existingNotas->filter(
-                fn ($nota) => !in_array(
-                    (int) $nota->id,
-                    $usedNotaIds,
-                    true
-                )
-            );
-
-            foreach ($staleNotas as $staleNota) {
-                $staleNota->invoiceNotaAllocations()->delete();
-                $staleNota->details()->delete();
-                $staleNota->delete();
-            }
-        });
+        /*
+         * Sengaja tidak ada perubahan database di sini.
+         *
+         * Hindari menghubungkan detail Invoice ke Nota hanya
+         * berdasarkan supplier atau section_name. Pencocokan
+         * seperti itu dapat mengubah Nota historis yang detailnya
+         * berbeda dari Invoice saat ini.
+         */
     }
 
     /*
@@ -515,6 +392,12 @@ class NotaKeluarController extends Controller
         return 'stock';
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | MENCARI INVOICE UNTUK NOTA
+    |--------------------------------------------------------------------------
+    */
+
     private function findInvoiceForNota(
         NotaKeluar $notaKeluar
     ): ?Invoice {
@@ -533,64 +416,98 @@ class NotaKeluarController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | AMBIL DETAIL INVOICE SESUAI NOTA
+    | AMBIL DETAIL NOTA BERDASARKAN ALOKASI INVOICE
     |--------------------------------------------------------------------------
     */
 
     private function getInvoiceDetailsForNota(NotaKeluar $notaKeluar)
     {
-        $invoice = $this->findInvoiceForNota($notaKeluar);
+        /*
+         * Sumber utama: alokasi Invoice yang tersimpan untuk Nota ini.
+         */
+        $allocations = InvoiceNotaAllocation::with([
+            'invoiceDetail.item',
+            'invoiceDetail.supplier',
+            'invoiceDetail.expenseType',
+        ])
+            ->where('nota_keluar_id', $notaKeluar->id)
+            ->get();
 
-        if (!$invoice) {
-            return collect();
+        if ($allocations->isNotEmpty()) {
+            return $allocations
+                ->map(function ($allocation) {
+                    $detail = $allocation->invoiceDetail;
+
+                    if (!$detail) {
+                        return null;
+                    }
+
+                    $copy = clone $detail;
+
+                    $invoiceQuantity = (float) ($detail->quantity ?? 0);
+                    $allocatedQuantity = (float) ($allocation->quantity ?? 0);
+                    $invoiceSubtotal = (float) (
+                        $detail->subtotal
+                        ?? (
+                            $invoiceQuantity
+                            * (float) $detail->unit_price
+                        )
+                    );
+
+                    $copy->quantity = $allocatedQuantity;
+
+                    /*
+                     * Jika seluruh kuantitas dialokasikan, gunakan
+                     * subtotal Invoice agar nilai tetap sama.
+                     *
+                     * Jika alokasi hanya sebagian kuantitas, subtotal
+                     * dihitung secara proporsional terhadap kuantitas.
+                     */
+                    if (
+                        $invoiceQuantity > 0
+                        && abs($allocatedQuantity - $invoiceQuantity) < 0.00001
+                    ) {
+                        $copy->subtotal = $invoiceSubtotal;
+                    } elseif ($invoiceQuantity > 0) {
+                        $copy->subtotal = round(
+                            ($allocatedQuantity / $invoiceQuantity)
+                            * $invoiceSubtotal,
+                            2
+                        );
+                    } else {
+                        $copy->subtotal = round(
+                            $allocatedQuantity
+                            * (float) $detail->unit_price,
+                            2
+                        );
+                    }
+
+                    return $copy;
+                })
+                ->filter()
+                ->values();
         }
 
-        $sectionName = trim(
-            (string) ($notaKeluar->section_name ?? '')
-        );
-
-        $notaType = $notaKeluar->nota_type ?: 'stock';
-
-        return $invoice->details
-            ->filter(function ($detail) use (
-                $notaKeluar,
-                $sectionName,
-                $notaType
-            ) {
-                if (
-                    (int) ($detail->supplier_id ?? 0)
-                    !== (int) $notaKeluar->supplier_id
-                ) {
-                    return false;
-                }
-
-                if ($this->getNotaTypeForDetail($detail) !== $notaType) {
-                    return false;
-                }
-
-                $detailSection = trim(
-                    (string) ($detail->section_name ?? '')
-                );
-
-                return $detailSection === $sectionName;
-            })
-            ->map(function ($detail) {
-                $copy = clone $detail;
-
-                $copy->quantity = (float) ($detail->quantity ?? 0);
-
-                $copy->subtotal = (float) (
-                    $detail->subtotal
-                    ?? (
-                        (float) $detail->quantity
-                        * (float) $detail->unit_price
-                    )
-                );
-
-                return $copy;
-            })
-            ->values();
+        /*
+         * Kompatibilitas untuk Nota historis tanpa alokasi.
+         *
+         * Jangan mencari detail Invoice berdasarkan supplier dan
+         * section_name karena hasilnya belum tentu sama dengan isi
+         * Nota lama.
+         */
+        return $notaKeluar->details()
+            ->with([
+                'item',
+                'supplier',
+            ])
+            ->get();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE INFORMASI NOTA
+    |--------------------------------------------------------------------------
+    */
 
     public function updateInformasi(
         Request $request,
@@ -618,6 +535,12 @@ class NotaKeluarController extends Controller
             'Alamat pengiriman nota berhasil diperbarui.'
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE NOMOR PESANAN PELANGGAN
+    |--------------------------------------------------------------------------
+    */
 
     private function generateCustomerOrderNumber(
         $kitchenId,
@@ -657,6 +580,12 @@ class NotaKeluarController extends Controller
         return sprintf('%03d - %s', $nextNumber, $kitchenName);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE BARCODE NOTA
+    |--------------------------------------------------------------------------
+    */
+
     private function generateBarcodeNumber(
         ?Supplier $supplier,
         $notaDate,
@@ -666,12 +595,19 @@ class NotaKeluarController extends Controller
             (string) ($supplier?->nota_template ?? '')
         );
 
+        $supplierName = strtolower(
+            (string) ($supplier?->name ?? '')
+        );
+
+        $source = $template . ' ' . $supplierName;
+
         $prefix = match (true) {
-            str_contains($template, 'gemilang') => 'GM',
-            str_contains($template, 'zenzi'),
-            str_contains($template, 'zenzie') => 'ZN',
-            str_contains($template, 'sumber') => 'SR',
-            str_contains($template, 'top') => 'TF',
+            str_contains($source, 'gemilang') => 'GM',
+            str_contains($source, 'zenzi'),
+            str_contains($source, 'zenzie') => 'ZN',
+            str_contains($source, 'sumber') => 'SR',
+            str_contains($source, 'top fast'),
+            str_contains($source, 'topfast') => 'TF',
             default => 'OT',
         };
 
@@ -698,6 +634,12 @@ class NotaKeluarController extends Controller
             $nextNumber
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE NOMOR NOTA
+    |--------------------------------------------------------------------------
+    */
 
     private function generateNotaNumber($date)
     {

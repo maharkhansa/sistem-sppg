@@ -337,50 +337,70 @@ class PurchaseOrderController extends Controller
             ->with('success', 'Purchase Order berhasil disimpan.');
     }
 
+    
     public function process(PurchaseOrder $purchaseOrder)
     {
-        if ($purchaseOrder->status === 'PROCESSED') {
-            return redirect()
-                ->route('invoices.index')
-                ->with(
-                    'error',
-                    'Purchase Order ini sudah diproses menjadi OUT.'
-                );
-        }
-
-        $purchaseOrder->load([
-            'details.item',
-            'details.supplier',
-            'details.expenseType',
-        ]);
-
-        if ($purchaseOrder->details->isEmpty()) {
-            return redirect()
-                ->route('purchase-orders.index')
-                ->with('error', 'Purchase Order tidak memiliki detail.');
-        }
-
         $invoiceId = null;
+        $alreadyProcessed = false;
+        $emptyDetails = false;
 
-        DB::transaction(function () use ($purchaseOrder, &$invoiceId) {
+        DB::transaction(function () use (
+            $purchaseOrder,
+            &$invoiceId,
+            &$alreadyProcessed,
+            &$emptyDetails
+        ) {
             /*
-             * OUT tetap dibuat untuk menjaga hubungan PO, OUT, dan Invoice.
-             * Hanya detail barang persediaan yang dimasukkan ke OUT.
-             */
+            * Ambil dan kunci PO di dalam transaksi.
+            * Permintaan lain untuk PO yang sama harus menunggu
+            * sampai transaksi ini selesai.
+            */
+            $lockedPurchaseOrder = PurchaseOrder::whereKey(
+                $purchaseOrder->id
+            )
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            /*
+            * Periksa kembali status setelah memperoleh kunci.
+            */
+            if ($lockedPurchaseOrder->status === 'PROCESSED') {
+                $alreadyProcessed = true;
+
+                return;
+            }
+
+            $lockedPurchaseOrder->load([
+                'details.item',
+                'details.supplier',
+                'details.expenseType',
+            ]);
+
+            if ($lockedPurchaseOrder->details->isEmpty()) {
+                $emptyDetails = true;
+
+                return;
+            }
+
+            /*
+            * OUT tetap dibuat untuk menjaga hubungan PO, OUT, dan Invoice.
+            * Hanya detail barang persediaan yang dimasukkan ke OUT.
+            */
             $stockTransaction = StockTransaction::create([
                 'transaction_number' => $this->generateOutNumber(
-                    $purchaseOrder->po_date
+                    $lockedPurchaseOrder->po_date
                 ),
-                'transaction_date' => $purchaseOrder->po_date,
+                'transaction_date' => $lockedPurchaseOrder->po_date,
                 'type' => 'OUT',
                 'supplier_id' => null,
-                'kitchen_id' => $purchaseOrder->kitchen_id,
-                'purchase_order_id' => $purchaseOrder->id,
-                'notes' => 'OUT dari PO ' . $purchaseOrder->po_number,
+                'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
+                'purchase_order_id' => $lockedPurchaseOrder->id,
+                'notes' => 'OUT dari PO '
+                    . $lockedPurchaseOrder->po_number,
                 'created_by' => auth()->id() ?? 1,
             ]);
 
-            $stockDetails = $purchaseOrder->details->filter(
+            $stockDetails = $lockedPurchaseOrder->details->filter(
                 fn ($detail) =>
                     ($detail->detail_type ?? 'stock') !== 'expense'
             );
@@ -403,7 +423,8 @@ class PurchaseOrderController extends Controller
 
                     if (!$stock) {
                         throw new \RuntimeException(
-                            'Stok untuk barang ' . $item->name
+                            'Stok untuk barang '
+                            . $item->name
                             . ' belum tersedia.'
                         );
                     }
@@ -413,7 +434,8 @@ class PurchaseOrderController extends Controller
                         < (float) $detail->quantity
                     ) {
                         throw new \RuntimeException(
-                            'Stok ' . $item->name
+                            'Stok '
+                            . $item->name
                             . ' tidak mencukupi. Stok tersedia: '
                             . number_format(
                                 (float) $stock->quantity,
@@ -463,38 +485,38 @@ class PurchaseOrderController extends Controller
                 }
             }
 
-            $purchaseOrder->update([
+            $lockedPurchaseOrder->update([
                 'status' => 'PROCESSED',
                 'processed_at' => now(),
                 'processed_by' => auth()->id() ?? 1,
             ]);
 
             /*
-             * Invoice mencakup semua detail PO:
-             * barang persediaan dan biaya non-stok.
-             */
+            * Invoice mencakup semua detail PO:
+            * barang persediaan dan biaya non-stok.
+            */
             $invoice = Invoice::create([
                 'invoice_number' => $this->generateInvoiceNumber(
-                    $purchaseOrder->po_date
+                    $lockedPurchaseOrder->po_date
                 ),
-                'invoice_date' => $purchaseOrder->po_date,
+                'invoice_date' => $lockedPurchaseOrder->po_date,
                 'stock_transaction_id' => $stockTransaction->id,
-                'purchase_order_id' => $purchaseOrder->id,
-                'kitchen_id' => $purchaseOrder->kitchen_id,
-                'total_amount' => $purchaseOrder->details->sum(
+                'purchase_order_id' => $lockedPurchaseOrder->id,
+                'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
+                'total_amount' => $lockedPurchaseOrder->details->sum(
                     'subtotal'
                 ),
                 'status' => 'DRAFT',
                 'notes' => 'Invoice dibuat otomatis dari PO '
-                    . $purchaseOrder->po_number,
+                    . $lockedPurchaseOrder->po_number,
                 'created_by' => auth()->id() ?? 1,
             ]);
 
             /*
-             * Salin seluruh detail PO ke Invoice.
-             * Supplier manual biaya non-stok tetap diteruskan.
-             */
-            foreach ($purchaseOrder->details as $detail) {
+            * Salin seluruh detail PO ke Invoice.
+            * Supplier manual biaya non-stok tetap diteruskan.
+            */
+            foreach ($lockedPurchaseOrder->details as $detail) {
                 $sectionName = trim(
                     (string) ($detail->section_name ?? '')
                 );
@@ -527,6 +549,24 @@ class PurchaseOrderController extends Controller
 
             $invoiceId = $invoice->id;
         });
+
+        if ($alreadyProcessed) {
+            return redirect()
+                ->route('invoices.index')
+                ->with(
+                    'error',
+                    'Purchase Order ini sudah diproses menjadi OUT.'
+                );
+        }
+
+        if ($emptyDetails) {
+            return redirect()
+                ->route('purchase-orders.index')
+                ->with(
+                    'error',
+                    'Purchase Order tidak memiliki detail.'
+                );
+        }
 
         return redirect()
             ->route('invoices.show', $invoiceId)
