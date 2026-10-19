@@ -17,22 +17,99 @@ use Illuminate\Validation\ValidationException;
 
 class StockTransactionController extends Controller
 {
+    
     /*
     |--------------------------------------------------------------------------
     | DAFTAR BARANG MASUK
     |--------------------------------------------------------------------------
     */
 
-    public function index()
+    public function index(Request $request)
     {
-        $transactions = StockTransaction::with([
+        $query = StockTransaction::with([
             'supplier',
             'details.item',
             'details.supplier',
-        ])
-            ->where('type', 'IN')
-            ->latest()
-            ->paginate(15);
+        ])->where('type', 'IN');
+
+        /*
+         * PENCARIAN NOMOR TRANSAKSI DAN VENDOR
+         */
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+
+            $query->where(function ($q) use ($search) {
+                $q->where(
+                    'transaction_number',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'vendor_name',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'purchase_note_number',
+                    'like',
+                    '%' . $search . '%'
+                );
+            });
+        }
+
+        /*
+         * FILTER BERDASARKAN PERIODE
+         *
+         * hari  : tanggal tertentu
+         * bulan : bulan dan tahun tertentu
+         * tahun : tahun tertentu
+         */
+        $periode = $request->input('periode');
+
+        if ($periode === 'hari' && $request->filled('tanggal')) {
+            $request->validate([
+                'tanggal' => ['date_format:Y-m-d'],
+            ]);
+
+            $query->whereDate(
+                'transaction_date',
+                $request->input('tanggal')
+            );
+        } elseif ($periode === 'bulan') {
+            $request->validate([
+                'bulan' => ['required', 'regex:/^(0?[1-9]|1[0-2])$/'],
+                'tahun' => ['required', 'integer', 'between:2000,2100'],
+            ]);
+
+            $query
+                ->whereYear(
+                    'transaction_date',
+                    (int) $request->input('tahun')
+                )
+                ->whereMonth(
+                    'transaction_date',
+                    (int) $request->input('bulan')
+                );
+        } elseif ($periode === 'tahun') {
+            $request->validate([
+                'tahun' => ['required', 'integer', 'between:2000,2100'],
+            ]);
+
+            $query->whereYear(
+                'transaction_date',
+                (int) $request->input('tahun')
+            );
+        }
+
+        /*
+         * TETAP URUTKAN DAN GUNAKAN PAGINATION.
+         * Filter tetap dipertahankan saat pindah halaman.
+         */
+        $transactions = $query
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
 
         $suppliers = Supplier::orderBy('name')->get();
 
@@ -41,6 +118,7 @@ class StockTransactionController extends Controller
             'suppliers'
         ));
     }
+
 
     /*
     |--------------------------------------------------------------------------

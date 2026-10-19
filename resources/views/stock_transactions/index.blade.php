@@ -201,7 +201,7 @@
             </div>
         @endif
 
-        {{-- FILTER --}}
+                {{-- FILTER --}}
         <div class="card transaction-card shadow-sm mb-4">
             <div class="card-body p-3 p-md-4">
                 <form method="GET" action="{{ route('stock-transactions.index') }}">
@@ -228,33 +228,105 @@
                             </div>
                         </div>
 
-                        {{-- TANGGAL --}}
-                        <div class="col-12 col-md-4">
-                            <label for="date" class="form-label filter-label">
-                                Tanggal Barang Masuk
+                        {{-- FILTER PERIODE --}}
+                        <div class="col-12 col-md-6">
+                            <label for="periode" class="form-label filter-label">
+                                Periode Barang Masuk
+                            </label>
+
+                            <select
+                                id="periode"
+                                name="periode"
+                                class="form-select"
+                                onchange="toggleFilterPeriode()">
+
+                                <option value="">Semua Periode</option>
+                                <option value="hari" {{ request('periode') === 'hari' ? 'selected' : '' }}>
+                                    Harian
+                                </option>
+                                <option value="bulan" {{ request('periode') === 'bulan' ? 'selected' : '' }}>
+                                    Bulanan
+                                </option>
+                                <option value="tahun" {{ request('periode') === 'tahun' ? 'selected' : '' }}>
+                                    Tahunan
+                                </option>
+                            </select>
+                        </div>
+
+                        {{-- PILIH HARI --}}
+                        <div class="col-12 col-md-4" id="filter-hari">
+                            <label for="tanggal" class="form-label filter-label">
+                                Pilih Tanggal
                             </label>
 
                             <input
                                 type="date"
-                                id="date"
-                                name="date"
+                                id="tanggal"
+                                name="tanggal"
                                 class="form-control"
-                                value="{{ request('date') }}">
+                                value="{{ request('tanggal') }}">
                         </div>
 
-                        {{-- CARI --}}
-                        <div class="col-12 col-md-2 d-flex gap-2">
-                            <button type="submit"
-                                    class="btn btn-primary flex-grow-1">
-                                <i class="bi bi-search me-1"></i>
-                                Cari
+                        {{-- PILIH BULAN --}}
+                        <div class="col-12 col-md-4" id="filter-bulan">
+                            <label for="bulan" class="form-label filter-label">
+                                Pilih Bulan
+                            </label>
+
+                            <select id="bulan" name="bulan" class="form-select">
+                                <option value="">Pilih Bulan</option>
+                                @foreach ([
+                                    '01' => 'Januari',
+                                    '02' => 'Februari',
+                                    '03' => 'Maret',
+                                    '04' => 'April',
+                                    '05' => 'Mei',
+                                    '06' => 'Juni',
+                                    '07' => 'Juli',
+                                    '08' => 'Agustus',
+                                    '09' => 'September',
+                                    '10' => 'Oktober',
+                                    '11' => 'November',
+                                    '12' => 'Desember',
+                                ] as $nomorBulan => $namaBulan)
+                                    <option
+                                        value="{{ $nomorBulan }}"
+                                        {{ request('bulan') === $nomorBulan ? 'selected' : '' }}>
+                                        {{ $namaBulan }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        {{-- PILIH TAHUN --}}
+                        <div class="col-12 col-md-4" id="filter-tahun">
+                            <label for="tahun" class="form-label filter-label">
+                                Pilih Tahun
+                            </label>
+
+                            <select id="tahun" name="tahun" class="form-select">
+                                <option value="">Pilih Tahun</option>
+
+                                @foreach (range((int) date('Y'), (int) date('Y') - 10) as $tahunPilihan)
+                                    <option
+                                        value="{{ $tahunPilihan }}"
+                                        {{ (string) request('tahun') === (string) $tahunPilihan ? 'selected' : '' }}>
+                                        {{ $tahunPilihan }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        {{-- TOMBOL FILTER --}}
+                        <div class="col-12 d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-funnel me-1"></i>
+                                Terapkan Filter
                             </button>
-                        </div>
 
-                        {{-- RESET --}}
-                        <div class="col-12">
-                            <a href="{{ route('stock-transactions.index') }}"
-                               class="btn btn-sm btn-outline-secondary">
+                            <a
+                                href="{{ route('stock-transactions.index') }}"
+                                class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i>
                                 Reset Filter
                             </a>
@@ -265,6 +337,25 @@
             </div>
         </div>
 
+        @push('scripts')
+        <script>
+            function toggleFilterPeriode() {
+                const periode = document.getElementById('periode').value;
+
+                const filterHari = document.getElementById('filter-hari');
+                const filterBulan = document.getElementById('filter-bulan');
+                const filterTahun = document.getElementById('filter-tahun');
+
+                filterHari.style.display = periode === 'hari' ? '' : 'none';
+                filterBulan.style.display = periode === 'bulan' ? '' : 'none';
+                filterTahun.style.display =
+                    periode === 'bulan' || periode === 'tahun' ? '' : 'none';
+            }
+
+            document.addEventListener('DOMContentLoaded', toggleFilterPeriode);
+        </script>
+        @endpush
+        
         {{-- INFORMASI JUMLAH DATA --}}
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <small class="text-muted">

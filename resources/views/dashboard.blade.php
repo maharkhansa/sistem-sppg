@@ -9,11 +9,13 @@
             ['icon' => '📤', 'label' => 'Barang Keluar', 'route' => 'stock-transactions.out'],
             ['icon' => '📦', 'label' => 'Stok Persediaan', 'route' => 'stocks.index'],
         ],
+
         'PEMBELIAN & DOKUMEN' => [
             ['icon' => '🛒', 'label' => 'Purchase Order', 'route' => 'purchase-orders.index'],
             ['icon' => '🧾', 'label' => 'Invoice', 'route' => 'invoices.index'],
             ['icon' => '📄', 'label' => 'Nota Keluar', 'route' => 'nota-keluars.index'],
         ],
+
         'DATA MASTER' => [
             ['icon' => '🥬', 'label' => 'Data Barang', 'route' => 'items.index'],
             ['icon' => '🏷️', 'label' => 'Kategori Barang', 'route' => 'categories.index'],
@@ -21,10 +23,18 @@
             ['icon' => '🏢', 'label' => 'Data Dapur SPPG', 'route' => 'kitchens.index'],
             ['icon' => '💰', 'label' => 'Jenis Biaya', 'route' => 'expense-types.index'],
         ],
+
         'PELAPORAN' => [
             ['icon' => '📊', 'label' => 'LPDH', 'route' => 'lpdhs.index'],
         ],
     ];
+
+    // Menu pengelolaan akun hanya ditampilkan untuk admin.
+    if (strtoupper((string) auth()->user()->role) === 'ADMIN') {
+        $menuGroups['PENGATURAN AKUN'] = [
+            ['icon' => '👤', 'label' => 'Kelola Akun Admin', 'route' => 'users.index'],
+        ];
+    }
 @endphp
 
 @push('styles')
@@ -35,6 +45,14 @@
         justify-content: space-between;
         gap: 15px;
         margin-bottom: 30px;
+    }
+
+    .topbar-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
     }
 
     .page-title {
@@ -60,6 +78,33 @@
         white-space: nowrap;
     }
 
+    .logout-form {
+        margin: 0;
+    }
+
+    .logout-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 15px;
+        background: #fff;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+        border-radius: 11px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background .2s, color .2s, border-color .2s;
+    }
+
+    .logout-button:hover {
+        background: #b91c1c;
+        color: #fff;
+        border-color: #b91c1c;
+    }
+
     .welcome-banner {
         position: relative;
         overflow: hidden;
@@ -78,12 +123,14 @@
         height: 200px;
         right: -50px;
         top: -85px;
-        border: 30px solid rgba(255,255,255,.08);
+        border: 30px solid rgba(255, 255, 255, .08);
         border-radius: 50%;
         pointer-events: none;
     }
 
     .welcome-banner h2 {
+        position: relative;
+        z-index: 1;
         font-size: 24px;
         font-weight: 800;
         margin-bottom: 9px;
@@ -190,6 +237,15 @@
             margin-bottom: 20px;
         }
 
+        .topbar-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .date-badge {
+            white-space: normal;
+        }
+
         .welcome-banner {
             padding: 23px 20px;
         }
@@ -216,15 +272,38 @@
             </p>
         </div>
 
-        <div class="date-badge">
-            📅 {{ \Carbon\Carbon::now()->locale('id')->translatedFormat('l, d F Y') }}
+        <div class="topbar-actions">
+            <div class="date-badge">
+                📅 {{ \Carbon\Carbon::now()->locale('id')->translatedFormat('l, d F Y') }}
+            </div>
+
+            @auth
+                <form
+                    action="{{ route('logout') }}"
+                    method="POST"
+                    class="logout-form"
+                    onsubmit="return confirm('Apakah Anda yakin ingin keluar dari Sistem SPPG?');"
+                >
+                    @csrf
+
+                    <button type="submit" class="logout-button">
+                        <span aria-hidden="true">↪</span>
+                        Logout
+                    </button>
+                </form>
+            @endauth
         </div>
     </header>
 
     <section class="welcome-banner">
-        <h2>Selamat Datang di Sistem SPPG LA TAHZAN INDONESIA DAN AGHITS STAR INDONESIA👋</h2>
+        <h2>
+            Selamat Datang di Sistem SPPG LA TAHZAN INDONESIA DAN AGHITS STAR INDONESIA 👋
+        </h2>
+
         <p>
-            Kelola persediaan bahan baku, transaksi barang masuk dan keluar, pembelian, dokumen tagihan, serta pelaporan dalam satu aplikasi. Pilih menu di bawah untuk mulai bekerja.
+            Kelola persediaan bahan baku, transaksi barang masuk dan keluar,
+            pembelian, dokumen tagihan, serta pelaporan dalam satu aplikasi.
+            Pilih menu di bawah untuk mulai bekerja.
         </p>
     </section>
 
@@ -297,6 +376,10 @@
                                                 Buka dan kelola laporan LPDH.
                                                 @break
 
+                                            @case('users.index')
+                                                Tambah akun admin serta ubah username dan password.
+                                                @break
+
                                             @default
                                                 Buka dan kelola data {{ strtolower($item['label']) }}.
                                         @endswitch
@@ -313,7 +396,8 @@
     @endforeach
 
     <footer class="dashboard-footer">
-        Sistem Yayasan La Tahzan Indonesia & Aghits Star International · Manajemen Persediaan dan Distribusi MBG
+        Sistem Yayasan La Tahzan Indonesia & Aghits Star International ·
+        Manajemen Persediaan dan Distribusi MBG
         <br>
         &copy; {{ date('Y') }} Sistem Yayasan
     </footer>

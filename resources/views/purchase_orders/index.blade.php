@@ -436,15 +436,16 @@
         </div>
 
         {{-- PESAN --}}
-        @if (session('success'))
-            <div class="alert alert-success no-print">
-                {{ session('success') }}
+
+        @if (session('error'))
+            <div class="alert alert-danger no-print" role="alert">
+                {{ session('error') }}
             </div>
         @endif
 
-        @if (session('error'))
-            <div class="alert alert-danger no-print">
-                {{ session('error') }}
+        @if (session('success'))
+            <div class="alert alert-success no-print" role="alert">
+                {{ session('success') }}
             </div>
         @endif
 

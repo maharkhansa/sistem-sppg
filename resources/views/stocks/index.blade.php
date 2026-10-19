@@ -41,6 +41,40 @@
     <div class="card shadow-sm border-0">
         <div class="card-body p-3 p-md-4">
 
+            {{-- NOTIFIKASI BERHASIL --}}
+            @if (session('success'))
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    {{ session('success') }}
+
+                    <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                        aria-label="Tutup"></button>
+                </div>
+            @endif
+
+            {{-- NOTIFIKASI VALIDASI --}}
+            @if ($errors->any())
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <div class="fw-semibold mb-1">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Stok belum berhasil diperbarui.
+                    </div>
+
+                    <ul class="mb-0 ps-4">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+
+                    <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                        aria-label="Tutup"></button>
+                </div>
+            @endif
+
             {{-- JUDUL HALAMAN --}}
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                 <div>
@@ -235,6 +269,7 @@
                             <th class="text-center">Stok</th>
                             <th class="text-center">Min. Stok</th>
                             <th class="text-center" style="min-width:140px">Status</th>
+                            <th class="text-center" style="min-width:110px">Aksi</th>
                         </tr>
                     </thead>
 
@@ -309,10 +344,28 @@
                                         </span>
                                     @endif
                                 </td>
+
+                                {{-- AKSI EDIT STOK --}}
+                                <td class="text-center">
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editStockModal"
+                                        data-item-id="{{ $item->id }}"
+                                        data-item-name="{{ $item->name }}"
+                                        data-item-code="{{ $item->code }}"
+                                        data-stock-quantity="{{ $stockQuantity }}"
+                                        data-supplier-id="{{ request('supplier_id') }}"
+                                        data-page="{{ $items->currentPage() }}">
+
+                                        <i class="bi bi-pencil-square me-1"></i>
+                                        Edit
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center py-5 text-muted">
+                                <td colspan="10" class="text-center py-5 text-muted">
                                     <i class="bi bi-inbox fs-2 d-block mb-2"></i>
 
                                     @if (request()->filled('supplier_id'))
@@ -417,4 +470,194 @@
     </div>
 
 </div>
+
+{{-- MODAL EDIT STOK --}}
+<div class="modal fade"
+    id="editStockModal"
+    tabindex="-1"
+    aria-labelledby="editStockModalLabel"
+    aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+
+            <form id="editStockForm"
+                action="{{ route('stocks.update-quantity', ['item' => '__ITEM__']) }}"
+                method="POST">
+
+                @csrf
+                @method('PATCH')
+
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-bold"
+                            id="editStockModalLabel">
+                            <i class="bi bi-pencil-square text-primary me-2"></i>
+                            Edit Jumlah Stok
+                        </h5>
+
+                        <p class="text-muted small mb-0 mt-1">
+                            Koreksi stok akibat kesalahan input data uji.
+                        </p>
+                    </div>
+
+                    <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Tutup"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        Perubahan ini langsung memperbarui saldo stok,
+                        tetapi tidak mengubah riwayat transaksi.
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editStockCode" class="form-label fw-semibold">
+                            Kode Barang
+                        </label>
+
+                        <input type="text"
+                            id="editStockCode"
+                            class="form-control bg-light"
+                            readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editStockName" class="form-label fw-semibold">
+                            Nama Barang
+                        </label>
+
+                        <input type="text"
+                            id="editStockName"
+                            class="form-control bg-light"
+                            readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editStockOldQuantity"
+                            class="form-label fw-semibold">
+                            Jumlah Stok Saat Ini
+                        </label>
+
+                        <input type="text"
+                            id="editStockOldQuantity"
+                            class="form-control bg-light"
+                            readonly>
+
+                        <div class="form-text">
+                            Jumlah stok sebelum koreksi.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editStockQuantity"
+                            class="form-label fw-semibold">
+                            Jumlah Stok Baru
+                        </label>
+
+                        <input type="number"
+                            name="quantity"
+                            id="editStockQuantity"
+                            class="form-control"
+                            min="0"
+                            step="0.01"
+                            inputmode="decimal"
+                            placeholder="Masukkan jumlah stok yang benar"
+                            required>
+
+                        <div class="form-text">
+                            Masukkan jumlah akhir yang benar, bukan selisih
+                            penambahan atau pengurangan stok.
+                        </div>
+                    </div>
+
+                    <input type="hidden"
+                        name="supplier_id"
+                        id="editStockSupplierId"
+                        value="{{ request('supplier_id') }}">
+
+                    <input type="hidden"
+                        name="page"
+                        id="editStockPage"
+                        value="{{ $items->currentPage() }}">
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button"
+                        class="btn btn-light border"
+                        data-bs-dismiss="modal">
+                        Batal
+                    </button>
+
+                    <button type="submit"
+                        class="btn btn-primary"
+                        onclick="return confirm('Simpan koreksi jumlah stok barang ini?')">
+
+                        <i class="bi bi-check-circle me-1"></i>
+                        Simpan Perubahan
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const editModal = document.getElementById('editStockModal');
+
+    if (!editModal) {
+        return;
+    }
+
+    const editForm = document.getElementById('editStockForm');
+
+    const itemCode = document.getElementById('editStockCode');
+    const itemName = document.getElementById('editStockName');
+    const oldQuantity = document.getElementById('editStockOldQuantity');
+    const newQuantity = document.getElementById('editStockQuantity');
+    const supplierId = document.getElementById('editStockSupplierId');
+    const page = document.getElementById('editStockPage');
+
+    const defaultAction = editForm.getAttribute('action');
+
+    editModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+
+        if (!button) {
+            return;
+        }
+
+        const id = button.getAttribute('data-item-id');
+        const name = button.getAttribute('data-item-name') || '';
+        const code = button.getAttribute('data-item-code') || '-';
+        const quantity = button.getAttribute('data-stock-quantity') || '0';
+
+        itemCode.value = code;
+        itemName.value = name;
+        oldQuantity.value = quantity;
+        newQuantity.value = quantity;
+
+        supplierId.value =
+            button.getAttribute('data-supplier-id') || '';
+
+        page.value =
+            button.getAttribute('data-page') || '1';
+
+        editForm.setAttribute(
+            'action',
+            defaultAction.replace('__ITEM__', encodeURIComponent(id))
+        );
+    });
+});
+</script>
+@endpush

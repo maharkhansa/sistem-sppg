@@ -338,218 +338,256 @@ class PurchaseOrderController extends Controller
     }
 
     
+    
     public function process(PurchaseOrder $purchaseOrder)
     {
         $invoiceId = null;
         $alreadyProcessed = false;
         $emptyDetails = false;
 
-        DB::transaction(function () use (
-            $purchaseOrder,
-            &$invoiceId,
-            &$alreadyProcessed,
-            &$emptyDetails
-        ) {
-            /*
-            * Ambil dan kunci PO di dalam transaksi.
-            * Permintaan lain untuk PO yang sama harus menunggu
-            * sampai transaksi ini selesai.
-            */
-            $lockedPurchaseOrder = PurchaseOrder::whereKey(
-                $purchaseOrder->id
-            )
-                ->lockForUpdate()
-                ->firstOrFail();
+        try {
+            DB::transaction(function () use (
+                $purchaseOrder,
+                &$invoiceId,
+                &$alreadyProcessed,
+                &$emptyDetails
+            ) {
+                /*
+                 * Ambil dan kunci PO di dalam transaksi.
+                 * Permintaan lain untuk PO yang sama harus menunggu
+                 * sampai transaksi ini selesai.
+                 */
+                $lockedPurchaseOrder = PurchaseOrder::whereKey(
+                    $purchaseOrder->id
+                )
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            /*
-            * Periksa kembali status setelah memperoleh kunci.
-            */
-            if ($lockedPurchaseOrder->status === 'PROCESSED') {
-                $alreadyProcessed = true;
+                /*
+                 * Periksa kembali status setelah memperoleh kunci.
+                 */
+                if ($lockedPurchaseOrder->status === 'PROCESSED') {
+                    $alreadyProcessed = true;
 
-                return;
-            }
-
-            $lockedPurchaseOrder->load([
-                'details.item',
-                'details.supplier',
-                'details.expenseType',
-            ]);
-
-            if ($lockedPurchaseOrder->details->isEmpty()) {
-                $emptyDetails = true;
-
-                return;
-            }
-
-            /*
-            * OUT tetap dibuat untuk menjaga hubungan PO, OUT, dan Invoice.
-            * Hanya detail barang persediaan yang dimasukkan ke OUT.
-            */
-            $stockTransaction = StockTransaction::create([
-                'transaction_number' => $this->generateOutNumber(
-                    $lockedPurchaseOrder->po_date
-                ),
-                'transaction_date' => $lockedPurchaseOrder->po_date,
-                'type' => 'OUT',
-                'supplier_id' => null,
-                'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
-                'purchase_order_id' => $lockedPurchaseOrder->id,
-                'notes' => 'OUT dari PO '
-                    . $lockedPurchaseOrder->po_number,
-                'created_by' => auth()->id() ?? 1,
-            ]);
-
-            $stockDetails = $lockedPurchaseOrder->details->filter(
-                fn ($detail) =>
-                    ($detail->detail_type ?? 'stock') !== 'expense'
-            );
-
-            foreach ($stockDetails as $detail) {
-                $item = $detail->item;
-
-                if (!$item) {
-                    throw new \RuntimeException(
-                        'Barang pada PO tidak ditemukan.'
-                    );
+                    return;
                 }
 
-                $stock = null;
+                $lockedPurchaseOrder->load([
+                    'details.item',
+                    'details.supplier',
+                    'details.expenseType',
+                ]);
 
-                if ($item->track_stock) {
-                    $stock = Stock::where('item_id', $item->id)
-                        ->lockForUpdate()
-                        ->first();
+                if ($lockedPurchaseOrder->details->isEmpty()) {
+                    $emptyDetails = true;
 
-                    if (!$stock) {
+                    return;
+                }
+
+                /*
+                 * Buat OUT dari PO.
+                 * Hanya detail barang persediaan yang dimasukkan ke OUT.
+                 */
+                $stockTransaction = StockTransaction::create([
+                    'transaction_number' => $this->generateOutNumber(
+                        $lockedPurchaseOrder->po_date
+                    ),
+                    'transaction_date' => $lockedPurchaseOrder->po_date,
+                    'type' => 'OUT',
+                    'supplier_id' => null,
+                    'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
+                    'purchase_order_id' => $lockedPurchaseOrder->id,
+                    'notes' => 'OUT dari PO '
+                        . $lockedPurchaseOrder->po_number,
+                    'created_by' => auth()->id() ?? 1,
+                ]);
+
+                $stockDetails = $lockedPurchaseOrder->details->filter(
+                    fn ($detail) =>
+                        ($detail->detail_type ?? 'stock') !== 'expense'
+                );
+
+                foreach ($stockDetails as $detail) {
+                    $item = $detail->item;
+
+                    if (!$item) {
                         throw new \RuntimeException(
-                            'Stok untuk barang '
-                            . $item->name
-                            . ' belum tersedia.'
+                            'Barang pada PO tidak ditemukan.'
                         );
                     }
 
-                    if (
-                        (float) $stock->quantity
-                        < (float) $detail->quantity
-                    ) {
-                        throw new \RuntimeException(
-                            'Stok '
-                            . $item->name
-                            . ' tidak mencukupi. Stok tersedia: '
-                            . number_format(
-                                (float) $stock->quantity,
-                                2,
-                                ',',
-                                '.'
-                            )
-                            . ', kebutuhan: '
-                            . number_format(
-                                (float) $detail->quantity,
-                                2,
-                                ',',
-                                '.'
-                            )
+                    $stock = null;
+
+                    /*
+                     * Pengecekan stok hanya berlaku untuk barang
+                     * yang menggunakan pelacakan stok.
+                     */
+                    if ($item->track_stock) {
+                        $stock = Stock::where('item_id', $item->id)
+                            ->lockForUpdate()
+                            ->first();
+
+                        /*
+                         * Jika data stok belum tersedia,
+                         * batalkan transaksi dan tampilkan pesan.
+                         */
+                        if (!$stock) {
+                            throw new \RuntimeException(
+                                'Stok untuk barang '
+                                . $item->name
+                                . ' belum tersedia. Silakan lakukan '
+                                . 'Barang Masuk terlebih dahulu.'
+                            );
+                        }
+
+                        /*
+                         * Jika stok tidak mencukupi,
+                         * batalkan transaksi dan tampilkan pesan.
+                         */
+                        if (
+                            (float) $stock->quantity
+                            < (float) $detail->quantity
+                        ) {
+                            throw new \RuntimeException(
+                                'Stok barang '
+                                . $item->name
+                                . ' tidak mencukupi. Stok tersedia: '
+                                . number_format(
+                                    (float) $stock->quantity,
+                                    2,
+                                    ',',
+                                    '.'
+                                )
+                                . ', kebutuhan: '
+                                . number_format(
+                                    (float) $detail->quantity,
+                                    2,
+                                    ',',
+                                    '.'
+                                )
+                                . '. Silakan periksa stok barang.'
+                            );
+                        }
+                    }
+
+                    $sectionName = trim(
+                        (string) ($detail->section_name ?? '')
+                    );
+
+                    /*
+                     * Simpan detail OUT.
+                     */
+                    $stockTransaction->details()->create([
+                        'item_id' => $detail->item_id,
+                        'supplier_id' => $detail->supplier_id,
+                        'quantity' => $detail->quantity,
+                        'unit' => $detail->unit,
+                        'unit_price' => $detail->unit_price,
+                        'subtotal' => $detail->subtotal,
+
+                        'section_name' => $sectionName !== ''
+                            ? $sectionName
+                            : null,
+
+                        'section_order' => $sectionName !== ''
+                            ? $detail->section_order
+                            : null,
+
+                        'notes' => $detail->notes,
+                    ]);
+
+                    /*
+                     * Kurangi stok setelah pengecekan berhasil.
+                     */
+                    if ($item->track_stock) {
+                        $stock->decrement(
+                            'quantity',
+                            $detail->quantity
                         );
                     }
                 }
 
-                $sectionName = trim(
-                    (string) ($detail->section_name ?? '')
-                );
-
-                $stockTransaction->details()->create([
-                    'item_id' => $detail->item_id,
-                    'supplier_id' => $detail->supplier_id,
-                    'quantity' => $detail->quantity,
-                    'unit' => $detail->unit,
-                    'unit_price' => $detail->unit_price,
-                    'subtotal' => $detail->subtotal,
-
-                    'section_name' => $sectionName !== ''
-                        ? $sectionName
-                        : null,
-
-                    'section_order' => $sectionName !== ''
-                        ? $detail->section_order
-                        : null,
-
-                    'notes' => $detail->notes,
+                /*
+                 * Ubah status PO setelah seluruh detail berhasil diproses.
+                 */
+                $lockedPurchaseOrder->update([
+                    'status' => 'PROCESSED',
+                    'processed_at' => now(),
+                    'processed_by' => auth()->id() ?? 1,
                 ]);
 
-                if ($item->track_stock) {
-                    $stock->decrement(
-                        'quantity',
-                        $detail->quantity
+                /*
+                 * Buat satu Invoice yang mencakup semua detail PO,
+                 * termasuk barang persediaan dan biaya non-stok.
+                 */
+                $invoice = Invoice::create([
+                    'invoice_number' => $this->generateInvoiceNumber(
+                        $lockedPurchaseOrder->po_date
+                    ),
+                    'invoice_date' => $lockedPurchaseOrder->po_date,
+                    'stock_transaction_id' => $stockTransaction->id,
+                    'purchase_order_id' => $lockedPurchaseOrder->id,
+                    'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
+                    'total_amount' => $lockedPurchaseOrder->details->sum(
+                        'subtotal'
+                    ),
+                    'status' => 'DRAFT',
+                    'notes' => 'Invoice dibuat otomatis dari PO '
+                        . $lockedPurchaseOrder->po_number,
+                    'created_by' => auth()->id() ?? 1,
+                ]);
+
+                /*
+                 * Salin seluruh detail PO ke Invoice.
+                 */
+                foreach ($lockedPurchaseOrder->details as $detail) {
+                    $sectionName = trim(
+                        (string) ($detail->section_name ?? '')
                     );
+
+                    $invoice->details()->create([
+                        'detail_type' => $detail->detail_type ?? 'stock',
+
+                        'supplier_id' => $detail->supplier_id,
+                        'supplier_name' => $detail->supplier_name,
+
+                        'item_id' => $detail->item_id,
+                        'expense_type_id' => $detail->expense_type_id,
+                        'expense_date' => $detail->expense_date,
+
+                        'quantity' => $detail->quantity,
+                        'unit' => $detail->unit,
+                        'unit_price' => $detail->unit_price,
+                        'subtotal' => $detail->subtotal,
+                        'notes' => $detail->notes,
+
+                        'section_name' => $sectionName !== ''
+                            ? $sectionName
+                            : null,
+
+                        'section_order' => $sectionName !== ''
+                            ? $detail->section_order
+                            : null,
+                    ]);
                 }
-            }
 
-            $lockedPurchaseOrder->update([
-                'status' => 'PROCESSED',
-                'processed_at' => now(),
-                'processed_by' => auth()->id() ?? 1,
-            ]);
-
+                $invoiceId = $invoice->id;
+            });
+        } catch (\RuntimeException $exception) {
             /*
-            * Invoice mencakup semua detail PO:
-            * barang persediaan dan biaya non-stok.
-            */
-            $invoice = Invoice::create([
-                'invoice_number' => $this->generateInvoiceNumber(
-                    $lockedPurchaseOrder->po_date
-                ),
-                'invoice_date' => $lockedPurchaseOrder->po_date,
-                'stock_transaction_id' => $stockTransaction->id,
-                'purchase_order_id' => $lockedPurchaseOrder->id,
-                'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
-                'total_amount' => $lockedPurchaseOrder->details->sum(
-                    'subtotal'
-                ),
-                'status' => 'DRAFT',
-                'notes' => 'Invoice dibuat otomatis dari PO '
-                    . $lockedPurchaseOrder->po_number,
-                'created_by' => auth()->id() ?? 1,
-            ]);
+             * Transaksi database dibatalkan jika stok kosong,
+             * stok tidak cukup, atau barang tidak ditemukan.
+             * Kembalikan pengguna ke daftar PO dengan alert,
+             * bukan halaman error Laravel.
+             */
+            return redirect()
+                ->route('purchase-orders.index')
+                ->with('error', $exception->getMessage());
+        }
 
-            /*
-            * Salin seluruh detail PO ke Invoice.
-            * Supplier manual biaya non-stok tetap diteruskan.
-            */
-            foreach ($lockedPurchaseOrder->details as $detail) {
-                $sectionName = trim(
-                    (string) ($detail->section_name ?? '')
-                );
-
-                $invoice->details()->create([
-                    'detail_type' => $detail->detail_type ?? 'stock',
-
-                    'supplier_id' => $detail->supplier_id,
-                    'supplier_name' => $detail->supplier_name,
-
-                    'item_id' => $detail->item_id,
-                    'expense_type_id' => $detail->expense_type_id,
-                    'expense_date' => $detail->expense_date,
-
-                    'quantity' => $detail->quantity,
-                    'unit' => $detail->unit,
-                    'unit_price' => $detail->unit_price,
-                    'subtotal' => $detail->subtotal,
-                    'notes' => $detail->notes,
-
-                    'section_name' => $sectionName !== ''
-                        ? $sectionName
-                        : null,
-
-                    'section_order' => $sectionName !== ''
-                        ? $detail->section_order
-                        : null,
-                ]);
-            }
-
-            $invoiceId = $invoice->id;
-        });
-
+        /*
+         * Penanganan PO yang sudah pernah diproses.
+         */
         if ($alreadyProcessed) {
             return redirect()
                 ->route('invoices.index')
@@ -559,6 +597,9 @@ class PurchaseOrderController extends Controller
                 );
         }
 
+        /*
+         * Penanganan PO tanpa detail.
+         */
         if ($emptyDetails) {
             return redirect()
                 ->route('purchase-orders.index')
@@ -568,6 +609,9 @@ class PurchaseOrderController extends Controller
                 );
         }
 
+        /*
+         * Jika berhasil, buka Invoice yang baru dibuat.
+         */
         return redirect()
             ->route('invoices.show', $invoiceId)
             ->with(

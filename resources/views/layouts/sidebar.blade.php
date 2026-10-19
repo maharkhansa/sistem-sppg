@@ -24,6 +24,13 @@
             ['icon' => '📊', 'label' => 'LPDH', 'route' => 'lpdhs.index'],
         ],
     ];
+
+    // Tambahkan menu pengelolaan akun khusus untuk admin.
+    if (auth()->check() && strtoupper((string) auth()->user()->role) === 'ADMIN') {
+        $menuGroups['PENGATURAN AKUN'] = [
+            ['icon' => '👤', 'label' => 'Kelola Akun Admin', 'route' => 'users.index'],
+        ];
+    }
 @endphp
 
 <aside class="sidebar">
@@ -32,7 +39,7 @@
 
         <div>
             <h5>SISTEM YAYASAN AGHIST STAR</h5>
-            <small>Manajemen Persediaan MBG</small>
+            <small>Manajemen Persediaan</small>
         </div>
     </div>
 
@@ -57,4 +64,4 @@
             @endforeach
         @endforeach
     </nav>
-</aside>
+</aside
