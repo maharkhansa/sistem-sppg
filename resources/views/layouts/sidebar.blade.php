@@ -6,6 +6,10 @@
             ['icon' => '📦', 'label' => 'Stok Persediaan', 'route' => 'stocks.index'],
         ],
 
+        'KAS OPERASIONAL' => [
+            ['icon' => '💵', 'label' => 'Petty Cash', 'route' => 'petty-cash.index'],
+        ],
+
         'PEMBELIAN & DOKUMEN' => [
             ['icon' => '🛒', 'label' => 'Purchase Order', 'route' => 'purchase-orders.index'],
             ['icon' => '🧾', 'label' => 'Invoice', 'route' => 'invoices.index'],
@@ -18,6 +22,7 @@
             ['icon' => '🚚', 'label' => 'Data Supplier', 'route' => 'suppliers.index'],
             ['icon' => '🏢', 'label' => 'Data Dapur SPPG', 'route' => 'kitchens.index'],
             ['icon' => '💰', 'label' => 'Jenis Biaya', 'route' => 'expense-types.index'],
+            ['icon' => '👥', 'label' => 'Penanggung Jawab', 'route' => 'purchase-responsibles.index'],
         ],
 
         'PELAPORAN' => [

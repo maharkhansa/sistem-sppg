@@ -388,6 +388,8 @@
                                     <th class="text-end">Subtotal Barang</th>
                                     <th class="text-end">Diskon Tambahan</th>
                                     <th class="text-end">Biaya Kuli</th>
+                                    <th class="text-end">Biaya BBM</th>
+                                    <th class="text-end">Biaya Parkir</th>
                                     <th class="text-end">Total Keseluruhan</th>
                                     <th width="115" class="text-center">Aksi</th>
                                 </tr>
@@ -463,17 +465,35 @@
                                             2
                                         );
 
+                                        $fuelCost = round(
+                                            max(
+                                                0,
+                                                (float) ($transaction->fuel_cost ?? 0)
+                                            ),
+                                            2
+                                        );
+
+                                        $parkingCost = round(
+                                            max(
+                                                0,
+                                                (float) ($transaction->parking_cost ?? 0)
+                                            ),
+                                            2
+                                        );
+
                                         /*
                                          * Total akhir:
                                          * subtotal barang
                                          * - diskon tambahan
-                                         * + biaya kuli.
+                                         * + biaya kuli
+                                         * + biaya bbm
+                                         * + biaya parkir.
                                          */
                                         $grandTotal = round(
                                             max(
                                                 0,
                                                 $subtotalBarang - $diskonTambahan
-                                            ) + $porterCost,
+                                            ) + $porterCost + $fuelCost + $parkingCost,
                                             2
                                         );
                                     @endphp
@@ -543,6 +563,16 @@
                                         {{-- BIAYA KULI --}}
                                         <td class="text-end text-nowrap porter-cost">
                                             Rp {{ number_format($porterCost, 2, ',', '.') }}
+                                        </td>
+
+                                        {{-- BIAYA BBM --}}
+                                        <td class="text-end text-nowrap">
+                                            Rp {{ number_format($fuelCost, 2, ',', '.') }}
+                                        </td>
+
+                                        {{-- BIAYA PARKIR --}}
+                                        <td class="text-end text-nowrap">
+                                            Rp {{ number_format($parkingCost, 2, ',', '.') }}
                                         </td>
 
                                         {{-- TOTAL KESELURUHAN --}}

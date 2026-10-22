@@ -17,6 +17,8 @@ use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\LPDHController;
 use App\Http\Controllers\InvoiceExpenseDetailController;
 use App\Http\Controllers\StockReconciliationController;
+use App\Http\Controllers\PurchaseResponsibleController;
+use App\Http\Controllers\PettyCashController;
 
 /*
 |--------------------------------------------------------------------------
@@ -224,7 +226,11 @@ Route::middleware('auth')->group(function () {
     | Detail dan Hapus Transaksi
     |--------------------------------------------------------------------------
     */
-
+    Route::post(
+        '/stock-transactions/{stockTransaction}/payments',
+        [StockTransactionController::class, 'storePayment']
+    )->name('stock-transactions.payments.store');
+    
     Route::get(
         '/stock-transactions/{stockTransaction}',
         [StockTransactionController::class, 'show']
@@ -375,5 +381,42 @@ Route::middleware('auth')->group(function () {
         '/invoices/{invoice}/nota-allocation',
         [InvoiceController::class, 'saveNotaAllocation']
     )->name('invoices.nota-allocation.save');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Master Penanggung Jawab Pembelian
+    |--------------------------------------------------------------------------
+    */
+
+    Route::resource(
+        'purchase-responsibles',
+        PurchaseResponsibleController::class
+    )->except(['show', 'destroy']);
+
+    Route::patch(
+        '/purchase-responsibles/{purchaseResponsible}/toggle-status',
+        [PurchaseResponsibleController::class, 'toggleStatus']
+    )->name('purchase-responsibles.toggle-status');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sub Kas Operasional
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/petty-cash',
+        [PettyCashController::class, 'index']
+    )->name('petty-cash.index');
+
+    Route::get(
+        '/petty-cash/top-up',
+        [PettyCashController::class, 'createTopUp']
+    )->name('petty-cash.top-up.create');
+
+    Route::post(
+        '/petty-cash/top-up',
+        [PettyCashController::class, 'storeTopUp']
+    )->name('petty-cash.top-up.store');
 
 });

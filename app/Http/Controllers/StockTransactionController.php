@@ -9,15 +9,18 @@ use App\Models\Supplier;
 use App\Models\Kitchen;
 use App\Models\Invoice;
 use App\Models\NotaKeluar;
+use App\Models\PurchaseResponsible;
+use App\Models\StockTransactionPayment;
+use App\Models\PettyCashTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class StockTransactionController extends Controller
 {
-    
     /*
     |--------------------------------------------------------------------------
     | DAFTAR BARANG MASUK
@@ -28,42 +31,21 @@ class StockTransactionController extends Controller
     {
         $query = StockTransaction::with([
             'supplier',
+            'purchaseResponsible',
             'details.item',
             'details.supplier',
         ])->where('type', 'IN');
 
-        /*
-         * PENCARIAN NOMOR TRANSAKSI DAN VENDOR
-         */
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
 
             $query->where(function ($q) use ($search) {
-                $q->where(
-                    'transaction_number',
-                    'like',
-                    '%' . $search . '%'
-                )
-                ->orWhere(
-                    'vendor_name',
-                    'like',
-                    '%' . $search . '%'
-                )
-                ->orWhere(
-                    'purchase_note_number',
-                    'like',
-                    '%' . $search . '%'
-                );
+                $q->where('transaction_number', 'like', '%' . $search . '%')
+                    ->orWhere('vendor_name', 'like', '%' . $search . '%')
+                    ->orWhere('purchase_note_number', 'like', '%' . $search . '%');
             });
         }
 
-        /*
-         * FILTER BERDASARKAN PERIODE
-         *
-         * hari  : tanggal tertentu
-         * bulan : bulan dan tahun tertentu
-         * tahun : tahun tertentu
-         */
         $periode = $request->input('periode');
 
         if ($periode === 'hari' && $request->filled('tanggal')) {
@@ -71,40 +53,23 @@ class StockTransactionController extends Controller
                 'tanggal' => ['date_format:Y-m-d'],
             ]);
 
-            $query->whereDate(
-                'transaction_date',
-                $request->input('tanggal')
-            );
+            $query->whereDate('transaction_date', $request->input('tanggal'));
         } elseif ($periode === 'bulan') {
             $request->validate([
                 'bulan' => ['required', 'regex:/^(0?[1-9]|1[0-2])$/'],
                 'tahun' => ['required', 'integer', 'between:2000,2100'],
             ]);
 
-            $query
-                ->whereYear(
-                    'transaction_date',
-                    (int) $request->input('tahun')
-                )
-                ->whereMonth(
-                    'transaction_date',
-                    (int) $request->input('bulan')
-                );
+            $query->whereYear('transaction_date', (int) $request->input('tahun'))
+                ->whereMonth('transaction_date', (int) $request->input('bulan'));
         } elseif ($periode === 'tahun') {
             $request->validate([
                 'tahun' => ['required', 'integer', 'between:2000,2100'],
             ]);
 
-            $query->whereYear(
-                'transaction_date',
-                (int) $request->input('tahun')
-            );
+            $query->whereYear('transaction_date', (int) $request->input('tahun'));
         }
 
-        /*
-         * TETAP URUTKAN DAN GUNAKAN PAGINATION.
-         * Filter tetap dipertahankan saat pindah halaman.
-         */
         $transactions = $query
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
@@ -119,7 +84,6 @@ class StockTransactionController extends Controller
         ));
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | FORM TAMBAH BARANG MASUK
@@ -131,10 +95,61 @@ class StockTransactionController extends Controller
         $suppliers = Supplier::orderBy('name')->get();
         $items = Item::orderBy('name')->get();
 
-        return view('stock_transactions.create', compact(
-            'suppliers',
-            'items'
-        ));
+        $responsibles = PurchaseResponsible::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $accounts = \App\Models\ChartOfAccount::query()
+            ->where('is_cash_bank', true)
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
+        // Saldo kas kecil dan top up terakhir setiap PJ
+        $pettyCashBalances = [];
+
+        foreach ($responsibles as $responsible) {
+            $balance = PettyCashTransaction::query()
+                ->where('purchase_responsible_id', $responsible->id)
+                ->selectRaw("
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN type = 'top_up' THEN amount
+                                WHEN type = 'purchase_payment' THEN -amount
+                                ELSE 0
+                            END
+                        ), 0
+                    ) as balance
+                ")
+                ->value('balance');
+
+            $lastTopUp = PettyCashTransaction::query()
+                ->where('purchase_responsible_id', $responsible->id)
+                ->where('type', 'top_up')
+                ->orderByDesc('transaction_date')
+                ->orderByDesc('id')
+                ->first();
+
+            $pettyCashBalances[$responsible->id] = [
+                'balance' => (float) $balance,
+                'last_top_up_date' => $lastTopUp?->transaction_date,
+                'last_top_up_amount' => $lastTopUp
+                    ? (float) $lastTopUp->amount
+                    : 0,
+            ];
+        }
+
+        return view(
+            'stock_transactions.create',
+            compact(
+                'suppliers',
+                'items',
+                'responsibles',
+                'accounts',
+                'pettyCashBalances'
+            )
+        );
     }
 
     /*
@@ -160,12 +175,79 @@ class StockTransactionController extends Controller
                 'required',
                 'date',
             ],
+
+            'payment_type' => [
+                'required',
+                'in:cash,credit',
+            ],
+
+            'initial_payments' => [
+                'nullable',
+                'array',
+                'max:50',
+            ],
+
+            'initial_payments.*.source_type' => [
+                'nullable',
+                Rule::in(['cash_bank', 'petty_cash']),
+            ],
+
+            'initial_payments.*.account_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('chart_of_accounts', 'id')->where(
+                    fn ($query) => $query
+                        ->where('is_cash_bank', true)
+                        ->where('is_active', true)
+                ),
+            ],
+
+            'initial_payments.*.purchase_responsible_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('purchase_responsibles', 'id')->where(
+                    fn ($query) => $query->where('is_active', true)
+                ),
+            ],
+
+            'initial_payments.*.payment_method' => [
+                'nullable',
+                'in:cash,transfer,other',
+            ],
+
+            'initial_payments.*.amount' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ],
+
+            'due_date' => [
+                'nullable',
+                'required_if:payment_type,credit',
+                'date',
+                'after_or_equal:transaction_date',
+            ],
             'porter_cost' => [
                 'nullable',
                 'numeric',
                 'min:0',
             ],
-            'purchase_discount_type' => [
+
+            'fuel_cost' => [
+            'nullable',
+            'numeric',
+            'min:0',
+            'max:9999999999999.99',
+        ],
+
+        'parking_cost' => [
+            'nullable',
+            'numeric',
+            'min:0',
+            'max:9999999999999.99',
+        ],
+                    'purchase_discount_type' => [
                 'nullable',
                 'in:amount,percent',
             ],
@@ -211,6 +293,12 @@ class StockTransactionController extends Controller
                 'string',
                 'max:50',
             ],
+            'purchase_responsible_id' => [
+                'required',
+                'integer',
+                Rule::exists('purchase_responsibles', 'id')
+                    ->where('is_active', true),
+            ],
         ], [
             'purchase_note_number.required' =>
                 'Nomor nota pembelian wajib diisi.',
@@ -222,12 +310,16 @@ class StockTransactionController extends Controller
                 'Biaya kuli harus berupa angka.',
             'porter_cost.min' =>
                 'Biaya kuli tidak boleh negatif.',
-            'purchase_discount_type.required' =>
-                'Jenis diskon tambahan nota wajib dipilih.',
+            'fuel_cost.numeric' =>
+                'Biaya BBM harus berupa angka.',
+            'fuel_cost.min' =>
+                'Biaya BBM tidak boleh negatif.',
+            'parking_cost.numeric' =>
+                'Biaya parkir harus berupa angka.',
+            'parking_cost.min' =>
+                'Biaya parkir tidak boleh negatif.',
             'purchase_discount_type.in' =>
                 'Jenis diskon tambahan nota tidak valid.',
-            'purchase_discount_value.required' =>
-                'Nilai diskon tambahan nota wajib diisi.',
             'purchase_discount_value.numeric' =>
                 'Nilai diskon tambahan nota harus berupa angka.',
             'purchase_discount_value.min' =>
@@ -248,12 +340,26 @@ class StockTransactionController extends Controller
                 'Harga satuan tidak boleh negatif.',
             'items.*.discount.min' =>
                 'Diskon barang tidak boleh negatif.',
+            'purchase_responsible_id.required' =>
+                'Penanggung jawab pembelian wajib dipilih.',
+            'purchase_responsible_id.exists' =>
+                'Penanggung jawab tidak ditemukan atau sudah tidak aktif.',
+            'payment_type.required' =>
+                'Jenis pembayaran wajib dipilih.',
+            'payment_type.in' =>
+                'Jenis pembayaran tidak valid.',
+            'initial_payment_amount.numeric' =>
+                'Nominal pembayaran awal harus berupa angka.',
+            'initial_payment_amount.min' =>
+                'Nominal pembayaran awal tidak boleh negatif.',
+            'due_date.required_if' =>
+                'Tanggal jatuh tempo wajib diisi untuk pembelian kredit.',
+            'due_date.after_or_equal' =>
+                'Tanggal jatuh tempo tidak boleh sebelum tanggal pembelian.',
         ]);
 
         $itemsData = collect($validated['items'])
-            ->filter(
-                fn ($row) => (float) ($row['quantity'] ?? 0) > 0
-            )
+            ->filter(fn ($row) => (float) ($row['quantity'] ?? 0) > 0)
             ->values();
 
         if ($itemsData->isEmpty()) {
@@ -265,6 +371,16 @@ class StockTransactionController extends Controller
 
         $porterCost = round(
             (float) ($validated['porter_cost'] ?? 0),
+            2
+        );
+
+        $fuelCost = round(
+            (float) ($validated['fuel_cost'] ?? 0),
+            2
+        );
+
+        $parkingCost = round(
+            (float) ($validated['parking_cost'] ?? 0),
             2
         );
 
@@ -290,6 +406,8 @@ class StockTransactionController extends Controller
             $validated,
             $itemsData,
             $porterCost,
+            $fuelCost,
+            $parkingCost,
             $purchaseDiscountType,
             $purchaseDiscountValue
         ) {
@@ -348,9 +466,17 @@ class StockTransactionController extends Controller
                     $validated['purchase_note_number']
                 ),
                 'porter_cost' => $porterCost,
+                'fuel_cost' => $fuelCost,
+                'parking_cost' => $parkingCost,
                 'purchase_discount_type' => $purchaseDiscountType,
                 'purchase_discount_value' => $purchaseDiscountValue,
+                'purchase_responsible_id' =>
+                    $validated['purchase_responsible_id'],
                 'transaction_date' => $validated['transaction_date'],
+                'payment_type' => $validated['payment_type'],
+                'payment_status' => 'unpaid',
+                'due_date' => $validated['due_date'] ?? null,
+                'paid_at' => null,
                 'notes' => $validated['notes'] ?? null,
                 'created_by' => auth()->id() ?? 1,
             ]);
@@ -369,16 +495,6 @@ class StockTransactionController extends Controller
                 $unitPrice = (float) $row['unit_price'];
                 $discount = (float) ($row['discount'] ?? 0);
 
-                /*
-                 * DISKON BARANG ADALAH DISKON TOTAL PER BARIS.
-                 *
-                 * Contoh:
-                 * Quantity    = 10
-                 * Harga       = 7.000
-                 * Diskon      = 1.000
-                 * Subtotal    = (10 x 7.000) - 1.000
-                 *             = 69.000
-                 */
                 $subtotalBeforeDiscount = $quantity * $unitPrice;
 
                 if ($discount > $subtotalBeforeDiscount) {
@@ -409,9 +525,6 @@ class StockTransactionController extends Controller
                     'allocated_porter_cost' => 0,
                 ]);
 
-                /*
-                 * Perbarui stok hanya jika item memang melacak stok.
-                 */
                 if ($item->track_stock) {
                     $stock = $stocks->get($itemId);
 
@@ -436,23 +549,266 @@ class StockTransactionController extends Controller
                 2
             );
 
-            $purchaseDiscountAmount = $this->calculatePurchaseDiscount(
-                $goodsSubtotal,
-                $purchaseDiscountType,
-                $purchaseDiscountValue
-            );
-
-            if ($purchaseDiscountAmount > $goodsSubtotal) {
+            if (
+                $purchaseDiscountType === 'amount'
+                && $purchaseDiscountValue > $goodsSubtotal
+            ) {
                 throw ValidationException::withMessages([
                     'purchase_discount_value' =>
                         'Diskon tambahan nota tidak boleh melebihi subtotal barang.',
                 ]);
             }
 
-            $this->allocatePorterCost(
-                $transaction,
-                $porterCost
+            $discountAmount = $this->calculatePurchaseDiscount(
+                $goodsSubtotal,
+                $purchaseDiscountType,
+                $purchaseDiscountValue
             );
+
+            $grandTotal = round(
+                max(0, $goodsSubtotal - $discountAmount)
+                    + $porterCost
+                    + $fuelCost
+                    + $parkingCost,
+                2
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | PEMBAYARAN AWAL
+            |--------------------------------------------------------------------------
+            */
+
+            $initialPayments = collect(
+                $validated['initial_payments'] ?? []
+            )
+                ->filter(fn ($payment) =>
+                    isset($payment['amount'])
+                    && is_numeric($payment['amount'])
+                    && (float) $payment['amount'] > 0
+                )
+                ->values();
+
+            $initialPaymentAmount = 0;
+            $pettyCashPaymentsByResponsible = [];
+
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDASI SEMUA SUMBER PEMBAYARAN
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($initialPayments as $payment) {
+                $sourceType = $payment['source_type'] ?? 'cash_bank';
+                $amount = round((float) $payment['amount'], 2);
+
+                if (!in_array($sourceType, ['cash_bank', 'petty_cash'], true)) {
+                    throw ValidationException::withMessages([
+                        'initial_payments' => 'Sumber pembayaran tidak valid.',
+                    ]);
+                }
+
+                if ($sourceType === 'cash_bank') {
+                    $accountId = $payment['account_id'] ?? null;
+                    $paymentMethod = $payment['payment_method'] ?? null;
+
+                    if (!$accountId || !$paymentMethod) {
+                        throw ValidationException::withMessages([
+                            'initial_payments' =>
+                                'Pilih akun dan metode pembayaran untuk pembayaran kas/bank.',
+                        ]);
+                    }
+
+                    $validAccount = \App\Models\ChartOfAccount::query()
+                        ->whereKey($accountId)
+                        ->where('is_cash_bank', true)
+                        ->where('is_active', true)
+                        ->exists();
+
+                    if (!$validAccount) {
+                        throw ValidationException::withMessages([
+                            'initial_payments' =>
+                                'Akun kas/bank tidak ditemukan atau sudah tidak aktif.',
+                        ]);
+                    }
+                }
+
+                if ($sourceType === 'petty_cash') {
+                    $responsibleId = $payment['purchase_responsible_id'] ?? null;
+
+                    if (!$responsibleId) {
+                        throw ValidationException::withMessages([
+                            'initial_payments' =>
+                                'Pilih PJ untuk pembayaran menggunakan kas kecil.',
+                        ]);
+                    }
+
+                    $responsible = PurchaseResponsible::query()
+                        ->whereKey($responsibleId)
+                        ->where('is_active', true)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$responsible) {
+                        throw ValidationException::withMessages([
+                            'initial_payments' =>
+                                'PJ kas kecil tidak ditemukan atau sudah tidak aktif.',
+                        ]);
+                    }
+
+                    /*
+                    * Saldo kas kecil = seluruh pemasukan - seluruh pengeluaran.
+                    * Asumsi jenis transaksi kas kecil:
+                    * top_up = pemasukan
+                    * purchase_payment = pembayaran pembelian
+                    */
+                    $pettyCashBalance = round(
+                        (float) PettyCashTransaction::query()
+                            ->where('purchase_responsible_id', $responsibleId)
+                            ->selectRaw("
+                                COALESCE(
+                                    SUM(
+                                        CASE
+                                            WHEN type = 'top_up' THEN amount
+                                            WHEN type = 'purchase_payment' THEN -amount
+                                            ELSE 0
+                                        END
+                                    ), 0
+                                ) as balance
+                            ")
+                            ->value('balance'),
+                        2
+                    );
+
+                    // Jumlahkan pembayaran dalam nota ini untuk PJ yang sama.
+                    $pettyCashPaymentsByResponsible[$responsibleId] = round(
+                        ($pettyCashPaymentsByResponsible[$responsibleId] ?? 0)
+                            + $amount,
+                        2
+                    );
+
+                    $totalPaymentForResponsible =
+                        $pettyCashPaymentsByResponsible[$responsibleId];
+
+                    if ($totalPaymentForResponsible > $pettyCashBalance + 0.01) {
+                        throw ValidationException::withMessages([
+                            'initial_payments' =>
+                                'Saldo kas kecil PJ '
+                                . $responsible->name
+                                . ' tidak cukup. Saldo tersedia Rp'
+                                . number_format($pettyCashBalance, 2, ',', '.')
+                                . ', total pembayaran PJ dalam nota Rp'
+                                . number_format($totalPaymentForResponsible, 2, ',', '.')
+                                . '.',
+                        ]);
+                    }
+                } // <-- TAMBAHKAN KURAWAL PENUTUP INI
+
+                $initialPaymentAmount = round(
+                    $initialPaymentAmount + $amount,
+                    2
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDASI TOTAL PEMBAYARAN
+            |--------------------------------------------------------------------------
+            */
+
+            if ($validated['payment_type'] === 'cash') {
+                if (abs($initialPaymentAmount - $grandTotal) > 0.01) {
+                    throw ValidationException::withMessages([
+                        'initial_payments' =>
+                            'Total pembayaran tunai harus sama dengan total nota. '
+                            . 'Total nota: Rp'
+                            . number_format($grandTotal, 2, ',', '.')
+                            . ', total pembayaran: Rp'
+                            . number_format($initialPaymentAmount, 2, ',', '.')
+                            . '.',
+                    ]);
+                }
+            }
+
+            if ($initialPaymentAmount > $grandTotal + 0.01) {
+                throw ValidationException::withMessages([
+                    'initial_payments' =>
+                        'Total pembayaran awal tidak boleh melebihi total nota.',
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | STATUS NOTA
+            |--------------------------------------------------------------------------
+            */
+
+            if (abs($initialPaymentAmount - $grandTotal) <= 0.01) {
+                $paymentStatus = 'paid';
+            } elseif ($initialPaymentAmount > 0) {
+                $paymentStatus = 'partial';
+            } else {
+                $paymentStatus = 'unpaid';
+            }
+
+            $transaction->payment_status = $paymentStatus;
+
+            $transaction->paid_at = $paymentStatus === 'paid'
+                ? $validated['transaction_date']
+                : null;
+
+            $transaction->save();
+
+            /*
+            |--------------------------------------------------------------------------
+            | SIMPAN PEMBAYARAN DAN LEDGER KAS KECIL
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($initialPayments as $payment) {
+                $sourceType = $payment['source_type'] ?? 'cash_bank';
+                $amount = round((float) $payment['amount'], 2);
+
+                $paymentMethod = $sourceType === 'petty_cash'
+                    ? 'cash'
+                    : $payment['payment_method'];
+
+                $paymentRecord = $transaction->payments()->create([
+                    'account_id' => $sourceType === 'cash_bank'
+                        ? $payment['account_id']
+                        : null,
+
+                    'source_type' => $sourceType,
+
+                    'purchase_responsible_id' => $sourceType === 'petty_cash'
+                        ? $payment['purchase_responsible_id']
+                        : null,
+
+                    'payment_date' => $validated['transaction_date'],
+                    'amount' => $amount,
+                    'payment_method' => $paymentMethod,
+                    'created_by' => auth()->id() ?? 1,
+                ]);
+
+                if ($sourceType === 'petty_cash') {
+                    PettyCashTransaction::create([
+                        'purchase_responsible_id' =>
+                            $payment['purchase_responsible_id'],
+
+                        'type' => 'purchase_payment',
+                        'transaction_date' => $validated['transaction_date'],
+                        'amount' => $amount,
+                        'source_account_id' => null,
+                        'stock_transaction_payment_id' => $paymentRecord->id,
+                        'reference_number' => $transaction->purchase_note_number,
+                        'notes' => 'Pembayaran nota pembelian '
+                            . $transaction->purchase_note_number
+                            . ' - '
+                            . $transaction->vendor_name,
+                        'created_by' => auth()->id() ?? 1,
+                    ]);
+                }
+            }
         });
 
         return redirect()
@@ -485,36 +841,15 @@ class StockTransactionController extends Controller
             $search = trim($request->input('search'));
 
             $query->where(function ($q) use ($search) {
-                $q->where(
-                    'transaction_number',
-                    'like',
-                    '%' . $search . '%'
-                )
-                    ->orWhere(
-                        'notes',
-                        'like',
-                        '%' . $search . '%'
-                    )
+                $q->where('transaction_number', 'like', '%' . $search . '%')
+                    ->orWhere('notes', 'like', '%' . $search . '%')
                     ->orWhereHas('purchaseOrder', function ($po) use ($search) {
-                        $po->where(
-                            'po_number',
-                            'like',
-                            '%' . $search . '%'
-                        );
+                        $po->where('po_number', 'like', '%' . $search . '%');
                     })
                     ->orWhereHas('kitchen', function ($kitchen) use ($search) {
                         $kitchen->where(function ($subQuery) use ($search) {
-                            $subQuery
-                                ->where(
-                                    'name',
-                                    'like',
-                                    '%' . $search . '%'
-                                )
-                                ->orWhere(
-                                    'id_sppg',
-                                    'like',
-                                    '%' . $search . '%'
-                                );
+                            $subQuery->where('name', 'like', '%' . $search . '%')
+                                ->orWhere('id_sppg', 'like', '%' . $search . '%');
                         });
                     });
             });
@@ -562,21 +897,352 @@ class StockTransactionController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | SIMPAN PEMBAYARAN TAMBAHAN / PELUNASAN TEMPO
+    |--------------------------------------------------------------------------
+    */
+
+    public function storePayment(Request $request, $stockTransaction)
+    {
+        $validated = $request->validate([
+            'payment_date' => [
+                'required',
+                'date',
+            ],
+            'amount' => [
+                'required',
+                'numeric',
+                'gt:0',
+                'max:9999999999999.99',
+            ],
+            'source_type' => [
+                'required',
+                Rule::in(['cash_bank', 'petty_cash']),
+            ],
+            'payment_method' => [
+                'nullable',
+                Rule::in(['cash', 'transfer', 'other']),
+            ],
+            'account_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('chart_of_accounts', 'id')->where(
+                    fn ($query) => $query
+                        ->where('is_cash_bank', true)
+                        ->where('is_active', true)
+                ),
+            ],
+            'purchase_responsible_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('purchase_responsibles', 'id')->where(
+                    fn ($query) => $query->where('is_active', true)
+                ),
+            ],
+            'reference_number' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'notes' => [
+                'nullable',
+                'string',
+                'max:5000',
+            ],
+        ]);
+
+        DB::transaction(function () use ($validated, $stockTransaction) {
+            $transaction = StockTransaction::whereKey($stockTransaction)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($transaction->type !== 'IN') {
+                throw ValidationException::withMessages([
+                    'amount' =>
+                        'Pembayaran hanya dapat ditambahkan pada transaksi barang masuk.',
+                ]);
+            }
+
+            $sourceType = $validated['source_type'];
+            $paymentAmount = round((float) $validated['amount'], 2);
+
+            /*
+            |--------------------------------------------------------------------------
+            | HITUNG TOTAL NOTA
+            |--------------------------------------------------------------------------
+            */
+
+            $goodsSubtotal = round(
+                (float) $transaction->details()->sum('subtotal'),
+                2
+            );
+
+            $discountAmount = $this->calculatePurchaseDiscount(
+                $goodsSubtotal,
+                $transaction->purchase_discount_type ?? 'amount',
+                round(
+                    (float) ($transaction->purchase_discount_value ?? 0),
+                    2
+                )
+            );
+
+            $grandTotal = round(
+                max(0, $goodsSubtotal - $discountAmount)
+                    + (float) ($transaction->porter_cost ?? 0)
+                    + (float) ($transaction->fuel_cost ?? 0)
+                    + (float) ($transaction->parking_cost ?? 0),
+                2
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | HITUNG PEMBAYARAN YANG SUDAH TERCATAT
+            |--------------------------------------------------------------------------
+            */
+
+            $paidAmount = round(
+                (float) $transaction->payments()->sum('amount'),
+                2
+            );
+
+            $remainingAmount = round(
+                max(0, $grandTotal - $paidAmount),
+                2
+            );
+
+            if ($remainingAmount <= 0.01) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Transaksi ini sudah lunas.',
+                ]);
+            }
+
+            if ($paymentAmount > $remainingAmount + 0.01) {
+                throw ValidationException::withMessages([
+                    'amount' =>
+                        'Pembayaran melebihi sisa tagihan sebesar Rp'
+                        . number_format($remainingAmount, 2, ',', '.')
+                        . '.',
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDASI SUMBER PEMBAYARAN
+            |--------------------------------------------------------------------------
+            */
+
+            $accountId = null;
+            $responsibleId = null;
+            $paymentMethod = null;
+
+            if ($sourceType === 'cash_bank') {
+                $accountId = $validated['account_id'] ?? null;
+                $paymentMethod = $validated['payment_method'] ?? null;
+
+                if (!$accountId) {
+                    throw ValidationException::withMessages([
+                        'account_id' =>
+                            'Pilih akun kas/bank untuk pembayaran ini.',
+                    ]);
+                }
+
+                if (!$paymentMethod) {
+                    throw ValidationException::withMessages([
+                        'payment_method' =>
+                            'Pilih metode pembayaran Tunai atau Transfer.',
+                    ]);
+                }
+
+                $validAccount = \App\Models\ChartOfAccount::query()
+                    ->whereKey($accountId)
+                    ->where('is_cash_bank', true)
+                    ->where('is_active', true)
+                    ->exists();
+
+                if (!$validAccount) {
+                    throw ValidationException::withMessages([
+                        'account_id' =>
+                            'Akun kas/bank tidak ditemukan atau sudah tidak aktif.',
+                    ]);
+                }
+            } else {
+                /*
+                |--------------------------------------------------------------------------
+                | PEMBAYARAN DARI KAS KECIL PJ
+                |--------------------------------------------------------------------------
+                */
+
+                $responsibleId =
+                    $validated['purchase_responsible_id'] ?? null;
+
+                if (!$responsibleId) {
+                    throw ValidationException::withMessages([
+                        'purchase_responsible_id' =>
+                            'Pilih PJ untuk pembayaran kas kecil.',
+                    ]);
+                }
+
+                $responsible = PurchaseResponsible::query()
+                    ->whereKey($responsibleId)
+                    ->where('is_active', true)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$responsible) {
+                    throw ValidationException::withMessages([
+                        'purchase_responsible_id' =>
+                            'PJ tidak ditemukan atau sudah tidak aktif.',
+                    ]);
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | SALDO KAS KECIL
+                |--------------------------------------------------------------------------
+                | top_up = pemasukan
+                | purchase_payment = pengeluaran
+                */
+
+                $balance = round(
+                    (float) PettyCashTransaction::query()
+                        ->where('purchase_responsible_id', $responsibleId)
+                        ->selectRaw("
+                            COALESCE(
+                                SUM(
+                                    CASE
+                                        WHEN type = 'top_up' THEN amount
+                                        WHEN type = 'purchase_payment' THEN -amount
+                                        ELSE 0
+                                    END
+                                ), 0
+                            ) as balance
+                        ")
+                        ->value('balance'),
+                    2
+                );
+
+                if ($paymentAmount > $balance + 0.01) {
+                    throw ValidationException::withMessages([
+                        'amount' =>
+                            'Saldo kas kecil PJ '
+                            . $responsible->name
+                            . ' tidak cukup. Saldo tersedia Rp'
+                            . number_format($balance, 2, ',', '.')
+                            . '.',
+                    ]);
+                }
+
+                /*
+                * Kas kecil selalu dibayarkan secara tunai.
+                */
+                $paymentMethod = 'cash';
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | SIMPAN PEMBAYARAN
+            |--------------------------------------------------------------------------
+            */
+
+            $paymentRecord = $transaction->payments()->create([
+                'account_id' => $accountId,
+                'source_type' => $sourceType,
+                'purchase_responsible_id' => $responsibleId,
+                'payment_date' => $validated['payment_date'],
+                'amount' => $paymentAmount,
+                'payment_method' => $paymentMethod,
+                'reference_number' =>
+                    $validated['reference_number'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => auth()->id() ?? 1,
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | CATAT PENGELUARAN KAS KECIL PJ
+            |--------------------------------------------------------------------------
+            */
+
+            if ($sourceType === 'petty_cash') {
+                PettyCashTransaction::create([
+                    'purchase_responsible_id' => $responsibleId,
+                    'type' => 'purchase_payment',
+                    'transaction_date' => $validated['payment_date'],
+                    'amount' => $paymentAmount,
+                    'source_account_id' => null,
+                    'stock_transaction_payment_id' => $paymentRecord->id,
+                    'reference_number' =>
+                        $validated['reference_number']
+                        ?? $transaction->purchase_note_number,
+                    'notes' =>
+                        $validated['notes']
+                        ?? 'Pembayaran nota pembelian '
+                        . $transaction->purchase_note_number
+                        . ' - '
+                        . $transaction->vendor_name,
+                    'created_by' => auth()->id() ?? 1,
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | PERBARUI STATUS NOTA
+            |--------------------------------------------------------------------------
+            */
+
+            $newPaidAmount = round(
+                $paidAmount + $paymentAmount,
+                2
+            );
+
+            if ($newPaidAmount >= $grandTotal - 0.01) {
+                $transaction->payment_status = 'paid';
+
+                /*
+                * paid_at menggunakan tanggal pembayaran aktual terakhir.
+                */
+                $transaction->paid_at = $validated['payment_date'];
+            } elseif ($newPaidAmount > 0) {
+                $transaction->payment_status = 'partial';
+                $transaction->paid_at = null;
+            } else {
+                $transaction->payment_status = 'unpaid';
+                $transaction->paid_at = null;
+            }
+
+            $transaction->save();
+        });
+
+        return redirect()
+            ->route('stock-transactions.show', $stockTransaction)
+            ->with('success', 'Pembayaran berhasil dicatat.');
+    }
+
+
     public function show($stockTransaction)
     {
         $stockTransaction = StockTransaction::with([
             'supplier',
             'kitchen',
             'purchaseOrder',
+            'purchaseResponsible',
             'details.item',
             'details.supplier',
             'invoice',
             'notaKeluars.supplier',
+            'payments.account',
         ])->findOrFail($stockTransaction);
+
+        $accounts = \App\Models\ChartOfAccount::query()
+            ->where('is_cash_bank', true)
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
 
         return view(
             'stock_transactions.show',
-            compact('stockTransaction')
+            compact('stockTransaction', 'accounts')
         );
     }
 
@@ -590,6 +1256,7 @@ class StockTransactionController extends Controller
     {
         $stockTransaction = StockTransaction::with([
             'supplier',
+            'purchaseResponsible',
             'details.item',
             'details.supplier',
             'purchaseOrder.details',
@@ -600,11 +1267,16 @@ class StockTransactionController extends Controller
         $kitchens = Kitchen::orderBy('name')->get();
 
         if ($stockTransaction->type === 'IN') {
+            $responsibles = PurchaseResponsible::where('is_active', true)
+                ->orderBy('name')
+                ->get();
+
             return view('stock_transactions.edit_in', compact(
                 'stockTransaction',
                 'items',
                 'suppliers',
-                'kitchens'
+                'kitchens',
+                'responsibles'
             ));
         }
 
@@ -644,8 +1316,6 @@ class StockTransactionController extends Controller
             'items.*.item_id' => [
                 'required',
                 'integer',
-                // Sengaja tidak memakai distinct:
-                // satu barang boleh muncul pada beberapa baris.
                 'exists:items,id',
             ],
             'items.*.quantity' => [
@@ -706,6 +1376,22 @@ class StockTransactionController extends Controller
                 'min:0',
             ];
 
+            $rules['fuel_cost'] = [
+                'sometimes',
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ];
+
+            $rules['parking_cost'] = [
+                'sometimes',
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ];
+
             $rules['purchase_discount_type'] = [
                 'sometimes',
                 'nullable',
@@ -718,6 +1404,14 @@ class StockTransactionController extends Controller
                 'numeric',
                 'min:0',
                 'max:9999999999999.99',
+            ];
+
+            $rules['purchase_responsible_id'] = [
+                'sometimes',
+                'required',
+                'integer',
+                Rule::exists('purchase_responsibles', 'id')
+                    ->where('is_active', true),
             ];
         }
 
@@ -758,12 +1452,24 @@ class StockTransactionController extends Controller
                 'Biaya kuli harus berupa angka.',
             'porter_cost.min' =>
                 'Biaya kuli tidak boleh negatif.',
+            'fuel_cost.numeric' =>
+                'Biaya BBM harus berupa angka.',
+            'fuel_cost.min' =>
+                'Biaya BBM tidak boleh negatif.',
+            'parking_cost.numeric' =>
+                'Biaya parkir harus berupa angka.',
+            'parking_cost.min' =>
+                'Biaya parkir tidak boleh negatif.',
             'purchase_discount_type.in' =>
                 'Jenis diskon tambahan nota tidak valid.',
             'purchase_discount_value.numeric' =>
                 'Nilai diskon tambahan nota harus berupa angka.',
             'purchase_discount_value.min' =>
                 'Diskon tambahan nota tidak boleh negatif.',
+            'purchase_responsible_id.required' =>
+                'Penanggung jawab pembelian wajib dipilih.',
+            'purchase_responsible_id.exists' =>
+                'Penanggung jawab tidak ditemukan atau sudah tidak aktif.',
         ]);
 
         if ($existingTransaction->type === 'IN') {
@@ -826,10 +1532,8 @@ class StockTransactionController extends Controller
                 ->keyBy('item_id');
 
             /*
-            * Kembalikan dampak semua detail lama terhadap stok.
-            * Jika satu barang memiliki beberapa baris, setiap baris
-            * dikembalikan satu kali sesuai jumlah masing-masing.
-            */
+             * Kembalikan dampak semua detail lama terhadap stok.
+             */
             foreach ($oldDetails as $detail) {
                 $stock = $stocks->get($detail->item_id);
 
@@ -873,16 +1577,8 @@ class StockTransactionController extends Controller
                 ->get()
                 ->keyBy('id');
 
-            /*
-            * Hapus detail lama setelah dampak stoknya dikembalikan.
-            * Seluruh detail baru kemudian disimpan dari input form.
-            */
             $transaction->details()->delete();
 
-            /*
-            * Penanda agar detail lama yang sama tidak dipakai
-            * berulang kali saat mencocokkan baris baru.
-            */
             $usedOldDetailIds = [];
             $usedPoDetailIds = [];
 
@@ -932,11 +1628,6 @@ class StockTransactionController extends Controller
                     ]);
                 }
 
-                /*
-                * Cari stok berdasarkan ID barang.
-                * Semua baris barang yang sama memakai record stok
-                * yang sama, bukan membuat stok duplikat.
-                */
                 $stock = $stocks->get($itemId);
 
                 if (!$stock) {
@@ -964,10 +1655,6 @@ class StockTransactionController extends Controller
                         ]);
                     }
 
-                    /*
-                    * Validasi dilakukan untuk setiap baris terhadap
-                    * stok terkini setelah baris sebelumnya diproses.
-                    */
                     if ((float) $stock->quantity < $quantity) {
                         throw ValidationException::withMessages([
                             'items' =>
@@ -996,12 +1683,6 @@ class StockTransactionController extends Controller
 
                 $stock->save();
 
-                /*
-                * Cocokkan detail lama satu per satu.
-                * Utamakan barang, supplier, dan Bagian yang sama.
-                * Ini mencegah semua baris duplikat mengambil detail lama
-                * yang sama sehingga Bagian/Reimburse tertukar.
-                */
                 $sectionName = trim(
                     (string) ($row['section_name'] ?? '')
                 );
@@ -1014,10 +1695,7 @@ class StockTransactionController extends Controller
                         &$usedOldDetailIds,
                         $transaction
                     ) {
-                        if (in_array(
-                            $detail->id,
-                            $usedOldDetailIds
-                        )) {
+                        if (in_array($detail->id, $usedOldDetailIds)) {
                             return false;
                         }
 
@@ -1046,11 +1724,6 @@ class StockTransactionController extends Controller
                     }
                 );
 
-                /*
-                * Jika tidak ditemukan kecocokan Bagian, ambil detail
-                * lama pertama yang belum dipakai untuk barang/supplier
-                * yang sama.
-                */
                 if (!$oldDetail) {
                     $oldDetail = $oldDetails->first(
                         function ($detail) use (
@@ -1059,10 +1732,7 @@ class StockTransactionController extends Controller
                             &$usedOldDetailIds,
                             $transaction
                         ) {
-                            if (in_array(
-                                $detail->id,
-                                $usedOldDetailIds
-                            )) {
+                            if (in_array($detail->id, $usedOldDetailIds)) {
                                 return false;
                             }
 
@@ -1084,10 +1754,6 @@ class StockTransactionController extends Controller
                     $usedOldDetailIds[] = $oldDetail->id;
                 }
 
-                /*
-                * Cari detail PO yang belum dipakai.
-                * Utamakan Bagian yang sama jika tersedia.
-                */
                 $poDetail = $purchaseOrderDetails->first(
                     function ($detail) use (
                         $itemId,
@@ -1095,10 +1761,7 @@ class StockTransactionController extends Controller
                         $sectionName,
                         &$usedPoDetailIds
                     ) {
-                        if (in_array(
-                            $detail->id,
-                            $usedPoDetailIds
-                        )) {
+                        if (in_array($detail->id, $usedPoDetailIds)) {
                             return false;
                         }
 
@@ -1135,10 +1798,7 @@ class StockTransactionController extends Controller
                             $supplierId,
                             &$usedPoDetailIds
                         ) {
-                            if (in_array(
-                                $detail->id,
-                                $usedPoDetailIds
-                            )) {
+                            if (in_array($detail->id, $usedPoDetailIds)) {
                                 return false;
                             }
 
@@ -1163,10 +1823,6 @@ class StockTransactionController extends Controller
                     $usedPoDetailIds[] = $poDetail->id;
                 }
 
-                /*
-                * Pertahankan Bagian dari form.
-                * Jika kosong, gunakan data lama atau data PO.
-                */
                 if ($sectionName === '') {
                     $sectionName = trim((string) (
                         $oldDetail?->section_name
@@ -1183,11 +1839,6 @@ class StockTransactionController extends Controller
                         ?? 0;
                 }
 
-                /*
-                * Checkbox form menggunakan hidden 0 dan checkbox 1.
-                * Jika nilai reimburse ada dalam input, ikuti nilai itu.
-                * Jika tidak ada, pertahankan nilai detail lama/PO.
-                */
                 if (array_key_exists('reimburse', $row)) {
                     $isReimburse = (bool) $row['reimburse'];
                 } else {
@@ -1236,9 +1887,6 @@ class StockTransactionController extends Controller
                     $detailData['section_order'] = (int) $sectionOrder;
                 }
 
-                /*
-                * Simpan penanda Reimburse jika kolom tersedia.
-                */
                 $detailTable = $transaction->details()
                     ->getModel()
                     ->getTable();
@@ -1260,9 +1908,6 @@ class StockTransactionController extends Controller
                 $transaction->details()->create($detailData);
             }
 
-            /*
-            * Simpan header transaksi.
-            */
             $transaction->transaction_date =
                 $validated['transaction_date'];
 
@@ -1280,9 +1925,28 @@ class StockTransactionController extends Controller
                         $validated['purchase_note_number'];
                 }
 
+                if (array_key_exists('purchase_responsible_id', $validated)) {
+                    $transaction->purchase_responsible_id =
+                        $validated['purchase_responsible_id'];
+                }
+
                 if (array_key_exists('porter_cost', $validated)) {
                     $transaction->porter_cost = round(
                         (float) ($validated['porter_cost'] ?? 0),
+                        2
+                    );
+                }
+
+                if (array_key_exists('fuel_cost', $validated)) {
+                    $transaction->fuel_cost = round(
+                        (float) ($validated['fuel_cost'] ?? 0),
+                        2
+                    );
+                }
+
+                if (array_key_exists('parking_cost', $validated)) {
+                    $transaction->parking_cost = round(
+                        (float) ($validated['parking_cost'] ?? 0),
                         2
                     );
                 }
@@ -1303,10 +1967,13 @@ class StockTransactionController extends Controller
                     $transaction->purchase_discount_value = 0;
                 }
 
-                if (
-                    $transaction->purchase_discount_type === 'percent'
-                    && (float) $transaction->purchase_discount_value > 100
-                ) {
+                $discountType = $transaction->purchase_discount_type ?: 'amount';
+                $discountValue = round(
+                    (float) ($transaction->purchase_discount_value ?? 0),
+                    2
+                );
+
+                if ($discountType === 'percent' && $discountValue > 100) {
                     throw ValidationException::withMessages([
                         'purchase_discount_value' =>
                             'Diskon persentase tidak boleh lebih dari 100%.',
@@ -1318,31 +1985,86 @@ class StockTransactionController extends Controller
                     2
                 );
 
-                $discountAmount = $this->calculatePurchaseDiscount(
-                    $goodsSubtotal,
-                    (string) (
-                        $transaction->purchase_discount_type ?? 'amount'
-                    ),
-                    (float) (
-                        $transaction->purchase_discount_value ?? 0
-                    )
-                );
-
-                if ($discountAmount > $goodsSubtotal) {
+                if (
+                    $discountType === 'amount'
+                    && $discountValue > $goodsSubtotal
+                ) {
                     throw ValidationException::withMessages([
                         'purchase_discount_value' =>
                             'Diskon tambahan nota tidak boleh melebihi subtotal barang.',
                     ]);
                 }
+
+                $this->calculatePurchaseDiscount(
+                    $goodsSubtotal,
+                    $discountType,
+                    $discountValue
+                );
             }
 
             $transaction->save();
 
             if ($transaction->type === 'IN') {
-                $this->allocatePorterCost(
-                    $transaction,
-                    (float) ($transaction->porter_cost ?? 0)
+
+                /*
+                * Hitung ulang total nota setelah barang,
+                * diskon, dan biaya diperbarui.
+                */
+                $goodsSubtotal = round(
+                    (float) $transaction->details()->sum('subtotal'),
+                    2
                 );
+
+                $discountType = $transaction->purchase_discount_type
+                    ?: 'amount';
+
+                $discountValue = round(
+                    (float) ($transaction->purchase_discount_value ?? 0),
+                    2
+                );
+
+                $discountAmount = $this->calculatePurchaseDiscount(
+                    $goodsSubtotal,
+                    $discountType,
+                    $discountValue
+                );
+
+                $grandTotal = round(
+                    max(0, $goodsSubtotal - $discountAmount)
+                        + (float) ($transaction->porter_cost ?? 0)
+                        + (float) ($transaction->fuel_cost ?? 0)
+                        + (float) ($transaction->parking_cost ?? 0),
+                    2
+                );
+
+                /*
+                * Pembayaran lama tetap dipertahankan.
+                * Hanya hitung jumlahnya untuk menentukan status nota.
+                */
+                $paidAmount = round(
+                    (float) $transaction->payments()->sum('amount'),
+                    2
+                );
+
+                if ($paidAmount > 0 && $paidAmount >= $grandTotal) {
+                    $transaction->payment_status = 'paid';
+
+                    /*
+                    * Ambil tanggal pembayaran terakhir yang tercatat.
+                    */
+                    $transaction->paid_at = $transaction->payments()
+                        ->orderByDesc('payment_date')
+                        ->orderByDesc('id')
+                        ->value('payment_date');
+                } elseif ($paidAmount > 0) {
+                    $transaction->payment_status = 'partial';
+                    $transaction->paid_at = null;
+                } else {
+                    $transaction->payment_status = 'unpaid';
+                    $transaction->paid_at = null;
+                }
+
+                $transaction->save();
             }
 
             if ($transaction->type === 'OUT') {
@@ -1579,31 +2301,57 @@ class StockTransactionController extends Controller
 
                 $purchaseOrderId = $transaction->purchase_order_id;
 
-                $transaction->details()->delete();
-                $transaction->delete();
+                                /*
+                |--------------------------------------------------------------------------
+                | HAPUS LEDGER KAS KECIL TERKAIT PEMBAYARAN NOTA
+                |--------------------------------------------------------------------------
+                */
 
                 if (
-                    $purchaseOrderId
-                    && Schema::hasTable('purchase_orders')
-                    && Schema::hasColumn('purchase_orders', 'status')
+                    Schema::hasTable('petty_cash_transactions')
+                    && Schema::hasTable('stock_transaction_payments')
                 ) {
-                    $poUpdate = [
-                        'status' => 'RECEIVED',
-                    ];
+                    $paymentIds = DB::table('stock_transaction_payments')
+                        ->where('stock_transaction_id', $transaction->id)
+                        ->pluck('id');
 
-                    if (
-                        Schema::hasColumn(
-                            'purchase_orders',
-                            'processed_at'
-                        )
-                    ) {
-                        $poUpdate['processed_at'] = null;
+                    if ($paymentIds->isNotEmpty()) {
+                        DB::table('petty_cash_transactions')
+                            ->whereIn(
+                                'stock_transaction_payment_id',
+                                $paymentIds
+                            )
+                            ->delete();
                     }
-
-                    DB::table('purchase_orders')
-                        ->where('id', $purchaseOrderId)
-                        ->update($poUpdate);
                 }
+
+                /*
+                |--------------------------------------------------------------------------
+                | HAPUS PEMBAYARAN NOTA
+                |--------------------------------------------------------------------------
+                */
+
+                if (Schema::hasTable('stock_transaction_payments')) {
+                    DB::table('stock_transaction_payments')
+                        ->where('stock_transaction_id', $transaction->id)
+                        ->delete();
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | HAPUS DETAIL TRANSAKSI
+                |--------------------------------------------------------------------------
+                */
+
+                $transaction->details()->delete();
+
+                /*
+                |--------------------------------------------------------------------------
+                | HAPUS TRANSAKSI
+                |--------------------------------------------------------------------------
+                */
+
+                $transaction->delete();
             });
 
             return redirect()
@@ -1614,23 +2362,11 @@ class StockTransactionController extends Controller
                 )
                 ->with(
                     'success',
-                    $transactionType === 'OUT'
-                        ? 'Transaksi Barang Keluar beserta Invoice dan Nota terkait berhasil dihapus. Stok telah disesuaikan.'
-                        : 'Transaksi Barang Masuk berhasil dihapus. Stok telah disesuaikan.'
+                    'Transaksi berhasil dihapus dan stok telah diperbarui.'
                 );
 
         } catch (ValidationException $e) {
             throw $e;
-
-        } catch (\Throwable $e) {
-            report($e);
-
-            return redirect()
-                ->back()
-                ->with(
-                    'error',
-                    'Transaksi gagal dihapus. Periksa storage/logs/laravel.log untuk detail error.'
-                );
         }
     }
 
@@ -1647,17 +2383,23 @@ class StockTransactionController extends Controller
         $stockTransaction->load([
             'details.item',
             'details.supplier',
+            'purchaseResponsible',
         ]);
 
         $suppliers = Supplier::orderBy('name')->get();
         $items = Item::orderBy('name')->get();
         $kitchens = Kitchen::orderBy('name')->get();
 
+        $responsibles = PurchaseResponsible::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
         return view('stock_transactions.edit_in', compact(
             'stockTransaction',
             'suppliers',
             'items',
-            'kitchens'
+            'kitchens',
+            'responsibles'
         ));
     }
 
@@ -1690,80 +2432,5 @@ class StockTransactionController extends Controller
         }
 
         return round(min($goodsSubtotal, $discountValue), 2);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | ALOKASI BIAYA KULI
-    |--------------------------------------------------------------------------
-    */
-
-    private function allocatePorterCost(
-        StockTransaction $transaction,
-        float $porterCost
-    ): void {
-        $porterCost = round($porterCost, 2);
-
-        if ($porterCost < 0) {
-            throw ValidationException::withMessages([
-                'porter_cost' =>
-                    'Biaya kuli tidak boleh kurang dari Rp0.',
-            ]);
-        }
-
-        $details = $transaction->details()
-            ->orderBy('id')
-            ->get();
-
-        $totalSubtotal = round(
-            (float) $details->sum('subtotal'),
-            2
-        );
-
-        if ($porterCost > 0 && $totalSubtotal <= 0) {
-            throw ValidationException::withMessages([
-                'porter_cost' =>
-                    'Biaya kuli tidak dapat dialokasikan karena total subtotal barang adalah Rp0.',
-            ]);
-        }
-
-        if ($details->isEmpty()) {
-            if ($porterCost > 0) {
-                throw ValidationException::withMessages([
-                    'porter_cost' =>
-                        'Tambahkan barang terlebih dahulu sebelum mengisi biaya kuli.',
-                ]);
-            }
-
-            return;
-        }
-
-        $remainingCost = $porterCost;
-        $lastIndex = $details->count() - 1;
-
-        foreach ($details as $index => $detail) {
-            if ($porterCost <= 0 || $totalSubtotal <= 0) {
-                $allocated = 0;
-            } elseif ($index === $lastIndex) {
-                $allocated = $remainingCost;
-            } else {
-                $allocated = round(
-                    $porterCost
-                        * (
-                            (float) $detail->subtotal
-                            / $totalSubtotal
-                        ),
-                    2
-                );
-
-                $remainingCost = round(
-                    $remainingCost - $allocated,
-                    2
-                );
-            }
-
-            $detail->allocated_porter_cost = $allocated;
-            $detail->save();
-        }
     }
 }

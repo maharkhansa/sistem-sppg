@@ -11,7 +11,7 @@
         <div>
             <h4 class="fw-bold mb-1">
                 <i class="bi bi-truck me-2 text-success"></i>
-                Data Supplier
+                Data Supplier Yayasan
             </h4>
             <p class="text-muted mb-0">
                 Kelola data pemasok bahan baku dan kebutuhan operasional SPPG.

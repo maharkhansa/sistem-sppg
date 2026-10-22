@@ -330,6 +330,8 @@
         .signature-section {
             width: 92%;
             margin-top: 18px;
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
 
         .signature-grid-top {
@@ -364,7 +366,10 @@
         }
 
         .signature-space {
-            height: 75px;
+            display: block !important;
+            height: 75px !important;
+            min-height: 75px !important;
+            max-height: none !important;
         }
 
         .signature-line {
@@ -517,24 +522,44 @@
                 font-size: 12px !important;
             }
 
+            
             .signature-section {
                 width: 92% !important;
                 margin-top: 12px !important;
-                break-inside: avoid;
-                page-break-inside: avoid;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
             }
 
             .signature-grid-top {
+                display: table !important;
                 width: 100% !important;
-                margin-bottom: 10px !important;
+                table-layout: fixed !important;
+                margin-bottom: 15px !important;
+            }
+
+            .signature-grid-top .signature-box {
+                display: table-cell !important;
+                width: 50% !important;
+                vertical-align: top !important;
             }
 
             .signature-grid-bottom {
+                display: table !important;
                 width: 100% !important;
+                table-layout: fixed !important;
+            }
+
+            .signature-grid-bottom .signature-box {
+                display: table-cell !important;
+                width: 33.333% !important;
+                vertical-align: top !important;
             }
 
             .signature-space {
-                height: 55px !important;
+                display: block !important;
+                height: 75px !important;
+                min-height: 75px !important;
+                max-height: none !important;
             }
 
             .signature-line {
@@ -542,11 +567,11 @@
             }
 
             .knowing-title {
-                margin-bottom: 7px !important;
+                margin-bottom: 10px !important;
             }
 
             .signature-name-bold {
-                margin-top: 5px !important;
+                margin-top: 7px !important;
             }
 
             .invoice-card.fit-compact-1 .invoice-table th,
@@ -1151,6 +1176,7 @@
             });
         }
 
+        
         function fitInvoiceForPrint() {
             const invoice = document.querySelector('.invoice-card');
 
@@ -1158,23 +1184,16 @@
                 return;
             }
 
+            // Pastikan mode pemadatan tidak mengecilkan tanda tangan.
             invoice.classList.remove(
                 'fit-compact-1',
                 'fit-compact-2'
             );
 
-            const maxHeight = (297 - 16) * 96 / 25.4;
-
-            if (invoice.getBoundingClientRect().height > maxHeight) {
-                invoice.classList.add('fit-compact-1');
-            }
-
-            if (invoice.getBoundingClientRect().height > maxHeight) {
-                invoice.classList.add('fit-compact-2');
-            }
-
+            // Atur ulang posisi catatan reimburse sebelum cetak.
             positionReimburseNotes();
         }
+
 
         window.addEventListener('load', positionReimburseNotes);
         window.addEventListener('resize', positionReimburseNotes);

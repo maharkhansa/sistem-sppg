@@ -1,4 +1,4 @@
- @extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Data Barang')
 
@@ -132,7 +132,9 @@
                                 </label>
                                 <select name="category_id" id="category_id" class="form-select">
                                     <option value="">Semua Kategori</option>
-                                    @foreach($categories as $category)
+                                    @foreach($categories->reject(function ($category) {
+                                        return mb_strtolower(trim($category->name)) === 'insentif';
+                                    }) as $category)
                                         <option value="{{ $category->id }}"
                                             @selected((string) request('category_id') === (string) $category->id)>
                                             {{ $category->name }}
@@ -147,7 +149,7 @@
                                 </label>
                                 <select name="supplier_id" id="supplier_id" class="form-select">
                                     <option value="">Semua Supplier</option>
-                                    @foreach($suppliers as $supplier)
+                                    @foreach($suppliers->whereIn('id', [1, 2, 3, 4]) as $supplier)
                                         <option value="{{ $supplier->id }}"
                                             @selected((string) request('supplier_id') === (string) $supplier->id)>
                                             {{ $supplier->name }}

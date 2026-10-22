@@ -336,7 +336,7 @@
                     <th width="45">No</th>
                     <th width="145">Jenis Rincian</th>
                     <th width="240">Barang / Jenis Biaya</th>
-                    <th width="220">Supplier / Penerima</th>
+                    <th width="220">Supplier Yayasan</th>
                     <th width="160">Kode / Tanggal Biaya</th>
                     <th width="90">Qty</th>
                     <th width="100">Satuan</th>

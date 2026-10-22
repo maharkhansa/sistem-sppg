@@ -10,6 +10,10 @@
             ['icon' => '📦', 'label' => 'Stok Persediaan', 'route' => 'stocks.index'],
         ],
 
+        'KAS OPERASIONAL' => [
+            ['icon' => '💵', 'label' => 'Petty Cash', 'route' => 'petty-cash.index'],
+        ],
+        
         'PEMBELIAN & DOKUMEN' => [
             ['icon' => '🛒', 'label' => 'Purchase Order', 'route' => 'purchase-orders.index'],
             ['icon' => '🧾', 'label' => 'Invoice', 'route' => 'invoices.index'],
@@ -268,7 +272,7 @@
         <div>
             <h1 class="page-title">Dashboard</h1>
             <p class="page-subtitle">
-                Selamat datang di pusat pengelolaan Sistem SPPG LA TAHZAN INDONESIA DAN AGHITS STAR INDONESIA.
+                Selamat datang di pusat pengelolaan Sistem SPPG LA TAHZAN INDONESIA DAN AGHITS STAR INTERNATIONAL
             </p>
         </div>
 
@@ -297,7 +301,7 @@
 
     <section class="welcome-banner">
         <h2>
-            Selamat Datang di Sistem SPPG LA TAHZAN INDONESIA DAN AGHITS STAR INDONESIA 👋
+            Selamat Datang di Sistem SPPG LA TAHZAN INDONESIA DAN AGHITS STAR INTERNATIONAL 👋
         </h2>
 
         <p>
@@ -334,6 +338,10 @@
 
                                             @case('stock-transactions.out')
                                                 Kelola pengeluaran barang dari persediaan.
+                                                @break
+
+                                            @case('petty-cash.index')
+                                                Kelola saldo kas operasional PJ, top up, dan pembayaran pembelian.
                                                 @break
 
                                             @case('stocks.index')

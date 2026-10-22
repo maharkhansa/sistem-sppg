@@ -198,6 +198,42 @@
                     </div>
 
                     <div class="col-md-6">
+                        <label for="fuel_cost" class="form-label">
+                            Biaya BBM (Rp)
+                        </label>
+
+                        <input type="number"
+                            name="fuel_cost"
+                            id="fuel_cost"
+                            class="form-control @error('fuel_cost') is-invalid @enderror"
+                            value="{{ old('fuel_cost', $stockTransaction->fuel_cost ?? 0) }}"
+                            min="0"
+                            step="0.01">
+
+                        @error('fuel_cost')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="parking_cost" class="form-label">
+                            Biaya Parkir (Rp)
+                        </label>
+
+                        <input type="number"
+                            name="parking_cost"
+                            id="parking_cost"
+                            class="form-control @error('parking_cost') is-invalid @enderror"
+                            value="{{ old('parking_cost', $stockTransaction->parking_cost ?? 0) }}"
+                            min="0"
+                            step="0.01">
+
+                        @error('parking_cost')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-6">
                         <label for="purchase_discount_type" class="form-label">
                             Jenis Diskon Tambahan Nota
                             <span class="text-danger">*</span>
@@ -337,6 +373,16 @@
                         <strong id="porterCostLabel">Rp0</strong>
                     </div>
 
+                    <div class="total-row">
+                        <span>Biaya BBM</span>
+                        <strong id="fuelCostLabel">Rp0</strong>
+                    </div>
+
+                    <div class="total-row">
+                        <span>Biaya Parkir</span>
+                        <strong id="parkingCostLabel">Rp0</strong>
+                    </div>
+
                     <div class="total-row total-grand">
                         <span>Total Pembelian</span>
                         <strong id="grandTotalLabel">Rp0</strong>
@@ -385,6 +431,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const tbody = document.getElementById('itemsTableBody');
     const form = document.getElementById('editBarangMasukForm');
     const porterInput = document.getElementById('porter_cost');
+    const fuelInput = document.getElementById('fuel_cost');
+    const parkingInput = document.getElementById('parking_cost');
     const discountTypeInput = document.getElementById('purchase_discount_type');
     const discountValueInput = document.getElementById('purchase_discount_value');
     const itemSearch = document.getElementById('itemSearch');
@@ -506,9 +554,22 @@ document.addEventListener('DOMContentLoaded', function () {
             Number(porterInput.value) || 0
         );
 
+        const fuelCost = Math.max(
+            0,
+            Number(fuelInput.value) || 0
+        );
+
+        const parkingCost = Math.max(
+            0,
+            Number(parkingInput.value) || 0
+        );
+
         const grandTotal = Math.max(
             0,
-            goodsTotal - discountAmount + porterCost
+            goodsTotal - discountAmount
+                + porterCost
+                + fuelCost
+                + parkingCost
         );
 
         document.getElementById('goodsTotalLabel').textContent =
@@ -519,6 +580,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.getElementById('porterCostLabel').textContent =
             formatRupiah(porterCost);
+            
+        document.getElementById('fuelCostLabel').textContent =
+            formatRupiah(fuelCost);
+
+        document.getElementById('parkingCostLabel').textContent =
+            formatRupiah(parkingCost);
 
         document.getElementById('grandTotalLabel').textContent =
             formatRupiah(grandTotal);
@@ -676,6 +743,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     porterInput.addEventListener('input', calculateTotals);
+    fuelInput.addEventListener('input', calculateTotals);
+    parkingInput.addEventListener('input', calculateTotals);
+
     discountTypeInput.addEventListener('change', calculateTotals);
     discountValueInput.addEventListener('input', calculateTotals);
 
