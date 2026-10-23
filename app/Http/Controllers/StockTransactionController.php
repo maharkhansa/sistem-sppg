@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockTransaction;
 use App\Models\Supplier;
+use App\Models\Vendor;
 use App\Models\Kitchen;
 use App\Models\Invoice;
 use App\Models\NotaKeluar;
@@ -94,6 +95,7 @@ class StockTransactionController extends Controller
     {
         $suppliers = Supplier::orderBy('name')->get();
         $items = Item::orderBy('name')->get();
+        $vendors = Vendor::orderBy('name')->get();
 
         $responsibles = PurchaseResponsible::where('is_active', true)
             ->orderBy('name')
@@ -143,6 +145,7 @@ class StockTransactionController extends Controller
         return view(
             'stock_transactions.create',
             compact(
+                'vendors',
                 'suppliers',
                 'items',
                 'responsibles',
@@ -234,12 +237,23 @@ class StockTransactionController extends Controller
                 'min:0',
             ],
 
-            'fuel_cost' => [
-            'nullable',
-            'numeric',
-            'min:0',
-            'max:9999999999999.99',
-        ],
+            'fuel_cost_details' => [
+                'nullable',
+                'array',
+            ],
+
+            'fuel_cost_details.*.vehicle_name' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            'fuel_cost_details.*.amount' => [
+                'required_with:fuel_cost_details',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ],
 
         'parking_cost' => [
             'nullable',
@@ -374,8 +388,20 @@ class StockTransactionController extends Controller
             2
         );
 
+        $fuelCostDetails = collect(
+            $validated['fuel_cost_details'] ?? []
+        )->map(function ($row) {
+            return [
+                'vehicle_name' => trim($row['vehicle_name'] ?? ''),
+                'amount' => round((float) ($row['amount'] ?? 0), 2),
+            ];
+        })->filter(function ($row) {
+            return $row['vehicle_name'] !== ''
+                || $row['amount'] > 0;
+        })->values()->all();
+
         $fuelCost = round(
-            (float) ($validated['fuel_cost'] ?? 0),
+            collect($fuelCostDetails)->sum('amount'),
             2
         );
 
@@ -407,6 +433,7 @@ class StockTransactionController extends Controller
             $itemsData,
             $porterCost,
             $fuelCost,
+            $fuelCostDetails,
             $parkingCost,
             $purchaseDiscountType,
             $purchaseDiscountValue
@@ -467,6 +494,7 @@ class StockTransactionController extends Controller
                 ),
                 'porter_cost' => $porterCost,
                 'fuel_cost' => $fuelCost,
+                'fuel_cost_details' => $fuelCostDetails,
                 'parking_cost' => $parkingCost,
                 'purchase_discount_type' => $purchaseDiscountType,
                 'purchase_discount_value' => $purchaseDiscountValue,

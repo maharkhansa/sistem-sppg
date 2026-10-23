@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class PurchaseResponsible extends Model
 {
@@ -21,5 +22,13 @@ class PurchaseResponsible extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    public function vendors(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Vendor::class,
+            'purchase_responsible_vendor'
+        )->withTimestamps();
     }
 }

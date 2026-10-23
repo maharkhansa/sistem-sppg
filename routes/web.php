@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\VendorController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\KitchenController;
 use App\Http\Controllers\StockTransactionController;
@@ -126,6 +127,19 @@ Route::middleware('auth')->group(function () {
         '/suppliers/{supplier}/toggle-status',
         [SupplierController::class, 'toggleStatus']
     )->name('suppliers.toggle-status');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vendors
+    |--------------------------------------------------------------------------
+    */
+
+    Route::resource('vendors', VendorController::class);
+
+    Route::patch(
+        '/vendors/{vendor}/toggle-status',
+        [VendorController::class, 'toggleStatus']
+    )->name('vendors.toggle-status');
 
     /*
     |--------------------------------------------------------------------------

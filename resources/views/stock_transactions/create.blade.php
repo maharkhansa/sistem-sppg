@@ -11,25 +11,73 @@
 
     .purchase-card {
         border: 1px solid #e5e7eb;
-        border-radius: 12px;
+        border-radius: 10px;
         overflow: hidden;
-        margin-bottom: 20px;
+        margin-bottom: 12px;
         background: #fff;
     }
 
     .purchase-card-header {
-        padding: 15px 20px;
+        padding: 10px 14px;
         border-bottom: 1px solid #e5e7eb;
         background: #f8fafc;
         font-weight: 700;
     }
 
     .purchase-card-body {
-        padding: 20px;
+        padding: 12px 14px;
     }
 
     .form-label {
         font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    /* Ukuran standar semua field form */
+    .purchase-card-body .form-control,
+    .purchase-card-body .form-select {
+        font-size: .875rem;
+        min-height: 34px;
+        padding: 5px 8px;
+    }
+
+    .purchase-card-body textarea.form-control {
+        min-height: auto;
+    }
+
+    .purchase-card-body .form-label {
+        font-size: .875rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    /* Field tabel barang */
+    #itemsTable .form-control {
+        font-size: .875rem;
+        min-height: 34px;
+        padding: 5px 8px;
+    }
+
+    /* Rincian BBM dan pembayaran */
+    .fuel-cost-row,
+    .initial-payment-row {
+        padding: 8px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .fuel-cost-row .form-label,
+    .initial-payment-row .form-label {
+        font-size: .8rem;
+        margin-bottom: 3px;
+    }
+
+    .purchase-card-body .form-text {
+        font-size: .78rem;
+        margin-top: 3px;
+    }
+
+    .purchase-card-body .row {
+        --bs-gutter-y: .6rem;
     }
 
     .table th {
@@ -53,6 +101,14 @@
         background: #f8fafc;
         border: 1px solid #e5e7eb;
         border-radius: 10px;
+    }
+
+    .fuel-cost-row {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
     }
 
     .total-row {
@@ -215,13 +271,19 @@
                             Nama Vendor <span class="text-danger">*</span>
                         </label>
 
-                        <input type="text"
-                               id="vendor_name"
-                               name="vendor_name"
-                               class="form-control @error('vendor_name') is-invalid @enderror"
-                               value="{{ old('vendor_name') }}"
-                               maxlength="150"
-                               required>
+                        <select name="vendor_name"
+                                id="vendor_name"
+                                class="form-select @error('vendor_name') is-invalid @enderror"
+                                required>
+                            <option value="">-- Pilih Vendor --</option>
+
+                            @foreach ($vendors as $vendor)
+                                <option value="{{ $vendor->name }}"
+                                    {{ old('vendor_name') == $vendor->name ? 'selected' : '' }}>
+                                    {{ $vendor->name }}
+                                </option>
+                            @endforeach
+                        </select>
 
                         @error('vendor_name')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -292,21 +354,32 @@
                         @enderror
                     </div>
 
-                    <div class="col-md-6">
-                        <label for="fuel_cost" class="form-label">
-                            Biaya BBM (Rp)
+                    <div class="col-12">
+                        <label class="form-label">
+                            Rincian Biaya BBM
                         </label>
 
-                        <input type="number"
-                            id="fuel_cost"
+                        <div id="fuelCostsContainer"></div>
+
+                        <button type="button"
+                                class="btn btn-outline-primary btn-sm mt-2"
+                                id="addFuelCostButton">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Tambah Biaya BBM
+                        </button>
+
+                        <input type="hidden"
                             name="fuel_cost"
-                            class="form-control @error('fuel_cost') is-invalid @enderror"
-                            value="{{ old('fuel_cost', 0) }}"
-                            min="0"
-                            step="0.01">
+                            id="fuel_cost"
+                            value="{{ old('fuel_cost', 0) }}">
+
+                        <div class="form-text">
+                            Masukkan biaya BBM setiap mobil operasional.
+                            Total seluruh BBM akan ditambahkan ke biaya pembelian.
+                        </div>
 
                         @error('fuel_cost')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                            <div class="text-danger small">{{ $message }}</div>
                         @enderror
                     </div>
 
@@ -437,13 +510,13 @@
                     <table class="table table-bordered align-middle" id="itemsTable">
                         <thead>
                             <tr>
-                                <th style="width:50px">No.</th>
-                                <th style="min-width:230px">Nama Barang</th>
-                                <th style="min-width:110px">Jumlah</th>
-                                <th style="min-width:150px">Harga Satuan (Rp)</th>
-                                <th style="min-width:170px">Diskon per Jenis Barang (Rp)</th>
-                                <th style="min-width:160px">Subtotal (Rp)</th>
-                                <th style="width:80px">Aksi</th>
+                                <th style="width:45px">No.</th>
+                                <th style="min-width:200px">Nama Barang</th>
+                                <th style="min-width:100px">Jumlah</th>
+                                <th style="min-width:130px">Harga Satuan (Rp)</th>
+                                <th style="min-width:150px">Diskon per Jenis Barang (Rp)</th>
+                                <th style="min-width:140px">Subtotal (Rp)</th>
+                                <th style="width:65px">Aksi</th>
                             </tr>
                         </thead>
 
@@ -555,10 +628,7 @@
 
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
-                        <strong>Rincian Pembayaran Awal</strong>
-                        <div class="text-muted small">
-                            Pembayaran dapat dibagi ke beberapa rekening.
-                        </div>
+                        <strong>Rincian Pembayaran</strong>
                     </div>
 
                     <button type="button"
@@ -572,7 +642,7 @@
                 <div id="initialPaymentsContainer"></div>
 
                 <div class="mt-3 text-end">
-                    <div class="text-muted small">Total Pembayaran Awal</div>
+                    <div class="text-muted small">Total Pembayaran</div>
                     <strong id="initialPaymentsTotalLabel">Rp0</strong>
                 </div>
 
@@ -647,6 +717,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const porterInput = document.getElementById('porter_cost');
     const fuelInput = document.getElementById('fuel_cost');
+    const fuelCostsContainer =
+        document.getElementById('fuelCostsContainer');
+
+    const addFuelCostButton =
+        document.getElementById('addFuelCostButton');
+
+    const oldFuelCosts = {{ Illuminate\Support\Js::from(
+        old('fuel_cost_details', [])
+    ) }};
     const parkingInput = document.getElementById('parking_cost');
     const discountTypeInput = document.getElementById('purchase_discount_type');
     const discountValueInput = document.getElementById('purchase_discount_value');
@@ -823,36 +902,80 @@ document.addEventListener('DOMContentLoaded', function () {
     function updatePaymentFields() {
         const isCash = paymentTypeInput.value === 'cash';
 
-        // Tunai maupun kredit boleh menggunakan beberapa rekening.
-        getPaymentRows().forEach(row => {
-            const amountInput = row.querySelector('.payment-amount-input');
+        const paymentRows = getPaymentRows();
+
+        // Pembayaran hanya menggunakan satu sumber.
+        // Jangan hapus rincian pembayaran atau pilihan sumbernya.
+        if (paymentRows.length > 1) {
+            paymentRows.slice(1).forEach(row => row.remove());
+            reindexPaymentRows();
+        }
+
+        const paymentRow = getPaymentRows()[0];
+
+        if (paymentRow) {
+            const amountInput = paymentRow.querySelector(
+                '.payment-amount-input'
+            );
 
             if (amountInput) {
-                amountInput.readOnly = false;
-            }
-        });
+                // Tunai mengikuti total nota secara otomatis.
+                // Kredit tetap dapat diisi 0 atau sebagian.
+                if (isCash) {
+                    amountInput.value =
+                        document.getElementById('grandTotal').value || '0';
+                    amountInput.readOnly = true;
+                } else {
+                    amountInput.readOnly = false;
+                }
 
-        addPaymentRowButton.disabled = false;
+                // Perbarui saldo Kas Kecil PJ secara langsung.
+                const responsibleInput =
+                    paymentRow.querySelector('.payment-responsible-input');
+
+                const pettyCashRemaining =
+                    paymentRow.querySelector('.petty-cash-remaining');
+
+                if (
+                    paymentRow.querySelector('.payment-source-input').value === 'petty_cash' &&
+                    responsibleInput &&
+                    pettyCashRemaining
+                ) {
+                    const responsibleId = responsibleInput.value;
+                    const data = pettyCashBalances[responsibleId];
+
+                    const balance = Number(data?.balance) || 0;
+                    const paymentAmount = Math.max(
+                        0,
+                        Number(amountInput.value) || 0
+                    );
+
+                    pettyCashRemaining.textContent =
+                        formatRupiah(balance - paymentAmount);
+                }
+            }
+        }   
+
+        // Tidak menampilkan tombol tambah pembayaran.
+        addPaymentRowButton.style.display = 'none';
 
         if (isCash) {
             dueDateInput.required = false;
             dueDateInput.value = '';
-
             dueDateContainer.style.display = 'none';
             dueDateRequiredMark.style.display = 'none';
 
             paymentAmountHelp.textContent =
-                'Pembayaran tunai harus sama dengan total nota. ' +
-                'Anda dapat membagi pembayaran ke beberapa rekening.';
+                'Pembayaran tunai harus sama dengan total nota ' +
+                'dan menggunakan satu sumber pembayaran.';
         } else {
             dueDateInput.required = true;
-
             dueDateContainer.style.display = '';
             dueDateRequiredMark.style.display = '';
 
             paymentAmountHelp.textContent =
-                'Masukkan pembayaran awal pada satu atau beberapa rekening. ' +
-                'Isi 0 jika belum membayar.';
+                'Masukkan pembayaran awal. Nominal boleh 0 ' +
+                'atau sebagian dari total nota. Gunakan satu sumber pembayaran.';
         }
 
         updateInitialPaymentsTotalLabel();
@@ -874,7 +997,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function addPaymentRow(payment = {}) {
-        const index = getPaymentRows().length;
+        const index = 0;
 
         const sourceType = payment.source_type || 'cash_bank';
 
@@ -896,12 +1019,8 @@ document.addEventListener('DOMContentLoaded', function () {
         row.className = 'initial-payment-row border rounded p-3 mb-3';
 
         row.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <strong class="payment-row-title">Pembayaran ${index + 1}</strong>
-                <button type="button"
-                    class="btn btn-outline-danger btn-sm remove-payment-row">
-                    Hapus
-                </button>
+            <div class="mb-2">
+                <strong class="payment-row-title">Pembayaran Nota</strong>
             </div>
 
             <div class="row g-2">
@@ -961,7 +1080,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
 
                 <div class="col-md-4">
-                    <label class="form-label">Nominal (Rp)</label>
+                    <label class="form-label">Nominal Pembayaran (Rp)</label>
                     <input type="number"
                         class="form-control payment-amount-input"
                         min="0"
@@ -969,6 +1088,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         step="0.01"
                         value="${escapePaymentHtml(payment.amount ?? 0)}"
                         required>
+
+                    <div class="petty-cash-remaining-info alert alert-light border mt-2 mb-0 small"
+                        style="display:none;">
+                        <div class="d-flex justify-content-between">
+                            <span>Perkiraan sisa saldo setelah pembayaran</span>
+                            <strong class="petty-cash-remaining">Rp0</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -985,6 +1112,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const pettyCashBalanceLabel =
             row.querySelector('.petty-cash-balance');
 
+        const pettyCashRemainingInfo =
+            row.querySelector('.petty-cash-remaining-info');
+
+        const pettyCashRemainingLabel =
+            row.querySelector('.petty-cash-remaining');
+
+        const amountInput =
+            row.querySelector('.payment-amount-input');
+
         const pettyCashTopUpAmountLabel =
             row.querySelector('.petty-cash-topup-amount');
 
@@ -999,11 +1135,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 pettyCashBalanceLabel.textContent = 'Rp0';
                 pettyCashTopUpAmountLabel.textContent = 'Rp0';
                 pettyCashTopUpDateLabel.textContent = 'Belum ada';
+                pettyCashRemainingLabel.textContent = 'Rp0';
+
                 return;
             }
 
+            const balance = Number(data.balance) || 0;
+            const paymentAmount = Math.max(
+                0,
+                Number(amountInput.value) || 0
+            );
+
             pettyCashBalanceLabel.textContent =
-                formatRupiah(data.balance);
+                formatRupiah(balance);
 
             pettyCashTopUpAmountLabel.textContent =
                 formatRupiah(data.last_top_up_amount);
@@ -1012,11 +1156,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 data.last_top_up_date
                     ? new Date(data.last_top_up_date).toLocaleDateString('id-ID')
                     : 'Belum ada';
+
+            pettyCashRemainingLabel.textContent =
+                formatRupiah(balance - paymentAmount);
         }
 
         function updateSourceFields() {
             const isPettyCash = sourceInput.value === 'petty_cash';
 
+            pettyCashRemainingInfo.style.display = isPettyCash ? '' : 'none';
             accountContainer.style.display = isPettyCash ? 'none' : '';
             methodContainer.style.display = isPettyCash ? 'none' : '';
             responsibleContainer.style.display = isPettyCash ? '' : 'none';
@@ -1036,15 +1184,9 @@ document.addEventListener('DOMContentLoaded', function () {
         responsibleInput.addEventListener('change', updatePettyCashInfo);
         updateSourceFields();
 
-        row.querySelector('.remove-payment-row').addEventListener('click', function () {
-            if (getPaymentRows().length <= 1) {
-                alert('Minimal harus ada satu baris pembayaran.');
-                return;
-            }
-
-            row.remove();
-            reindexPaymentRows();
-            updatePaymentFields();
+        amountInput.addEventListener('input', function () {
+            updatePettyCashInfo();
+            updateInitialPaymentsTotalLabel();
         });
 
         row.querySelector('.payment-amount-input').addEventListener('input', function () {
@@ -1074,6 +1216,110 @@ document.addEventListener('DOMContentLoaded', function () {
             row.querySelector('.payment-amount-input').name =
                 `initial_payments[${index}][amount]`;
         });
+    }
+
+   function addFuelCostRow(data = {}) {
+        const row = document.createElement('div');
+        row.className = 'fuel-cost-row';
+
+        row.innerHTML = `
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Mobil</label>
+                    <input type="text"
+                        class="form-control form-control-sm fuel-vehicle-input"
+                        placeholder="Nama mobil"
+                        value="${escapeHtml(data.vehicle_name || '')}"
+                        required>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Nomor Polisi</label>
+                    <input type="text"
+                        class="form-control form-control-sm fuel-plate-input"
+                        placeholder="Contoh: AB 1234 CD"
+                        value="${escapeHtml(data.plate_number || '')}">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Nomor Nota BBM</label>
+                    <input type="text"
+                        class="form-control form-control-sm fuel-receipt-input"
+                        placeholder="Nomor nota / struk"
+                        value="${escapeHtml(data.receipt_number || '')}">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Biaya BBM (Rp)</label>
+                    <input type="number"
+                        class="form-control form-control-sm fuel-amount-input"
+                        min="0"
+                        step="0.01"
+                        value="${escapeHtml(data.amount ?? 0)}"
+                        required>
+                </div>
+
+                <div class="col-md-1">
+                    <button type="button"
+                        class="btn btn-outline-danger btn-sm w-100 remove-fuel-row"
+                        title="Hapus biaya BBM">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        fuelCostsContainer.appendChild(row);
+
+        row.querySelector('.fuel-vehicle-input')
+            .addEventListener('input', reindexFuelRows);
+
+        row.querySelector('.fuel-plate-input')
+            .addEventListener('input', reindexFuelRows);
+
+        row.querySelector('.fuel-receipt-input')
+            .addEventListener('input', reindexFuelRows);
+
+        row.querySelector('.fuel-amount-input')
+            .addEventListener('input', calculateFuelTotal);
+
+        row.querySelector('.remove-fuel-row')
+            .addEventListener('click', function () {
+                row.remove();
+                reindexFuelRows();
+                calculateFuelTotal();
+            });
+
+        reindexFuelRows();
+        calculateFuelTotal();
+    }
+
+    function reindexFuelRows() {
+        Array.from(fuelCostsContainer.children).forEach((row, index) => {
+            row.querySelector('.fuel-vehicle-input').name =
+                `fuel_cost_details[${index}][vehicle_name]`;
+
+            row.querySelector('.fuel-plate-input').name =
+                `fuel_cost_details[${index}][plate_number]`;
+
+            row.querySelector('.fuel-receipt-input').name =
+                `fuel_cost_details[${index}][receipt_number]`;
+
+            row.querySelector('.fuel-amount-input').name =
+                `fuel_cost_details[${index}][amount]`;
+        });
+    }
+
+    function calculateFuelTotal() {
+        const total = Array.from(
+            fuelCostsContainer.querySelectorAll('.fuel-amount-input')
+        ).reduce((sum, input) => {
+            return sum + Math.max(0, Number(input.value) || 0);
+        }, 0);
+
+        fuelInput.value = total.toFixed(2);
+
+        calculateTotals();
     }
 
     function calculateTotals() {
@@ -1335,6 +1581,21 @@ document.addEventListener('DOMContentLoaded', function () {
     discountTypeInput.addEventListener('change', calculateTotals);
     discountValueInput.addEventListener('input', calculateTotals);
 
+    // Tambah rincian biaya BBM per mobil.
+    addFuelCostButton.addEventListener('click', function () {
+        addFuelCostRow({
+            vehicle_name: '',
+            amount: 0
+        });
+    });
+
+    // Pulihkan rincian BBM lama jika validasi gagal.
+    if (Array.isArray(oldFuelCosts) && oldFuelCosts.length > 0) {
+        oldFuelCosts.forEach(data => {
+            addFuelCostRow(data);
+        });
+    }
+
     addPaymentRowButton.addEventListener('click', function () {
         addPaymentRow({
             account_id: '',
@@ -1360,6 +1621,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    
     // Validasi sebelum form dikirim.
     form.addEventListener('submit', function (event) {
         const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -1386,6 +1648,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        // Validasi jumlah, harga, dan diskon setiap barang.
         for (const row of rows) {
             const quantity = Number(
                 row.querySelector('.quantity-input').value
@@ -1420,6 +1683,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        // Validasi diskon tambahan nota.
         const discountType = discountTypeInput.value;
         const discountText = discountValueInput.value.trim();
 
@@ -1451,6 +1715,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        // Hitung ulang total nota sebelum memvalidasi pembayaran.
         calculateTotals();
 
         const goodsTotal =
@@ -1467,16 +1732,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const paymentRows = getPaymentRows();
+
         const grandTotal =
             Number(document.getElementById('grandTotal').value) || 0;
 
         let paymentTotal = 0;
 
+        // Validasi setiap baris pembayaran.
         for (const row of paymentRows) {
+            const sourceInput = row.querySelector('.payment-source-input');
             const accountInput = row.querySelector('.payment-account-input');
+            const responsibleInput = row.querySelector('.payment-responsible-input');
             const methodInput = row.querySelector('.payment-method-input');
             const amountInput = row.querySelector('.payment-amount-input');
 
+            const sourceType = sourceInput.value;
             const amountText = amountInput.value.trim();
             const amount = Number(amountText);
 
@@ -1491,33 +1761,51 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
+            if (!['cash_bank', 'petty_cash'].includes(sourceType)) {
+                event.preventDefault();
+                alert('Pilih sumber pembayaran yang valid.');
+                sourceInput.focus();
+                return;
+            }
+
             paymentTotal += amount;
 
-            // Rekening dan metode wajib untuk pembayaran di atas Rp0.
-            if (amount > 0 && !accountInput.value) {
-                event.preventDefault();
-                alert('Pilih rekening untuk setiap pembayaran yang nominalnya di atas Rp0.');
-                accountInput.focus();
-                return;
+            // Validasi rekening dan metode untuk kas/bank.
+            if (amount > 0 && sourceType === 'cash_bank') {
+                if (!accountInput.value) {
+                    event.preventDefault();
+                    alert('Pilih rekening untuk pembayaran kas/bank.');
+                    accountInput.focus();
+                    return;
+                }
+
+                if (!['cash', 'transfer', 'other'].includes(methodInput.value)) {
+                    event.preventDefault();
+                    alert('Pilih metode pembayaran yang valid.');
+                    methodInput.focus();
+                    return;
+                }
             }
 
-            if (
-                amount > 0 &&
-                !['cash', 'transfer', 'other'].includes(methodInput.value)
-            ) {
-                event.preventDefault();
-                alert('Pilih metode pembayaran yang valid.');
-                methodInput.focus();
-                return;
+            // Validasi PJ untuk kas kecil.
+            if (amount > 0 && sourceType === 'petty_cash') {
+                if (!responsibleInput.value) {
+                    event.preventDefault();
+                    alert('Pilih penanggung jawab kas kecil (PJ).');
+                    responsibleInput.focus();
+                    return;
+                }
             }
-        }
+        } // Penutup perulangan paymentRows
 
-        if (paymentTotal > grandTotal) {
+        // Total pembayaran awal tidak boleh melebihi total nota.
+        if (paymentTotal > grandTotal + 0.01) {
             event.preventDefault();
             alert('Total pembayaran awal tidak boleh melebihi total nota.');
             return;
         }
 
+        // Pembelian tunai harus lunas.
         if (paymentTypeInput.value === 'cash') {
             if (Math.abs(paymentTotal - grandTotal) > 0.01) {
                 event.preventDefault();
@@ -1526,6 +1814,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        // Pembelian tempo wajib memiliki tanggal jatuh tempo.
         if (paymentTypeInput.value === 'credit') {
             if (!dueDateInput.value) {
                 event.preventDefault();
@@ -1545,7 +1834,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Tunai mengikuti total terbaru. Perhitungan resmi tetap dilakukan server.
+        // Tunai mengikuti total terbaru.
+        // Perhitungan resmi tetap dilakukan server.
         updatePaymentFields();
     });
 

@@ -24,6 +24,7 @@
             ['icon' => '🥬', 'label' => 'Data Barang', 'route' => 'items.index'],
             ['icon' => '🏷️', 'label' => 'Kategori Barang', 'route' => 'categories.index'],
             ['icon' => '🚚', 'label' => 'Data Supplier', 'route' => 'suppliers.index'],
+            ['icon' => '🏪', 'label' => 'Data Vendor', 'route' => 'vendors.index'],
             ['icon' => '🏢', 'label' => 'Data Dapur SPPG', 'route' => 'kitchens.index'],
             ['icon' => '💰', 'label' => 'Jenis Biaya', 'route' => 'expense-types.index'],
         ],
