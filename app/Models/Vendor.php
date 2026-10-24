@@ -15,6 +15,10 @@ class Vendor extends Model
         'address',
         'phone',
         'contact_person',
+        'bank_name',
+        'bank_account_number',
+        'bank_account_holder',
+        'receipt_path',
         'is_active',
     ];
 

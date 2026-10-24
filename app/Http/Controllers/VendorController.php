@@ -7,6 +7,7 @@ use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\PurchaseResponsible;
 
 class VendorController extends Controller
@@ -28,13 +29,6 @@ class VendorController extends Controller
                 ->orWhere('phone', 'like', "%{$search}%")
                 ->orWhere('address', 'like', "%{$search}%");
         });
-    }
-
-    // Filter status vendor
-    if ($request->input('status') === 'aktif') {
-        $query->where('is_active', true);
-    } elseif ($request->input('status') === 'nonaktif') {
-        $query->where('is_active', false);
     }
 
     // Urutkan vendor berdasarkan abjad A-Z
@@ -73,13 +67,49 @@ class VendorController extends Controller
                 'string',
                 'max:100',
             ],
+
+            'bank_name' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'bank_account_number' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+            'bank_account_holder' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+
+            'receipt' => [
+                'nullable',
+                'file',
+                'mimes:pdf,jpg,jpeg,png',
+                'max:5120',
+            ],
         ]);
+
+        $receiptPath = null;
+
+        if ($request->hasFile('receipt')) {
+            $receiptPath = $request->file('receipt')
+                ->store('vendor-notas', 'public');
+        }
 
         Vendor::create([
             'name' => $validated['name'],
             'address' => $validated['address'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'contact_person' => $validated['contact_person'] ?? null,
+
+            'bank_name' => $validated['bank_name'] ?? null,
+            'bank_account_number' => $validated['bank_account_number'] ?? null,
+            'bank_account_holder' => $validated['bank_account_holder'] ?? null,
+
+            'receipt_path' => $receiptPath,
             'is_active' => true,
         ]);
 
@@ -128,6 +158,31 @@ class VendorController extends Controller
                 'string',
                 'max:30',
             ],
+            'bank_name' => [
+                'nullable', 
+                'string', 
+                'max:100'
+            ],
+            'bank_account_number' => [
+                'nullable', 
+                'string', 
+                'max:50'
+            ],
+            'bank_account_holder' => [
+                'nullable', 
+                'string', 
+                'max:150'
+            ],
+            'receipt' => [
+                'nullable', 
+                'file', 
+                'mimes:pdf,jpg,jpeg,png', 
+                'max:5120'
+            ],
+            'remove_receipt' => [
+                'nullable', 
+                'boolean
+            '],
             'contact_person' => [
                 'nullable',
                 'string',
@@ -194,5 +249,37 @@ class VendorController extends Controller
         ]);
 
         return view('vendors.show', compact('vendor'));
+    }
+
+    public function destroy(Vendor $vendor)
+    {
+        try {
+            DB::transaction(function () use ($vendor) {
+
+                // Hapus relasi vendor dengan barang,
+                // bukan menghapus data barangnya.
+                $vendor->items()->detach();
+
+                // Hapus relasi vendor dengan PJ,
+                // bukan menghapus data PJ-nya.
+                $vendor->purchaseResponsibles()->detach();
+
+                // Hapus hanya vendor yang dipilih.
+                $vendor->delete();
+            });
+
+            return redirect()
+                ->route('vendors.index')
+                ->with('success', 'Vendor berhasil dihapus.');
+
+        } catch (\Illuminate\Database\QueryException $e) {
+
+            return redirect()
+                ->route('vendors.index')
+                ->with(
+                    'error',
+                    'Vendor tidak dapat dihapus karena masih digunakan pada transaksi atau data lain.'
+                );
+        }
     }
 }

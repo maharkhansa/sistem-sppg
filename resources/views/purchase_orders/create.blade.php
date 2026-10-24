@@ -231,7 +231,9 @@
         ← Kembali
     </a>
 
-    <h1>Tambah Purchase Order</h1>
+    <h1>
+        {{ isset($purchaseOrder) ? 'Edit Purchase Order' : 'Tambah Purchase Order' }}
+    </h1>
 
     @if ($errors->any())
         <div class="error">
@@ -256,8 +258,18 @@
         </div>
     @endif
 
-    <form action="{{ route('purchase-orders.store') }}" method="POST" id="purchaseOrderForm">
+    <form
+        action="{{ isset($purchaseOrder)
+            ? route('purchase-orders.update', $purchaseOrder->id)
+            : route('purchase-orders.store') }}"
+        method="POST"
+        id="purchaseOrderForm"
+    >
         @csrf
+
+        @if(isset($purchaseOrder))
+            @method('PUT')
+        @endif
 
         <div class="form-group">
             <label for="po_date">Tanggal PO</label>
@@ -265,7 +277,7 @@
                 type="date"
                 name="po_date"
                 id="po_date"
-                value="{{ old('po_date', date('Y-m-d')) }}"
+                value="{{ old('po_date', isset($purchaseOrder) ? $purchaseOrder->po_date->format('Y-m-d') : date('Y-m-d')) }}"
                 required
             >
         </div>
@@ -277,7 +289,7 @@
                 @foreach ($kitchens as $kitchen)
                     <option
                         value="{{ $kitchen->id }}"
-                        {{ old('kitchen_id') == $kitchen->id ? 'selected' : '' }}
+                        {{ old('kitchen_id', $purchaseOrder->kitchen_id ?? '') == $kitchen->id ? 'selected' : '' }}
                     >
                         {{ $kitchen->id_sppg }} - {{ $kitchen->name }}
                     </option>
@@ -556,7 +568,7 @@
         </div>
 
         <button type="submit" class="btn btn-save">
-            Simpan Purchase Order
+            {{ isset($purchaseOrder) ? 'Update Purchase Order' : 'Simpan Purchase Order' }}
         </button>
     </form>
 </div>
@@ -565,7 +577,7 @@
     let rowIndex = 1;
     let sectionNames = [];
 
-    const oldItems = @json(old('items', []));
+    const oldItems = @json(old('items', isset($oldItems) ? $oldItems : []));
 
     const itemOptions = `
         @foreach ($items as $item)

@@ -564,9 +564,12 @@
         Tanggal Pesanan : {{ $tanggalPesanan }}
     </div>
 
-    {{-- TABEL PER KATEGORI --}}
+   {{-- TABEL PER KATEGORI --}}
 
-    @foreach ($kategoriPesanan as $namaKategori => $items)
+@foreach ($kategoriPesanan as $namaKategori => $items)
+
+    {{-- Tabel hanya ditampilkan jika kategori memiliki pesanan --}}
+    @if ($items->isNotEmpty())
 
         <table class="tabel-pesanan">
 
@@ -580,16 +583,11 @@
             </colgroup>
 
             <thead>
-
-                {{-- JUDUL KATEGORI DI TENGAH --}}
-
                 <tr class="judul-kategori">
                     <th colspan="6">
                         {{ strtoupper($namaKategori) }}
                     </th>
                 </tr>
-
-                {{-- HEADER KOLOM WARNA KUNING --}}
 
                 <tr>
                     <th>No.</th>
@@ -599,12 +597,10 @@
                     <th>Satuan</th>
                     <th>Ketersediaan</th>
                 </tr>
-
             </thead>
 
             <tbody>
-
-                @forelse ($items as $index => $detail)
+                @foreach ($items as $index => $detail)
 
                     <tr>
                         <td class="tengah">
@@ -633,7 +629,6 @@
 
                         <td>
                             <div class="status-pilihan">
-
                                 <label>
                                     <input
                                         type="checkbox"
@@ -651,26 +646,18 @@
                                     >
                                     Belum
                                 </label>
-
                             </div>
                         </td>
                     </tr>
 
-                @empty
-
-                    <tr class="baris-kosong">
-                        <td colspan="6">
-                            Tidak ada barang pada kategori ini.
-                        </td>
-                    </tr>
-
-                @endforelse
-
+                @endforeach
             </tbody>
 
         </table>
 
-    @endforeach
+    @endif
+
+@endforeach
 
     <p class="catatan">
         Catatan: Ceklis digunakan untuk pemeriksaan pesanan dan

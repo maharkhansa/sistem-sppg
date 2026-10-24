@@ -288,12 +288,29 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
 
+    Route::get(
+        '/purchase-orders/weekly-recap',
+        [PurchaseOrderController::class, 'weeklyRecap']
+    )->name('purchase-orders.weekly-recap');
+
     Route::resource('purchase-orders', PurchaseOrderController::class)
         ->only([
             'index',
             'create',
             'store',
         ]);
+
+    Route::get('/purchase-orders/{purchaseOrder}/edit',
+        [PurchaseOrderController::class, 'edit']
+    )->name('purchase-orders.edit');
+
+    Route::put('/purchase-orders/{purchaseOrder}',
+        [PurchaseOrderController::class, 'update']
+    )->name('purchase-orders.update');
+
+    Route::delete('/purchase-orders/{purchaseOrder}',
+        [PurchaseOrderController::class, 'destroy']
+    )->name('purchase-orders.destroy');
 
     Route::post(
         '/purchase-orders/{purchaseOrder}/process',

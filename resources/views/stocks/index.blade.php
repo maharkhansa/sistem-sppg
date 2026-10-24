@@ -111,20 +111,51 @@
                 </div>
             </div>
 
-            {{-- FILTER PEMASOK INTERNAL --}}
+            
+            {{-- FILTER DAN PENCARIAN STOK --}}
             <form action="{{ route('stocks.index') }}" method="GET"
-                class="card border-0 bg-light mb-4">
-                <div class="card-body">
+                class="card border-0 bg-light rounded-3 mb-4">
+
+                <div class="card-body p-3 p-md-4">
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-funnel text-primary"></i>
+                        <h6 class="fw-bold mb-0">Cari dan Filter Barang</h6>
+                    </div>
+
                     <div class="row g-3 align-items-end">
 
-                        <div class="col-md-6 col-lg-5">
-                            <label for="supplier_id" class="form-label fw-semibold">
-                                <i class="bi bi-funnel me-1"></i>
-                                Filter Pemasok Internal
+                        {{-- PENCARIAN --}}
+                        <div class="col-12 col-lg-6">
+                            <label for="search" class="form-label fw-semibold">
+                                Nama atau Kode Barang
                             </label>
 
-                            <select name="supplier_id" id="supplier_id"
+                            <div class="input-group">
+                                <span class="input-group-text bg-white">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+
+                                <input type="text"
+                                    name="search"
+                                    id="search"
+                                    class="form-control"
+                                    value="{{ request('search') }}"
+                                    placeholder="Contoh: beras, minyak, BRG001"
+                                    maxlength="100">
+                            </div>
+                        </div>
+
+                        {{-- FILTER PEMASOK --}}
+                        <div class="col-12 col-lg-4">
+                            <label for="supplier_id" class="form-label fw-semibold">
+                                Pemasok Internal
+                            </label>
+
+                            <select name="supplier_id"
+                                id="supplier_id"
                                 class="form-select">
+
                                 <option value="">Semua Pemasok Internal</option>
 
                                 @foreach ($suppliers as $supplier)
@@ -136,20 +167,59 @@
                             </select>
                         </div>
 
-                        <div class="col-md-auto">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-search me-1"></i>
-                                Tampilkan
-                            </button>
+                        {{-- TOMBOL --}}
+                        <div class="col-12 col-lg-2">
+                            <div class="d-flex gap-2">
+                                <button type="submit"
+                                    class="btn btn-primary flex-grow-1">
+                                    <i class="bi bi-search me-1"></i>
+                                    Cari
+                                </button>
 
-                            <a href="{{ route('stocks.index') }}"
-                                class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i>
-                                Reset
-                            </a>
+                                <a href="{{ route('stocks.index') }}"
+                                    class="btn btn-outline-secondary"
+                                    title="Reset pencarian"
+                                    aria-label="Reset pencarian">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </a>
+                            </div>
                         </div>
 
                     </div>
+
+                    {{-- STATUS FILTER AKTIF --}}
+                    @if (request()->filled('search') || request()->filled('supplier_id'))
+                        <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3 border-top">
+
+                            <span class="text-muted small">
+                                <i class="bi bi-filter-circle me-1"></i>
+                                Filter aktif:
+                            </span>
+
+                            @if (request()->filled('search'))
+                                <span class="badge bg-primary-subtle text-primary-emphasis border">
+                                    <i class="bi bi-search me-1"></i>
+                                    {{ request('search') }}
+                                </span>
+                            @endif
+
+                            @if (request()->filled('supplier_id'))
+                                @php
+                                    $selectedSupplier = $suppliers->firstWhere(
+                                        'id',
+                                        (int) request('supplier_id')
+                                    );
+                                @endphp
+
+                                <span class="badge bg-primary-subtle text-primary-emphasis border">
+                                    <i class="bi bi-building me-1"></i>
+                                    {{ $selectedSupplier?->name ?? 'Pemasok tidak ditemukan' }}
+                                </span>
+                            @endif
+
+                        </div>
+                    @endif
+
                 </div>
             </form>
 

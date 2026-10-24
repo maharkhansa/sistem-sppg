@@ -254,14 +254,23 @@ class StockTransactionController extends Controller
                 'min:0',
                 'max:9999999999999.99',
             ],
-
-        'parking_cost' => [
-            'nullable',
-            'numeric',
-            'min:0',
-            'max:9999999999999.99',
-        ],
-                    'purchase_discount_type' => [
+            'parking_cost' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ],
+            'cooking_cost' => [
+                'nullable', 
+                'numeric', 
+                'min:0'
+            ],
+            'other_cost' => [
+                'nullable', 
+                'numeric', 
+                'min:0'
+            ],
+            'purchase_discount_type' => [
                 'nullable',
                 'in:amount,percent',
             ],
@@ -410,6 +419,16 @@ class StockTransactionController extends Controller
             2
         );
 
+        $cookingCost = round(
+            (float) ($validated['cooking_cost'] ?? 0),
+            2
+        );
+
+        $otherCost = round(
+            (float) ($validated['other_cost'] ?? 0),
+            2
+        );
+
         $purchaseDiscountType =
             $validated['purchase_discount_type'] ?? 'amount';
 
@@ -435,6 +454,8 @@ class StockTransactionController extends Controller
             $fuelCost,
             $fuelCostDetails,
             $parkingCost,
+            $cookingCost,
+            $otherCost,
             $purchaseDiscountType,
             $purchaseDiscountValue
         ) {
@@ -496,6 +517,8 @@ class StockTransactionController extends Controller
                 'fuel_cost' => $fuelCost,
                 'fuel_cost_details' => $fuelCostDetails,
                 'parking_cost' => $parkingCost,
+                'cooking_cost' => $cookingCost,
+                'other_cost' => $otherCost,
                 'purchase_discount_type' => $purchaseDiscountType,
                 'purchase_discount_value' => $purchaseDiscountValue,
                 'purchase_responsible_id' =>
@@ -597,7 +620,9 @@ class StockTransactionController extends Controller
                 max(0, $goodsSubtotal - $discountAmount)
                     + $porterCost
                     + $fuelCost
-                    + $parkingCost,
+                    + $parkingCost
+                    + $cookingCost
+                    + $otherCost,
                 2
             );
 
@@ -1019,7 +1044,9 @@ class StockTransactionController extends Controller
                 max(0, $goodsSubtotal - $discountAmount)
                     + (float) ($transaction->porter_cost ?? 0)
                     + (float) ($transaction->fuel_cost ?? 0)
-                    + (float) ($transaction->parking_cost ?? 0),
+                    + (float) ($transaction->parking_cost ?? 0)
+                    + (float) ($transaction->cooking_cost ?? 0)
+                    + (float) ($transaction->other_cost ?? 0),
                 2
             );
 
@@ -1268,9 +1295,63 @@ class StockTransactionController extends Controller
             ->orderBy('code')
             ->get(['id', 'code', 'name']);
 
+        /*
+        |--------------------------------------------------------------------------
+        | RINGKASAN SALDO PETTY CASH PJ
+        |--------------------------------------------------------------------------
+        */
+
+        $pettyCashSummary = [];
+
+        // Ambil pembayaran nota yang menggunakan petty cash.
+        $pettyCashPayments = $stockTransaction->payments
+            ->where('source_type', 'petty_cash')
+            ->groupBy('purchase_responsible_id');
+
+        foreach ($pettyCashPayments as $responsibleId => $payments) {
+            $responsible = \App\Models\PurchaseResponsible::find(
+                $responsibleId
+            );
+
+            if (!$responsible) {
+                continue;
+            }
+
+            // Total pembayaran petty cash untuk nota ini oleh PJ tersebut.
+            $transactionPayment = (float) $payments->sum('amount');
+
+            // Saldo bersih petty cash PJ dari seluruh buku transaksi.
+            $currentBalance = (float)
+                \App\Models\PettyCashTransaction::query()
+                    ->where('purchase_responsible_id', $responsibleId)
+                    ->selectRaw("
+                        COALESCE(
+                            SUM(
+                                CASE
+                                    WHEN type = 'top_up' THEN amount
+                                    WHEN type = 'purchase_payment' THEN -amount
+                                    ELSE 0
+                                END
+                            ), 0
+                        ) as balance
+                    ")
+                    ->value('balance');
+
+            $pettyCashSummary[] = [
+                'responsible_name' => $responsible->name,
+                'opening_balance' => $currentBalance + $transactionPayment,
+                'remaining_balance' => $currentBalance,
+                'transaction_payment' => $transactionPayment,
+            ];
+        }
+
         return view(
             'stock_transactions.show',
-            compact('stockTransaction', 'accounts')
+            compact(
+                'stockTransaction',
+                'accounts',
+                'pettyCashSummary'
+            )
         );
     }
 
@@ -1412,7 +1493,54 @@ class StockTransactionController extends Controller
                 'max:9999999999999.99',
             ];
 
+            $rules['fuel_cost_details'] = [
+                'sometimes',
+                'nullable',
+                'array',
+            ];
+
+            $rules['fuel_cost_details.*.vehicle_name'] = [
+                'nullable',
+                'string',
+                'max:100',
+            ];
+
+            $rules['fuel_cost_details.*.vehicle_plate'] = [
+                'nullable',
+                'string',
+                'max:30',
+            ];
+
+            $rules['fuel_cost_details.*.receipt_number'] = [
+                'nullable',
+                'string',
+                'max:100',
+            ];
+
+            $rules['fuel_cost_details.*.amount'] = [
+                'required_with:fuel_cost_details',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ];
+
             $rules['parking_cost'] = [
+                'sometimes',
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ];
+
+            $rules['cooking_cost'] = [
+                'sometimes',
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:9999999999999.99',
+            ];
+
+            $rules['other_cost'] = [
                 'sometimes',
                 'nullable',
                 'numeric',
@@ -1965,7 +2093,30 @@ class StockTransactionController extends Controller
                     );
                 }
 
-                if (array_key_exists('fuel_cost', $validated)) {
+                if (array_key_exists('fuel_cost_details', $validated)) {
+                    $fuelCostDetails = collect(
+                        $validated['fuel_cost_details'] ?? []
+                    )->map(function ($row) {
+                        return [
+                            'vehicle_name' => trim($row['vehicle_name'] ?? ''),
+                            'vehicle_plate' => trim($row['vehicle_plate'] ?? ''),
+                            'receipt_number' => trim($row['receipt_number'] ?? ''),
+                            'amount' => round((float) ($row['amount'] ?? 0), 2),
+                        ];
+                    })->filter(function ($row) {
+                        return $row['vehicle_name'] !== ''
+                            || $row['vehicle_plate'] !== ''
+                            || $row['receipt_number'] !== ''
+                            || $row['amount'] > 0;
+                    })->values()->all();
+
+                    $transaction->fuel_cost_details = $fuelCostDetails;
+
+                    $transaction->fuel_cost = round(
+                        collect($fuelCostDetails)->sum('amount'),
+                        2
+                    );
+                } elseif (array_key_exists('fuel_cost', $validated)) {
                     $transaction->fuel_cost = round(
                         (float) ($validated['fuel_cost'] ?? 0),
                         2
@@ -1975,6 +2126,20 @@ class StockTransactionController extends Controller
                 if (array_key_exists('parking_cost', $validated)) {
                     $transaction->parking_cost = round(
                         (float) ($validated['parking_cost'] ?? 0),
+                        2
+                    );
+                }
+
+                if (array_key_exists('cooking_cost', $validated)) {
+                    $transaction->cooking_cost = round(
+                        (float) ($validated['cooking_cost'] ?? 0),
+                        2
+                    );
+                }
+
+                if (array_key_exists('other_cost', $validated)) {
+                    $transaction->other_cost = round(
+                        (float) ($validated['other_cost'] ?? 0),
                         2
                     );
                 }
@@ -2061,7 +2226,9 @@ class StockTransactionController extends Controller
                     max(0, $goodsSubtotal - $discountAmount)
                         + (float) ($transaction->porter_cost ?? 0)
                         + (float) ($transaction->fuel_cost ?? 0)
-                        + (float) ($transaction->parking_cost ?? 0),
+                        + (float) ($transaction->parking_cost ?? 0)
+                        + (float) ($transaction->cooking_cost ?? 0)
+                        + (float) ($transaction->other_cost ?? 0),
                     2
                 );
 

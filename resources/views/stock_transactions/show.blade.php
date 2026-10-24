@@ -99,6 +99,36 @@
         font-size: 36px;
     }
 
+    /* Font Ringkasan Transaksi dan Riwayat Pembayaran */
+    .transaction-card,
+    .transaction-card .card-body,
+    .transaction-card .card-header {
+        font-size: 13px;
+    }
+
+    .transaction-card .table th {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .transaction-card .table td {
+        font-size: 13px;
+        font-weight: 400;
+        vertical-align: middle;
+    }
+
+    /* Judul bagian tetap tegas, tetapi tidak terlalu besar */
+    .transaction-card .card-header h6 {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    /* Nominal ringkasan mengikuti ukuran tabel */
+    .transaction-card .summary-amount {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
     @media print {
         .no-print {
             display: none !important;
@@ -263,6 +293,15 @@
             $porterCost = round((float) ($stockTransaction->porter_cost ?? 0), 2);
             $fuelCost = round((float) ($stockTransaction->fuel_cost ?? 0), 2);
             $parkingCost = round((float) ($stockTransaction->parking_cost ?? 0), 2);
+            $cookingCost = round(
+                (float) ($stockTransaction->cooking_cost ?? 0),
+                2
+            );
+
+            $otherCost = round(
+                (float) ($stockTransaction->other_cost ?? 0),
+                2
+            );
 
             foreach ($stockTransaction->details as $detail) {
                 $totalQty += (float) ($detail->quantity ?? 0);
@@ -294,7 +333,9 @@
                 $goodsAfterPurchaseDiscount
                 + $porterCost
                 + $fuelCost
-                + $parkingCost,
+                + $parkingCost
+                + $cookingCost
+                + $otherCost,
                 2
             );
         @endphp
@@ -427,245 +468,367 @@
                 </div>
             </div>
         </div>
+        
+    {{-- RINCIAN BBM KENDARAAN --}}
+    @if (
+        $stockTransaction->fuel_cost_details
+        && count($stockTransaction->fuel_cost_details) > 0
+    )
+        <div class="card transaction-card shadow-sm mt-4">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-1 fw-bold">
+                    <i class="bi bi-fuel-pump me-2 text-primary"></i>
+                    Rincian BBM Kendaraan
+                </h6>
+
+                <small class="text-muted">
+                    Informasi kendaraan dan bukti pembelian BBM.
+                </small>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle transaction-table">
+                        <thead>
+                            <tr>
+                                <th class="text-center">No</th>
+                                <th>Nama Kendaraan</th>
+                                <th>Nomor Polisi</th>
+                                <th>Nomor Struk</th>
+                                <th class="text-end">Nominal BBM</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach ($stockTransaction->fuel_cost_details as $fuel)
+                                <tr>
+                                    <td class="text-center">
+                                        {{ $loop->iteration }}
+                                    </td>
+
+                                    <td>
+                                        {{ $fuel['vehicle_name'] ?? '-' }}
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        {{ $fuel['vehicle_plate'] ?? '-' }}
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        {{ $fuel['receipt_number'] ?? '-' }}
+                                    </td>
+
+                                    <td class="text-end text-nowrap fw-semibold">
+                                        Rp {{ number_format((float) ($fuel['amount'] ?? 0), 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+
+                        <tfoot>
+                            <tr>
+                                <th colspan="4" class="text-end">
+                                    TOTAL BBM
+                                </th>
+
+                                <th class="text-end text-nowrap">
+                                    Rp {{ number_format($fuelCost, 0, ',', '.') }}
+                                </th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    @endif
 
         @php
             $paidAmount = $stockTransaction->payments->sum('amount');
             $remainingAmount = max(0, $grandTotal - $paidAmount);
         @endphp
 
-        {{-- RINGKASAN TRANSAKSI --}}
-        <div class="row justify-content-end mt-4">
-            <div class="col-12 col-md-8 col-lg-5">
-                <div class="total-box shadow-sm">
+        
+        
+{{-- RINGKASAN TRANSAKSI --}}
+<div class="mt-4">
 
-                    <h6 class="fw-bold mb-3">
-                        <i class="bi bi-calculator me-2 text-primary"></i>
-                        Ringkasan Transaksi
-                    </h6>
+    {{-- RINGKASAN NILAI --}}
+    <div class="card transaction-card shadow-sm">
+        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h6 class="mb-0 fw-bold">
+                <i class="bi bi-calculator me-2 text-primary"></i>
+                Ringkasan Transaksi
+            </h6>
+        </div>
 
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Total Jenis Barang</span>
-                        <strong>
-                            {{ $stockTransaction->details->count() }} item
-                        </strong>
+        <div class="card-body p-3">
+
+            {{-- INFO BARANG --}}
+            <div class="row g-2 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 h-100">
+                        <small class="text-muted d-block">Jenis Barang</small>
+                        <strong>{{ $stockTransaction->details->count() }} item</strong>
                     </div>
+                </div>
 
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Total Quantity</span>
-                        <strong>
-                            {{ number_format($totalQty, 2, ',', '.') }}
-                        </strong>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 h-100">
+                        <small class="text-muted d-block">Total Quantity</small>
+                        <strong>{{ number_format($totalQty, 2, ',', '.') }}</strong>
                     </div>
+                </div>
 
-                    <hr>
-
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Total Nilai Barang (setelah diskon per barang)</span>
-                        <strong class="text-end">
-                            Rp {{ number_format($totalAmount, 0, ',', '.') }}
-                        </strong>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 h-100">
+                        <small class="text-muted d-block">Total Barang</small>
+                        <strong>Rp {{ number_format($totalAmount, 0, ',', '.') }}</strong>
                     </div>
+                </div>
 
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">
-                            Diskon Tambahan Nota
-                            @if ($purchaseDiscountType === 'percent' && $purchaseDiscountValue > 0)
-                                ({{ number_format($purchaseDiscountValue, 2, ',', '.') }}%)
-                            @endif
-                        </span>
-                        <strong class="discount-highlight text-end">
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 h-100">
+                        <small class="text-muted d-block">Diskon Nota</small>
+                        <strong class="text-success">
                             − Rp {{ number_format($purchaseDiscountAmount, 0, ',', '.') }}
                         </strong>
                     </div>
+                </div>
+            </div>
 
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Nilai Barang Setelah Diskon Nota</span>
-                        <strong class="text-end">
-                            Rp {{ number_format($goodsAfterPurchaseDiscount, 0, ',', '.') }}
-                        </strong>
-                    </div>
+            {{-- BIAYA TAMBAHAN --}}
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle transaction-table mb-3">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center">Biaya Tambahan</th>
+                            <th class="text-center">Nominal</th>
+                            <th class="text-center">Biaya Tambahan</th>
+                            <th class="text-center">Nominal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Biaya Kuli</td>
+                            <td class="text-center text-nowrap">
+                                Rp {{ number_format($porterCost, 0, ',', '.') }}
+                            </td>
+                            <td>Biaya BBM</td>
+                            <td class="text-center text-nowrap">
+                                Rp {{ number_format($fuelCost, 0, ',', '.') }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Biaya Parkir</td>
+                            <td class="text-center text-nowrap">
+                                Rp {{ number_format($parkingCost, 0, ',', '.') }}
+                            </td>
+                            <td>Belanja Memasak</td>
+                            <td class="text-center text-nowrap">
+                                Rp {{ number_format($cookingCost, 0, ',', '.') }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Biaya Lain-lain Kantor</td>
+                            <td class="text-center text-nowrap">
+                                Rp {{ number_format($otherCost, 0, ',', '.') }}
+                            </td>
+                            <td class="text-muted">—</td>
+                            <td class="text-center">—</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Biaya Kuli</span>
-                        <strong class="cost-highlight text-end">
-                            Rp {{ number_format($porterCost, 0, ',', '.') }}
-                        </strong>
-                    </div>
-
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Biaya BBM</span>
-                        <strong class="cost-highlight text-end">
-                            Rp {{ number_format($fuelCost, 0, ',', '.') }}
-                        </strong>
-                    </div>
-
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Biaya Parkir</span>
-                        <strong class="cost-highlight text-end">
-                            Rp {{ number_format($parkingCost, 0, ',', '.') }}
-                        </strong>
-</div>
-
-                    <hr>
-
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <strong>Total Pembelian</strong>
-
-                        <strong class="total-final text-end">
+            {{-- TOTAL DAN SALDO --}}
+            <div class="row g-2">
+                {{-- TOTAL PEMBELIAN --}}
+                <div class="col-12 col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">TOTAL PEMBELIAN</small>
+                        <strong class="summary-amount text-primary">
                             Rp {{ number_format($grandTotal, 0, ',', '.') }}
                         </strong>
                     </div>
+                </div>
 
-                                        <hr>
+                {{-- SALDO AWAL --}}
+                <div class="col-6 col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">SALDO AWAL</small>
 
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Total Sudah Dibayar</span>
-                        <strong class="text-success text-end">
-                            Rp {{ number_format($paidAmount, 0, ',', '.') }}
-                        </strong>
-                    </div>
+                        @forelse ($pettyCashSummary as $pj)
+                            <div class="{{ !$loop->first ? 'border-top mt-2 pt-2' : '' }}">
+                                <strong class="d-block">
+                                    {{ $pj['responsible_name'] }}
+                                </strong>
 
-                    <div class="d-flex justify-content-between gap-3 mb-3">
-                        <span class="text-muted">Sisa Pembayaran</span>
-                        <strong class="text-danger text-end">
-                            Rp {{ number_format($remainingAmount, 0, ',', '.') }}
-                        </strong>
-                    </div>
-
-                    {{-- RIWAYAT PEMBAYARAN --}}
-                    @if ($stockTransaction->payments->isNotEmpty())
-                        <div class="mt-3">
-
-                            <button
-                                class="btn btn-outline-secondary w-100 d-flex
-                                    justify-content-between align-items-center"
-                                type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#paymentHistoryCollapse"
-                                aria-expanded="false"
-                                aria-controls="paymentHistoryCollapse"
-                            >
-                                <span class="fw-semibold">
-                                    <i class="bi bi-clock-history me-2"></i>
-                                    Riwayat Pembayaran
-                                    <span class="badge bg-secondary ms-2">
-                                        {{ $stockTransaction->payments->count() }}
-                                    </span>
+                                <span class="summary-amount text-secondary">
+                                    Rp {{ number_format(
+                                        $pj['opening_balance'],
+                                        0,
+                                        ',',
+                                        '.'
+                                    ) }}
                                 </span>
-
-                                <i class="bi bi-chevron-down"></i>
-                            </button>
-
-                            <div class="collapse mt-2" id="paymentHistoryCollapse">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-bordered
-                                                table-hover align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Tanggal</th>
-                                                <th>Metode</th>
-                                                <th>Rekening Sumber</th>
-                                                <th class="text-end">Jumlah</th>
-                                                <th>Keterangan</th>
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-                                            @foreach ($stockTransaction->payments as $payment)
-                                                <tr>
-                                                    <td class="text-nowrap">
-                                                        {{ $payment->payment_date
-                                                            ? \Carbon\Carbon::parse($payment->payment_date)->format('d/m/Y')
-                                                            : '-' }}
-                                                    </td>
-
-                                                    <td>
-                                                        @switch($payment->payment_method)
-                                                            @case('cash')
-                                                                Tunai
-                                                                @break
-                                                            @case('transfer')
-                                                                Transfer
-                                                                @break
-                                                            @case('other')
-                                                                Lainnya
-                                                                @break
-                                                            @default
-                                                                -
-                                                        @endswitch
-                                                    </td>
-
-                                                    <td>
-                                                        {{ $payment->account?->name
-                                                            ?? 'Belum ditentukan' }}
-                                                    </td>
-
-                                                    <td class="text-end text-nowrap">
-                                                        Rp {{ number_format($payment->amount, 0, ',', '.') }}
-                                                    </td>
-
-                                                    <td>
-                                                        {{ $payment->notes
-                                                            ?: ($payment->reference_number ?: '-') }}
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
                             </div>
-                        </div>
-                    @endif
-
-                    {{-- FORM PEMBAYARAN TAMBAHAN --}}
-                    @if ($stockTransaction->type === 'IN' && $remainingAmount > 0)
-                        <hr>
-                        <button
-                            class="btn btn-primary w-100 d-flex
-                                justify-content-between align-items-center"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#additionalPaymentCollapse"
-                            aria-expanded="false"
-                            aria-controls="additionalPaymentCollapse"
-                        >
-                            <span>
-                                <i class="bi bi-cash-stack me-2"></i>
-                                Catat Pembayaran Tambahan
-                            </span>
-
-                            <span class="badge bg-light text-primary">
-                                Rp {{ number_format($remainingAmount, 0, ',', '.') }}
-                            </span>
-                        </button>
-
-                        <p class="text-muted small">
-                            Sisa tagihan saat ini:
-                            <strong class="text-danger">
-                                Rp {{ number_format($remainingAmount, 0, ',', '.') }}
+                        @empty
+                            <strong class="summary-amount text-secondary">
+                                Rp 0
                             </strong>
-                        </p>
+                            <small class="text-muted d-block mt-1">
+                                Tidak ada pembayaran petty cash
+                            </small>
+                        @endforelse
+                    </div>
+                </div>
 
-                        <div class="collapse mt-3" id="additionalPaymentCollapse">
+                {{-- SISA SALDO --}}
+                <div class="col-6 col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">SISA SALDO</small>
 
+                        @forelse ($pettyCashSummary as $pj)
+                            <div class="{{ !$loop->first ? 'border-top mt-2 pt-2' : '' }}">
+                                <strong class="d-block">
+                                    {{ $pj['responsible_name'] }}
+                                </strong>
+
+                                <span class="summary-amount {{ $pj['remaining_balance'] < 0 ? 'text-danger' : 'text-success' }}">
+                                    Rp {{ number_format(
+                                        $pj['remaining_balance'],
+                                        0,
+                                        ',',
+                                        '.'
+                                    ) }}
+                                </span>
+                            </div>
+                        @empty
+                            <strong class="summary-amount text-secondary">
+                                Rp 0
+                            </strong>
+                            <small class="text-muted d-block mt-1">
+                                Tidak ada pembayaran petty cash
+                            </small>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- RIWAYAT PEMBAYARAN --}}
+    @if ($stockTransaction->payments->isNotEmpty())
+        <div class="mt-3">
+            <button
+                class="btn btn-sm btn-outline-secondary"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#paymentHistoryCollapse"
+                aria-expanded="false"
+                aria-controls="paymentHistoryCollapse"
+            >
+                <i class="bi bi-clock-history me-1"></i>
+                Riwayat Pembayaran
+                <span class="badge bg-secondary ms-1">
+                    {{ $stockTransaction->payments->count() }}
+                </span>
+                <i class="bi bi-chevron-down ms-2"></i>
+            </button>
+
+            <div class="collapse mt-2" id="paymentHistoryCollapse">
+                <div class="card">
+                    <div class="card-body p-2">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered table-hover align-middle transaction-table mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center">No</th>
+                                        <th class="text-center">Tanggal</th>
+                                        <th class="text-center">Metode</th>
+                                        <th class="text-center">Rekening Sumber</th>
+                                        <th class="text-center">Jumlah</th>
+                                        <th class="text-center">Keterangan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($stockTransaction->payments as $payment)
+                                        <tr>
+                                            <td>{{ $loop->iteration }}</td>
+                                            <td class="text-nowrap">
+                                                {{ $payment->payment_date
+                                                    ? \Carbon\Carbon::parse($payment->payment_date)->format('d/m/Y')
+                                                    : '-' }}
+                                            </td>
+                                            <td>
+                                                @switch($payment->payment_method)
+                                                    @case('cash') Tunai @break
+                                                    @case('transfer') Transfer @break
+                                                    @case('other') Lainnya @break
+                                                    @default -
+                                                @endswitch
+                                            </td>
+                                            <td>{{ $payment->account?->name ?? 'Belum ditentukan' }}</td>
+                                            <td class="text-center text-nowrap">
+                                                Rp {{ number_format($payment->amount, 0, ',', '.') }}
+                                            </td>
+                                            <td>{{ $payment->notes ?: ($payment->reference_number ?: '-') }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="4" class="text-center">TOTAL PEMBAYARAN</th>
+                                        <th class="text-center text-nowrap text-success">
+                                            Rp {{ number_format($paidAmount, 0, ',', '.') }}
+                                        </th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+        </div>
+    @endif
+
+    {{-- PEMBAYARAN TAMBAHAN --}}
+    @if ($stockTransaction->type === 'IN' && $remainingAmount > 0)
+        <div class="mt-3">
+            <button
+                class="btn btn-sm btn-primary"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#additionalPaymentCollapse"
+                aria-expanded="false"
+                aria-controls="additionalPaymentCollapse"
+            >
+                <i class="bi bi-plus-circle me-1"></i>
+                Catat Pembayaran Tambahan
+                <span class="badge bg-light text-primary ms-1">
+                    Rp {{ number_format($remainingAmount, 0, ',', '.') }}
+                </span>
+            </button>
+
+            <div class="collapse mt-2" id="additionalPaymentCollapse">
+                <div class="card">
+                    <div class="card-body p-3">
                         <form
                             action="{{ route('stock-transactions.payments.store', $stockTransaction->id) }}"
                             method="POST"
                         >
                             @csrf
-
                             <input type="hidden" name="source_type" value="cash_bank">
 
-                            <div class="row g-3">
-                                <div class="col-12 col-md-6">
+                            <div class="row g-2">
+                                <div class="col-12 col-md-4">
                                     <label for="payment_date" class="form-label">
-                                        Tanggal Pembayaran <span class="text-danger">*</span>
+                                        Tanggal Pembayaran *
                                     </label>
                                     <input
                                         type="date"
                                         name="payment_date"
                                         id="payment_date"
-                                        class="form-control @error('payment_date') is-invalid @enderror"
+                                        class="form-control form-control-sm @error('payment_date') is-invalid @enderror"
                                         value="{{ old('payment_date', now()->toDateString()) }}"
                                         required
                                     >
@@ -674,20 +837,19 @@
                                     @enderror
                                 </div>
 
-                                <div class="col-12 col-md-6">
+                                <div class="col-12 col-md-4">
                                     <label for="amount" class="form-label">
-                                        Jumlah Pembayaran (Rp) <span class="text-danger">*</span>
+                                        Jumlah Pembayaran (Rp) *
                                     </label>
                                     <input
                                         type="number"
                                         name="amount"
                                         id="amount"
-                                        class="form-control @error('amount') is-invalid @enderror"
+                                        class="form-control form-control-sm @error('amount') is-invalid @enderror"
                                         value="{{ old('amount') }}"
                                         min="0.01"
                                         max="{{ number_format($remainingAmount, 2, '.', '') }}"
                                         step="0.01"
-                                        placeholder="Masukkan nominal pembayaran"
                                         required
                                     >
                                     @error('amount')
@@ -695,26 +857,20 @@
                                     @enderror
                                 </div>
 
-                                <div class="col-12 col-md-6">
+                                <div class="col-12 col-md-4">
                                     <label for="payment_method" class="form-label">
-                                        Metode Pembayaran <span class="text-danger">*</span>
+                                        Metode Pembayaran *
                                     </label>
                                     <select
                                         name="payment_method"
                                         id="payment_method"
-                                        class="form-select @error('payment_method') is-invalid @enderror"
+                                        class="form-select form-select-sm @error('payment_method') is-invalid @enderror"
                                         required
                                     >
-                                        <option value="">Pilih metode pembayaran</option>
-                                        <option value="cash" @selected(old('payment_method') === 'cash')>
-                                            Tunai
-                                        </option>
-                                        <option value="transfer" @selected(old('payment_method') === 'transfer')>
-                                            Transfer
-                                        </option>
-                                        <option value="other" @selected(old('payment_method') === 'other')>
-                                            Lainnya
-                                        </option>
+                                        <option value="">Pilih metode</option>
+                                        <option value="cash" @selected(old('payment_method') === 'cash')>Tunai</option>
+                                        <option value="transfer" @selected(old('payment_method') === 'transfer')>Transfer</option>
+                                        <option value="other" @selected(old('payment_method') === 'other')>Lainnya</option>
                                     </select>
                                     @error('payment_method')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -723,12 +879,12 @@
 
                                 <div class="col-12 col-md-6">
                                     <label for="account_id" class="form-label">
-                                        Rekening Sumber <span class="text-danger">*</span>
+                                        Rekening Sumber *
                                     </label>
                                     <select
                                         name="account_id"
                                         id="account_id"
-                                        class="form-select @error('account_id') is-invalid @enderror"
+                                        class="form-select form-select-sm @error('account_id') is-invalid @enderror"
                                         required
                                     >
                                         <option value="">Pilih rekening sumber</option>
@@ -744,11 +900,8 @@
                                     @error('account_id')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-
                                     @if ($accounts->isEmpty())
-                                        <small class="text-danger">
-                                            Belum ada rekening kas atau bank aktif. Pembayaran belum dapat dicatat.
-                                        </small>
+                                        <small class="text-danger">Belum ada rekening kas atau bank aktif.</small>
                                     @endif
                                 </div>
 
@@ -760,10 +913,9 @@
                                         type="text"
                                         name="reference_number"
                                         id="reference_number"
-                                        class="form-control @error('reference_number') is-invalid @enderror"
+                                        class="form-control form-control-sm @error('reference_number') is-invalid @enderror"
                                         value="{{ old('reference_number') }}"
                                         maxlength="100"
-                                        placeholder="Nomor bukti transfer atau referensi"
                                     >
                                     @error('reference_number')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -771,16 +923,13 @@
                                 </div>
 
                                 <div class="col-12">
-                                    <label for="payment_notes" class="form-label">
-                                        Catatan Pembayaran
-                                    </label>
+                                    <label for="payment_notes" class="form-label">Catatan Pembayaran</label>
                                     <textarea
                                         name="notes"
                                         id="payment_notes"
                                         rows="2"
                                         maxlength="5000"
-                                        class="form-control @error('notes') is-invalid @enderror"
-                                        placeholder="Catatan tambahan jika diperlukan"
+                                        class="form-control form-control-sm @error('notes') is-invalid @enderror"
                                     >{{ old('notes') }}</textarea>
                                     @error('notes')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -790,7 +939,7 @@
                                 <div class="col-12">
                                     <button
                                         type="submit"
-                                        class="btn btn-primary"
+                                        class="btn btn-sm btn-primary"
                                         @disabled($accounts->isEmpty())
                                     >
                                         <i class="bi bi-check-circle me-1"></i>
@@ -799,16 +948,16 @@
                                 </div>
                             </div>
                         </form>
-                    @endif
-
-                    <small class="text-muted d-block mt-2">
-                        Total pembelian dihitung dari total nilai barang setelah diskon per barang,
-                        dikurangi diskon tambahan nota, kemudian ditambah biaya kuli.
-                    </small>
-
-                </div>
-            </div>
+                    </div>
         </div>
+    @endif
+
+    <small class="text-muted d-block mt-2">
+        Total pembelian adalah nilai barang setelah diskon nota ditambah biaya tambahan.
+    </small>
+
+</div>
+
 
         {{-- TOMBOL KEMBALI --}}
         <div class="d-flex justify-content-end mt-4 no-print">

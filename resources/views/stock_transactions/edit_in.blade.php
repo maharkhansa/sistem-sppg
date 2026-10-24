@@ -129,6 +129,29 @@
             <div class="purchase-card-body">
                 <div class="row g-3">
                     <div class="col-md-6">
+                        <label for="purchase_responsible_id" class="form-label">
+                            Penanggung Jawab Pembelian (PJ) <span class="text-danger">*</span>
+                        </label>
+
+                        <select name="purchase_responsible_id"
+                                id="purchase_responsible_id"
+                                class="form-select @error('purchase_responsible_id') is-invalid @enderror"
+                                required>
+                            <option value="">-- Pilih PJ Pembelian --</option>
+
+                            @foreach ($responsibles as $responsible)
+                                <option value="{{ $responsible->id }}"
+                                    {{ (string) old('purchase_responsible_id', $stockTransaction->purchase_responsible_id) === (string) $responsible->id ? 'selected' : '' }}>
+                                    {{ $responsible->name }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        @error('purchase_responsible_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-6">
                         <label for="purchase_note_number" class="form-label">
                             Nomor Nota Pembelian
                         </label>
@@ -197,21 +220,42 @@
                         @enderror
                     </div>
 
-                    <div class="col-md-6">
-                        <label for="fuel_cost" class="form-label">
-                            Biaya BBM (Rp)
-                        </label>
+                    <div class="col-12">
+                        <label class="form-label">Rincian Biaya BBM Kendaraan</label>
 
-                        <input type="number"
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Nama Kendaraan</th>
+                                        <th>Nomor Polisi</th>
+                                        <th>Nomor Struk BBM</th>
+                                        <th style="width: 250px;">Nominal BBM (Rp)</th>
+                                        <th class="text-center" style="width: 80px;">Aksi</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="fuelCostDetailsBody"></tbody>
+                            </table>
+                        </div>
+
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                id="addFuelCostRowButton">
+                            <i class="bi bi-plus-circle"></i> Tambah Kendaraan
+                        </button>
+
+                        <input type="hidden"
                             name="fuel_cost"
                             id="fuel_cost"
-                            class="form-control @error('fuel_cost') is-invalid @enderror"
-                            value="{{ old('fuel_cost', $stockTransaction->fuel_cost ?? 0) }}"
-                            min="0"
-                            step="0.01">
+                            value="{{ old('fuel_cost', $stockTransaction->fuel_cost ?? 0) }}">
 
                         @error('fuel_cost')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                            <div class="text-danger small">{{ $message }}</div>
+                        @enderror
+
+                        @error('fuel_cost_details')
+                            <div class="text-danger small">{{ $message }}</div>
                         @enderror
                     </div>
 
@@ -229,6 +273,44 @@
                             step="0.01">
 
                         @error('parking_cost')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    {{-- BIAYA MASAK --}}
+                    <div class="col-md-6">
+                        <label for="cooking_cost" class="form-label">
+                            Biaya Masak / Memasak (Rp)
+                        </label>
+
+                        <input type="number"
+                            name="cooking_cost"
+                            id="cooking_cost"
+                            class="form-control @error('cooking_cost') is-invalid @enderror"
+                            value="{{ old('cooking_cost', $stockTransaction->cooking_cost ?? 0) }}"
+                            min="0"
+                            step="0.01">
+
+                        @error('cooking_cost')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    {{-- BIAYA LAIN-LAIN KANTOR --}}
+                    <div class="col-md-6">
+                        <label for="other_cost" class="form-label">
+                            Biaya Lain-lain Kantor (Rp)
+                        </label>
+
+                        <input type="number"
+                            name="other_cost"
+                            id="other_cost"
+                            class="form-control @error('other_cost') is-invalid @enderror"
+                            value="{{ old('other_cost', $stockTransaction->other_cost ?? 0) }}"
+                            min="0"
+                            step="0.01">
+
+                        @error('other_cost')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
@@ -383,6 +465,16 @@
                         <strong id="parkingCostLabel">Rp0</strong>
                     </div>
 
+                    <div class="total-row">
+                        <span>Biaya Masak / Memasak</span>
+                        <strong id="cookingCostLabel">Rp0</strong>
+                    </div>
+
+                    <div class="total-row">
+                        <span>Biaya Lain-lain Kantor</span>
+                        <strong id="otherCostLabel">Rp0</strong>
+                    </div>
+
                     <div class="total-row total-grand">
                         <span>Total Pembelian</span>
                         <strong id="grandTotalLabel">Rp0</strong>
@@ -428,11 +520,17 @@ document.addEventListener('DOMContentLoaded', function () {
         ])->values()->all())
     ) }};
 
+    const existingFuelCostDetails = {{ Illuminate\Support\Js::from(
+        old('fuel_cost_details', $stockTransaction->fuel_cost_details ?? [])
+    ) }};
+
     const tbody = document.getElementById('itemsTableBody');
     const form = document.getElementById('editBarangMasukForm');
     const porterInput = document.getElementById('porter_cost');
     const fuelInput = document.getElementById('fuel_cost');
     const parkingInput = document.getElementById('parking_cost');
+    const cookingInput = document.getElementById('cooking_cost');
+    const otherCostInput = document.getElementById('other_cost');
     const discountTypeInput = document.getElementById('purchase_discount_type');
     const discountValueInput = document.getElementById('purchase_discount_value');
     const itemSearch = document.getElementById('itemSearch');
@@ -564,12 +662,24 @@ document.addEventListener('DOMContentLoaded', function () {
             Number(parkingInput.value) || 0
         );
 
+        const cookingCost = Math.max(
+            0,
+            Number(cookingInput.value) || 0
+        );
+
+        const otherCost = Math.max(
+            0,
+            Number(otherCostInput.value) || 0
+        );
+
         const grandTotal = Math.max(
             0,
             goodsTotal - discountAmount
                 + porterCost
                 + fuelCost
                 + parkingCost
+                + cookingCost
+                + otherCost
         );
 
         document.getElementById('goodsTotalLabel').textContent =
@@ -587,11 +697,132 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('parkingCostLabel').textContent =
             formatRupiah(parkingCost);
 
+        document.getElementById('cookingCostLabel').textContent =
+            formatRupiah(cookingCost);
+
+        document.getElementById('otherCostLabel').textContent =
+            formatRupiah(otherCost);
+
         document.getElementById('grandTotalLabel').textContent =
             formatRupiah(grandTotal);
 
         updateItemOptions();
     }
+
+    // Mengelola rincian BBM kendaraan.
+    let fuelCostRowIndex = 0;
+
+    function addFuelCostRow(data = {}) {
+        const fuelBody = document.getElementById('fuelCostDetailsBody');
+        const index = fuelCostRowIndex++;
+
+        const row = document.createElement('tr');
+
+        row.innerHTML = `
+            <td>
+                <input type="text"
+                    name="fuel_cost_details[${index}][vehicle_name]"
+                    class="form-control fuel-vehicle-name"
+                    maxlength="100"
+                    placeholder="Contoh: Mobil Operasional">
+            </td>
+
+            <td>
+                <input type="text"
+                    name="fuel_cost_details[${index}][vehicle_plate]"
+                    class="form-control fuel-vehicle-plate"
+                    maxlength="30"
+                    placeholder="Contoh: AB 1234 CD">
+            </td>
+
+            <td>
+                <input type="text"
+                    name="fuel_cost_details[${index}][receipt_number]"
+                    class="form-control fuel-vehicle-receipt"
+                    maxlength="100"
+                    placeholder="Nomor struk BBM">
+            </td>
+
+            <td>
+                <input type="number"
+                    name="fuel_cost_details[${index}][amount]"
+                    class="form-control fuel-vehicle-amount"
+                    min="0"
+                    max="9999999999999.99"
+                    step="0.01"
+                    value="0">
+            </td>
+
+            <td class="text-center">
+                <button type="button"
+                    class="btn btn-sm btn-outline-danger remove-fuel-row">
+                    <i class="bi bi-trash"></i> Hapus
+                </button>
+            </td>
+        `;
+
+        row.querySelector('.fuel-vehicle-name').value =
+            data.vehicle_name ?? '';
+
+        row.querySelector('.fuel-vehicle-plate').value =
+            data.vehicle_plate ?? '';
+
+        row.querySelector('.fuel-vehicle-receipt').value =
+            data.receipt_number ?? '';
+
+        row.querySelector('.fuel-vehicle-amount').value =
+            data.amount ?? 0;
+
+        fuelBody.appendChild(row);
+    }
+
+    function updateFuelCostTotal() {
+        let total = 0;
+
+        document.querySelectorAll('.fuel-vehicle-amount')
+            .forEach(input => {
+                const amount = Number(input.value);
+
+                if (Number.isFinite(amount) && amount > 0) {
+                    total += amount;
+                }
+            });
+
+        // Total rincian BBM masuk ke input fuel_cost.
+        fuelInput.value = total.toFixed(2);
+
+        // Perbarui total nota menggunakan fungsi yang sudah ada.
+        calculateTotals();
+    }
+
+    // Tombol tambah kendaraan.
+    document.getElementById('addFuelCostRowButton')
+        .addEventListener('click', function () {
+            addFuelCostRow();
+            updateFuelCostTotal();
+        });
+
+    // Hitung ulang ketika nominal BBM berubah.
+    document.getElementById('fuelCostDetailsBody')
+        .addEventListener('input', function (event) {
+            if (event.target.classList.contains('fuel-vehicle-amount')) {
+                updateFuelCostTotal();
+            }
+        });
+
+    // Hapus kendaraan dan hitung ulang total BBM.
+    document.getElementById('fuelCostDetailsBody')
+        .addEventListener('click', function (event) {
+            const button = event.target.closest('.remove-fuel-row');
+
+            if (!button) {
+                return;
+            }
+
+            button.closest('tr').remove();
+
+            updateFuelCostTotal();
+        });
 
     function validateRowDiscount(row) {
         const quantity = Number(
@@ -745,6 +976,8 @@ document.addEventListener('DOMContentLoaded', function () {
     porterInput.addEventListener('input', calculateTotals);
     fuelInput.addEventListener('input', calculateTotals);
     parkingInput.addEventListener('input', calculateTotals);
+    cookingInput.addEventListener('input', calculateTotals);
+    otherCostInput.addEventListener('input', calculateTotals);
 
     discountTypeInput.addEventListener('change', calculateTotals);
     discountValueInput.addEventListener('input', calculateTotals);
@@ -858,14 +1091,35 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Pulihkan detail barang saat halaman dibuka atau validasi gagal.
-    if (Array.isArray(existingItems) && existingItems.length > 0) {
-        existingItems.forEach(item => addRow(item));
-    } else {
-        addRow();
-    }
+        // Pulihkan detail barang saat halaman dibuka atau validasi gagal.
+        if (Array.isArray(existingItems) && existingItems.length > 0) {
+            existingItems.forEach(item => addRow(item));
+        } else {
+            addRow();
+        }
 
-    calculateTotals();
-});
+        // Pulihkan rincian BBM kendaraan.
+        if (
+            Array.isArray(existingFuelCostDetails) &&
+            existingFuelCostDetails.length > 0
+        ) {
+            existingFuelCostDetails.forEach(detail => {
+                addFuelCostRow(detail);
+            });
+        } else if (Number(fuelInput.value) > 0) {
+            // Data transaksi lama yang hanya memiliki total BBM.
+            addFuelCostRow({
+                vehicle_name: '',
+                vehicle_plate: '',
+                receipt_number: '',
+                amount: fuelInput.value
+            });
+        } else {
+            addFuelCostRow();
+        }
+
+        // Hitung total BBM dan total nota saat halaman dibuka.
+        updateFuelCostTotal();
+    });
 </script>
 @endpush

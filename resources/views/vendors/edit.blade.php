@@ -33,7 +33,9 @@
         </div>
     @endif
 
-    <form action="{{ route('vendors.update', $vendor) }}" method="POST">
+    <form action="{{ route('vendors.update', $vendor) }}"
+      method="POST"
+      enctype="multipart/form-data">
         @csrf
         @method('PUT')
 
@@ -114,6 +116,175 @@
                 >{{ old('address', $vendor->address) }}</textarea>
 
                     @error('address')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
+        {{-- Informasi rekening dan nota vendor --}}
+        <div class="card mb-4">
+            <div class="card-header">
+                Informasi Rekening dan Nota Vendor
+            </div>
+
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="bank_name" class="form-label">
+                            Nama Bank
+                        </label>
+
+                        @php
+                            $bankOptions = [
+                                'BCA',
+                                'Bank Mandiri',
+                                'BNI',
+                                'BRI',
+                                'BSI',
+                                'Bank Danamon',
+                                'Bank CIMB Niaga',
+                                'Bank Permata',
+                                'Bank Panin',
+                                'Bank OCBC',
+                                'Bank UOB',
+                                'Bank BTN',
+                                'Bank Jago',
+                                'SeaBank',
+                                'Bank Neo Commerce',
+                                'Lainnya',
+                            ];
+
+                            $selectedBank = old('bank_name', $vendor->bank_name);
+
+                            // Pertahankan bank lama jika belum ada dalam daftar.
+                            if ($selectedBank && !in_array($selectedBank, $bankOptions, true)) {
+                                array_unshift($bankOptions, $selectedBank);
+                            }
+                        @endphp
+
+                        <select
+                            name="bank_name"
+                            id="bank_name"
+                            class="form-select @error('bank_name') is-invalid @enderror"
+                        >
+                            <option value="">-- Pilih Bank --</option>
+
+                            @foreach($bankOptions as $bank)
+                                <option
+                                    value="{{ $bank }}"
+                                    {{ (string) $selectedBank === $bank ? 'selected' : '' }}
+                                >
+                                    {{ $bank }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        @error('bank_name')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+
+                {{-- Nomor Rekening --}}
+                <div class="col-md-4 mb-3">
+                    <label for="bank_account_number" class="form-label">
+                        Nomor Rekening
+                    </label>
+
+                    <input
+                        type="text"
+                        name="bank_account_number"
+                        id="bank_account_number"
+                        class="form-control @error('bank_account_number') is-invalid @enderror"
+                        value="{{ old('bank_account_number', $vendor->bank_account_number) }}"
+                        maxlength="50"
+                    >
+
+                    @error('bank_account_number')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                {{-- Nama Pemilik Rekening --}}
+                <div class="col-md-4 mb-3">
+                    <label for="bank_account_holder" class="form-label">
+                        Nama Pemilik Rekening
+                    </label>
+
+                    <input
+                        type="text"
+                        name="bank_account_holder"
+                        id="bank_account_holder"
+                        class="form-control @error('bank_account_holder') is-invalid @enderror"
+                        value="{{ old('bank_account_holder', $vendor->bank_account_holder) }}"
+                        maxlength="150"
+                    >
+
+                    @error('bank_account_holder')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <hr>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        Nota atau Bukti Vendor Saat Ini
+                    </label>
+
+                    @if($vendor->receipt_path)
+                        <div class="mb-2">
+                            <a
+                                href="{{ asset('storage/' . $vendor->receipt_path) }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+                                <i class="bi bi-file-earmark-text me-1"></i>
+                                Buka Nota Saat Ini
+                            </a>
+                        </div>
+
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                name="remove_receipt"
+                                id="remove_receipt"
+                                value="1"
+                                class="form-check-input"
+                            >
+
+                            <label for="remove_receipt" class="form-check-label">
+                                Hapus nota yang tersimpan
+                            </label>
+                        </div>
+                    @else
+                        <div class="text-muted small mb-2">
+                            Belum ada nota yang diunggah.
+                        </div>
+                    @endif
+                </div>
+
+                <div class="mb-3">
+                    <label for="receipt" class="form-label">
+                        Unggah Nota Baru
+                    </label>
+
+                    <input
+                        type="file"
+                        name="receipt"
+                        id="receipt"
+                        class="form-control @error('receipt') is-invalid @enderror"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                    >
+
+                    <div class="form-text">
+                        Format PDF, JPG, JPEG, atau PNG. Maksimal 5 MB.
+                        Jika nota baru diunggah, nota lama akan diganti.
+                    </div>
+
+                    @error('receipt')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>

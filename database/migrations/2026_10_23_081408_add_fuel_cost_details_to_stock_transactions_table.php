@@ -6,23 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('stock_transactions', function (Blueprint $table) {
-            //
+            $table->json('fuel_cost_details')
+                ->nullable()
+                ->after('fuel_cost');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('stock_transactions', function (Blueprint $table) {
-            //
+            $table->dropColumn('fuel_cost_details');
         });
     }
 };

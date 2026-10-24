@@ -390,6 +390,8 @@
                                     <th class="text-end">Biaya Kuli</th>
                                     <th class="text-end">Biaya BBM</th>
                                     <th class="text-end">Biaya Parkir</th>
+                                    <th class="text-end">Biaya Belanja Memasak</th>
+                                    <th class="text-end">Biaya Lain-lain Kantor</th>
                                     <th class="text-end">Total Keseluruhan</th>
                                     <th width="115" class="text-center">Aksi</th>
                                 </tr>
@@ -481,6 +483,22 @@
                                             2
                                         );
 
+                                        $cookingCost = round(
+                                            max(
+                                                0,
+                                                (float) ($transaction->cooking_cost ?? 0)
+                                            ),
+                                            2
+                                        );
+
+                                        $otherCost = round(
+                                            max(
+                                                0,
+                                                (float) ($transaction->other_cost ?? 0)
+                                            ),
+                                            2
+                                        );
+
                                         /*
                                          * Total akhir:
                                          * subtotal barang
@@ -493,7 +511,12 @@
                                             max(
                                                 0,
                                                 $subtotalBarang - $diskonTambahan
-                                            ) + $porterCost + $fuelCost + $parkingCost,
+                                            )
+                                            + $porterCost
+                                            + $fuelCost
+                                            + $parkingCost
+                                            + $cookingCost
+                                            + $otherCost,
                                             2
                                         );
                                     @endphp
@@ -573,6 +596,16 @@
                                         {{-- BIAYA PARKIR --}}
                                         <td class="text-end text-nowrap">
                                             Rp {{ number_format($parkingCost, 2, ',', '.') }}
+                                        </td>
+
+                                        {{-- BIAYA BELANJA MEMASAK --}}
+                                        <td class="text-end text-nowrap">
+                                            Rp {{ number_format($cookingCost, 2, ',', '.') }}
+                                        </td>
+
+                                        {{-- BIAYA LAIN-LAIN KANTOR --}}
+                                        <td class="text-end text-nowrap">
+                                            Rp {{ number_format($otherCost, 2, ',', '.') }}
                                         </td>
 
                                         {{-- TOTAL KESELURUHAN --}}

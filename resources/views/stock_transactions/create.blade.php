@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Tambah Barang Masuk')
 
@@ -354,6 +354,44 @@
                         @enderror
                     </div>
 
+                    {{-- BELANJA MASAK --}}
+                    <div class="col-md-6">
+                        <label for="cooking_cost" class="form-label">
+                            Belanja Masak (Rp)
+                        </label>
+
+                        <input type="number"
+                            id="cooking_cost"
+                            name="cooking_cost"
+                            class="form-control @error('cooking_cost') is-invalid @enderror"
+                            value="{{ old('cooking_cost', 0) }}"
+                            min="0"
+                            step="0.01">
+
+                        @error('cooking_cost')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    {{-- BIAYA LAIN-LAIN KANTOR --}}
+                    <div class="col-md-6">
+                        <label for="other_cost" class="form-label">
+                            Biaya Lain-lain Kantor (Rp)
+                        </label>
+
+                        <input type="number"
+                            id="other_cost"
+                            name="other_cost"
+                            class="form-control @error('other_cost') is-invalid @enderror"
+                            value="{{ old('other_cost', 0) }}"
+                            min="0"
+                            step="0.01">
+
+                        @error('other_cost')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
                     <div class="col-12">
                         <label class="form-label">
                             Rincian Biaya BBM
@@ -524,11 +562,6 @@
                     </table>
                 </div>
 
-                <div class="text-muted small">
-                    Subtotal dihitung dari (jumlah × harga satuan) − diskon satu kali untuk jenis barang tersebut.
-                    Diskon tidak dikalikan dengan jumlah barang. Barang yang sama hanya dapat dimasukkan satu kali.
-                </div>
-
                 {{-- TOTAL PEMBELIAN --}}
                 <div class="total-panel mt-4">
                     <div class="total-row">
@@ -538,7 +571,7 @@
 
                     <div class="total-row">
                         <span>Diskon Tambahan Nota</span>
-                        <strong class="currency text-danger" id="purchaseDiscountLabel">− Rp0</strong>
+                        <strong class="currency text-danger" id="purchaseDiscountLabel">Rp0</strong>
                     </div>
 
                     <div class="total-row">
@@ -554,6 +587,16 @@
                     <div class="total-row">
                         <span>Biaya Parkir</span>
                         <strong class="currency" id="parkingCostLabel">Rp0</strong>
+                    </div>
+
+                    <div class="total-row">
+                        <span>Belanja Masak</span>
+                        <strong class="currency" id="cookingCostLabel">Rp0</strong>
+                    </div>
+
+                    <div class="total-row">
+                        <span>Biaya Lain-lain Kantor</span>
+                        <strong class="currency" id="officeOtherCostLabel">Rp0</strong>
                     </div>
 
                     <div class="total-row total-grand">
@@ -727,6 +770,8 @@ document.addEventListener('DOMContentLoaded', function () {
         old('fuel_cost_details', [])
     ) }};
     const parkingInput = document.getElementById('parking_cost');
+    const cookingInput = document.getElementById('cooking_cost');
+    const officeOtherInput = document.getElementById('other_cost');
     const discountTypeInput = document.getElementById('purchase_discount_type');
     const discountValueInput = document.getElementById('purchase_discount_value');
     const form = document.getElementById('barangMasukForm');
@@ -848,7 +893,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /*
      * Subtotal satu baris:
-     * (jumlah × harga satuan) - diskon satu kali untuk jenis barang.
+     * (jumlah Ã— harga satuan) - diskon satu kali untuk jenis barang.
      */
     function calculateRow(row) {
         const quantity = Math.max(
@@ -1360,12 +1405,25 @@ document.addEventListener('DOMContentLoaded', function () {
             Number(parkingInput.value) || 0
         );
 
+        const cookingCost = Math.max(
+            0,
+            Number(cookingInput.value) || 0
+        );
+
+        const officeOtherCost = Math.max(
+            0,
+            Number(officeOtherInput.value) || 0
+        );
+
         const grandTotal = Math.max(
             0,
-            goodsTotal - discountAmount
+            goodsTotal
+                - discountAmount
                 + porterCost
                 + fuelCost
                 + parkingCost
+                + cookingCost
+                + officeOtherCost
         );
 
         document.getElementById('goodsTotal').value = goodsTotal.toFixed(2);
@@ -1377,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', function () {
             formatRupiah(goodsTotal);
 
         document.getElementById('purchaseDiscountLabel').textContent =
-            '− ' + formatRupiah(discountAmount);
+            '- ' + formatRupiah(discountAmount);
 
         document.getElementById('porterCostLabel').textContent =
             formatRupiah(porterCost);
@@ -1387,6 +1445,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.getElementById('parkingCostLabel').textContent =
             formatRupiah(parkingCost);
+
+        document.getElementById('cookingCostLabel').textContent =
+            formatRupiah(cookingCost);
+
+        document.getElementById('officeOtherCostLabel').textContent =
+            formatRupiah(officeOtherCost);
 
         document.getElementById('grandTotalLabel').textContent =
             formatRupiah(grandTotal);
@@ -1435,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 <div class="small text-muted">
                     ${escapeHtml(item.code || 'Tanpa kode')}
-                    ${unit ? ' · Satuan: ' + escapeHtml(unit) : ''}
+                    ${unit ? ' Â· Satuan: ' + escapeHtml(unit) : ''}
                 </div>
             </td>
 
@@ -1578,6 +1642,9 @@ document.addEventListener('DOMContentLoaded', function () {
     porterInput.addEventListener('input', calculateTotals);
     fuelInput.addEventListener('input', calculateTotals);
     parkingInput.addEventListener('input', calculateTotals);
+
+    cookingInput.addEventListener('input', calculateTotals);
+    officeOtherInput.addEventListener('input', calculateTotals);
     discountTypeInput.addEventListener('change', calculateTotals);
     discountValueInput.addEventListener('input', calculateTotals);
 
@@ -1867,3 +1934,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+

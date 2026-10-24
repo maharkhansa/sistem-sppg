@@ -31,10 +31,6 @@ class PurchaseOrderController extends Controller
 
     public function create()
     {
-        $kitchens = Kitchen::where('status', true)
-            ->orderBy('name')
-            ->get();
-
         $items = Item::with(['category', 'supplier'])
             ->where('status', true)
             ->orderBy('name')
@@ -74,12 +70,7 @@ class PurchaseOrderController extends Controller
         ]);
 
         /*
-         * PENTING:
          * Gunakan input items dari Request setelah validasi.
-         *
-         * Validasi awal hanya memvalidasi array items secara umum.
-         * Karena itu, jangan mengandalkan $data['items'] untuk
-         * mengambil seluruh field detail yang dikirim dari form.
          */
         $items = $request->input('items', []);
 
@@ -180,12 +171,6 @@ class PurchaseOrderController extends Controller
                 ];
             }
 
-            /*
-             * Validasi field detail yang sedang diproses.
-             * Jika quantity atau harga tidak dikirim form,
-             * Laravel akan mengembalikan error validasi,
-             * bukan Undefined array key.
-             */
             $request->validate($rules);
         }
 
@@ -205,11 +190,6 @@ class PurchaseOrderController extends Controller
             foreach ($items as $detail) {
                 $type = $detail['detail_type'] ?? 'stock';
 
-                /*
-                 * Field berikut sudah divalidasi di atas.
-                 * Aksesnya tetap dibuat aman agar tidak menimbulkan
-                 * Undefined array key apabila format input berubah.
-                 */
                 $quantity = (float) ($detail['quantity'] ?? 0);
                 $unitPrice = (float) ($detail['unit_price'] ?? 0);
 
@@ -224,10 +204,6 @@ class PurchaseOrderController extends Controller
 
                 /*
                  * BIAYA NON-STOK
-                 *
-                 * Tidak menggunakan item gudang.
-                 * Supplier/penerima diketik manual.
-                 * Tidak membuat atau mengurangi stok.
                  */
                 if ($type === 'expense') {
                     $expenseType = ExpenseType::findOrFail(
@@ -272,20 +248,11 @@ class PurchaseOrderController extends Controller
 
                 /*
                  * BARANG PERSEDIAAN
-                 *
-                 * Supplier tetap berasal dari master barang.
-                 * Supplier manual untuk biaya non-stok tidak digunakan
-                 * pada baris persediaan.
                  */
                 $item = Item::with('supplier')->findOrFail(
                     $detail['item_id']
                 );
 
-                /*
-                 * Ambil supplier dari master item sebagai sumber utama.
-                 * Field supplier_id dari form tetap divalidasi di atas,
-                 * tetapi tidak dijadikan sumber utama saat menyimpan.
-                 */
                 $supplierId = $item->supplier_id;
 
                 if (!$supplierId) {
@@ -337,10 +304,315 @@ class PurchaseOrderController extends Controller
             ->with('success', 'Purchase Order berhasil disimpan.');
     }
 
-    
-    
-    public function process(PurchaseOrder $purchaseOrder)
+    public function update(Request $request, PurchaseOrder $purchaseOrder)
     {
+        $data = $request->validate([
+            'po_date' => ['required', 'date'],
+            'kitchen_id' => ['required', 'exists:kitchens,id'],
+            'notes' => ['nullable', 'string'],
+            'items' => ['required', 'array', 'min:1'],
+        ]);
+
+        $items = $request->input('items', []);
+
+        // Validasi detail PO.
+        foreach ($items as $index => $row) {
+            if (!is_array($row)) {
+                throw ValidationException::withMessages([
+                    "items.$index" => 'Format detail PO tidak valid.',
+                ]);
+            }
+
+            $type = $row['detail_type'] ?? 'stock';
+
+            if (!in_array($type, ['stock', 'expense'], true)) {
+                throw ValidationException::withMessages([
+                    "items.$index.detail_type" => 'Jenis detail PO tidak valid.',
+                ]);
+            }
+
+            $rules = [
+                "items.$index.quantity" => [
+                    'required', 'numeric', 'min:0.01',
+                ],
+                "items.$index.unit_price" => [
+                    'required', 'numeric', 'min:0',
+                ],
+                "items.$index.unit" => [
+                    'nullable', 'string', 'max:30',
+                ],
+                "items.$index.notes" => [
+                    'nullable', 'string',
+                ],
+                "items.$index.section_name" => [
+                    'nullable', 'string', 'max:100',
+                ],
+                "items.$index.section_order" => [
+                    'nullable', 'integer', 'min:1',
+                ],
+                "items.$index.reimburse" => [
+                    'nullable', 'boolean',
+                ],
+            ];
+
+            if ($type === 'expense') {
+                $rules["items.$index.expense_type_id"] = [
+                    'required', 'exists:expense_types,id',
+                ];
+                $rules["items.$index.expense_date"] = [
+                    'required', 'date',
+                ];
+                $rules["items.$index.supplier_name"] = [
+                    'nullable', 'string', 'max:255',
+                ];
+            } else {
+                $rules["items.$index.item_id"] = [
+                    'required', 'exists:items,id',
+                ];
+                $rules["items.$index.supplier_id"] = [
+                    'required', 'exists:suppliers,id',
+                ];
+            }
+
+            $request->validate($rules);
+        }
+
+        DB::transaction(function () use ($purchaseOrder, $data, $items) {
+            // Kunci PO agar tidak diproses atau diedit bersamaan.
+            $po = PurchaseOrder::whereKey($purchaseOrder->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($po->status !== 'RECEIVED') {
+                throw ValidationException::withMessages([
+                    'purchase_order' =>
+                        'PO yang sudah diproses tidak dapat diedit.',
+                ]);
+            }
+
+            // Perbarui header PO. Nomor PO tetap.
+            $po->update([
+                'kitchen_id' => $data['kitchen_id'],
+                'po_date' => $data['po_date'],
+                'notes' => $data['notes'] ?? null,
+            ]);
+
+            // Hapus detail lama. Semua perubahan berada dalam transaksi.
+            $po->details()->delete();
+
+            foreach ($items as $detail) {
+                $type = $detail['detail_type'] ?? 'stock';
+
+                $quantity = (float) $detail['quantity'];
+                $unitPrice = (float) $detail['unit_price'];
+                $subtotal = round($quantity * $unitPrice, 2);
+
+                if ($type === 'expense') {
+                    $expenseType = ExpenseType::findOrFail(
+                        $detail['expense_type_id']
+                    );
+
+                    $unit = trim((string) ($detail['unit'] ?? ''));
+
+                    $supplierName = trim(
+                        (string) ($detail['supplier_name'] ?? '')
+                    );
+
+                    $po->details()->create([
+                        'detail_type' => 'expense',
+                        'expense_type_id' => $expenseType->id,
+                        'expense_date' => $detail['expense_date'],
+
+                        'supplier_id' => null,
+                        'supplier_name' => $supplierName !== ''
+                            ? $supplierName
+                            : null,
+
+                        'item_id' => null,
+                        'quantity' => $quantity,
+                        'unit' => $unit !== '' ? $unit : 'kali',
+                        'unit_price' => $unitPrice,
+                        'subtotal' => $subtotal,
+                        'notes' => $detail['notes'] ?? null,
+
+                        'section_name' => null,
+                        'section_order' => null,
+                    ]);
+
+                    continue;
+                }
+
+                // Barang persediaan mengikuti supplier master barang.
+                $item = Item::findOrFail($detail['item_id']);
+
+                if (!$item->supplier_id) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Supplier belum ditentukan pada master barang '
+                            . $item->name . '.',
+                    ]);
+                }
+
+                $isReimburse = filter_var(
+                    $detail['reimburse'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN
+                );
+
+                $itemNotes = $isReimburse
+                    ? '*Reimburse'
+                    : ($detail['notes'] ?? null);
+
+                $sectionName = trim(
+                    (string) ($detail['section_name'] ?? '')
+                );
+
+                $po->details()->create([
+                    'detail_type' => 'stock',
+                    'expense_type_id' => null,
+                    'expense_date' => null,
+
+                    'supplier_id' => $item->supplier_id,
+                    'supplier_name' => null,
+
+                    'item_id' => $item->id,
+                    'quantity' => $quantity,
+                    'unit' => $item->unit,
+                    'unit_price' => $unitPrice,
+                    'subtotal' => $subtotal,
+                    'notes' => $itemNotes,
+
+                    'section_name' => $sectionName !== ''
+                        ? $sectionName
+                        : null,
+
+                    'section_order' => $sectionName !== ''
+                        && isset($detail['section_order'])
+                            ? (int) $detail['section_order']
+                            : null,
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('purchase-orders.index')
+            ->with('success', 'Purchase Order berhasil diperbarui.');
+    }
+
+    public function destroy(PurchaseOrder $purchaseOrder)
+    {
+        DB::transaction(function () use ($purchaseOrder) {
+            $po = PurchaseOrder::whereKey($purchaseOrder->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($po->status !== 'RECEIVED') {
+                throw ValidationException::withMessages([
+                    'purchase_order' =>
+                        'PO yang sudah diproses tidak dapat dihapus.',
+                ]);
+            }
+
+            $po->delete();
+        });
+
+        return redirect()
+            ->route('purchase-orders.index')
+            ->with('success', 'Purchase Order berhasil dihapus.');
+    }
+
+    public function edit(PurchaseOrder $purchaseOrder)
+    {
+        // PO yang sudah diproses tidak boleh diedit.
+        if ($purchaseOrder->status !== 'RECEIVED') {
+            return redirect()
+                ->route('purchase-orders.index')
+                ->with('error', 'Purchase Order yang sudah diproses tidak dapat diedit');
+        }
+
+        // Ambil detail PO beserta relasinya.
+        $purchaseOrder->load([
+            'kitchen',
+            'details.supplier',
+            'details.item',
+            'details.expenseType',
+        ]);
+
+        $kitchens = Kitchen::where('status', true)
+            ->orderBy('name')
+            ->get();
+
+        $items = Item::with(['category', 'supplier'])
+            ->where('status', true)
+            ->orderBy('name')
+            ->get();
+
+        foreach ($items as $item) {
+            $lastIn = StockTransactionDetail::where('item_id', $item->id)
+                ->whereHas('stockTransaction', function ($query) {
+                    $query->where('type', 'IN');
+                })
+                ->latest('id')
+                ->first();
+
+            $item->last_purchase_price = $lastIn?->unit_price ?? 0;
+        }
+
+        $expenseTypes = ExpenseType::where('status', true)
+            ->orderBy('name')
+            ->get();
+
+        // Siapkan detail lama agar dapat dipulihkan oleh JavaScript form.
+        $oldItems = $purchaseOrder->details->map(function ($detail) {
+            $item = $detail->item;
+
+            return [
+                'detail_type' => $detail->detail_type ?? 'stock',
+
+                'item_id' => $detail->item_id,
+                'supplier_id' => $detail->supplier_id,
+                'supplier_name' => $detail->supplier_name
+                    ?? $detail->supplier?->name,
+
+                'expense_type_id' => $detail->expense_type_id,
+                'expense_date' => $detail->expense_date,
+
+                'code' => $item?->code,
+                'unit' => $detail->unit,
+                'quantity' => $detail->quantity,
+                'unit_price' => $detail->unit_price,
+
+                'reimburse' => trim((string) $detail->notes) === '*Reimburse',
+
+                'notes' => $detail->notes,
+
+                'section_name' => $detail->section_name,
+                'section_order' => $detail->section_order,
+            ];
+        })->values();
+
+        return view(
+            'purchase_orders.create',
+            compact(
+                'purchaseOrder',
+                'kitchens',
+                'items',
+                'expenseTypes',
+                'oldItems'
+            )
+        );
+    }
+
+    public function process(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        /*
+         * Tanggal Invoice diinput saat PO diproses.
+         * Tanggal ini juga digunakan sebagai tanggal OUT/Nota.
+         */
+        $validated = $request->validate([
+            'invoice_date' => ['required', 'date'],
+        ]);
+
+        $invoiceDate = $validated['invoice_date'];
+
         $invoiceId = null;
         $alreadyProcessed = false;
         $emptyDetails = false;
@@ -348,14 +620,13 @@ class PurchaseOrderController extends Controller
         try {
             DB::transaction(function () use (
                 $purchaseOrder,
+                $invoiceDate,
                 &$invoiceId,
                 &$alreadyProcessed,
                 &$emptyDetails
             ) {
                 /*
                  * Ambil dan kunci PO di dalam transaksi.
-                 * Permintaan lain untuk PO yang sama harus menunggu
-                 * sampai transaksi ini selesai.
                  */
                 $lockedPurchaseOrder = PurchaseOrder::whereKey(
                     $purchaseOrder->id
@@ -386,13 +657,13 @@ class PurchaseOrderController extends Controller
 
                 /*
                  * Buat OUT dari PO.
-                 * Hanya detail barang persediaan yang dimasukkan ke OUT.
+                 * Tanggal OUT mengikuti tanggal Invoice.
                  */
                 $stockTransaction = StockTransaction::create([
                     'transaction_number' => $this->generateOutNumber(
-                        $lockedPurchaseOrder->po_date
+                        $invoiceDate
                     ),
-                    'transaction_date' => $lockedPurchaseOrder->po_date,
+                    'transaction_date' => $invoiceDate,
                     'type' => 'OUT',
                     'supplier_id' => null,
                     'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
@@ -427,10 +698,6 @@ class PurchaseOrderController extends Controller
                             ->lockForUpdate()
                             ->first();
 
-                        /*
-                         * Jika data stok belum tersedia,
-                         * batalkan transaksi dan tampilkan pesan.
-                         */
                         if (!$stock) {
                             throw new \RuntimeException(
                                 'Stok untuk barang '
@@ -440,10 +707,6 @@ class PurchaseOrderController extends Controller
                             );
                         }
 
-                        /*
-                         * Jika stok tidak mencukupi,
-                         * batalkan transaksi dan tampilkan pesan.
-                         */
                         if (
                             (float) $stock->quantity
                             < (float) $detail->quantity
@@ -519,12 +782,15 @@ class PurchaseOrderController extends Controller
                 /*
                  * Buat satu Invoice yang mencakup semua detail PO,
                  * termasuk barang persediaan dan biaya non-stok.
+                 *
+                 * Tanggal dan nomor Invoice mengikuti invoiceDate
+                 * dari input form, bukan tanggal PO.
                  */
                 $invoice = Invoice::create([
                     'invoice_number' => $this->generateInvoiceNumber(
-                        $lockedPurchaseOrder->po_date
+                        $invoiceDate
                     ),
-                    'invoice_date' => $lockedPurchaseOrder->po_date,
+                    'invoice_date' => $invoiceDate,
                     'stock_transaction_id' => $stockTransaction->id,
                     'purchase_order_id' => $lockedPurchaseOrder->id,
                     'kitchen_id' => $lockedPurchaseOrder->kitchen_id,
@@ -577,8 +843,6 @@ class PurchaseOrderController extends Controller
             /*
              * Transaksi database dibatalkan jika stok kosong,
              * stok tidak cukup, atau barang tidak ditemukan.
-             * Kembalikan pengguna ke daftar PO dengan alert,
-             * bukan halaman error Laravel.
              */
             return redirect()
                 ->route('purchase-orders.index')
@@ -753,5 +1017,222 @@ class PurchaseOrderController extends Controller
             'purchase_orders.delivery-note',
             compact('purchaseOrder')
         );
+    }
+
+    
+    public function weeklyRecap(Request $request)
+    {
+        /*
+        * Validasi filter tanggal.
+        */
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => [
+                'nullable',
+                'date',
+                'after_or_equal:start_date',
+            ],
+        ]);
+
+        /*
+        * Tanggal mulai default:
+        * Senin pada minggu berjalan.
+        *
+        * Tanggal sampai default:
+        * Kamis pada minggu berjalan.
+        */
+        $defaultStart = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $defaultEnd = $defaultStart->copy()->addDays(3);
+
+        $startDate = !empty($validated['start_date'])
+            ? Carbon::parse($validated['start_date'])->startOfDay()
+            : $defaultStart->copy()->startOfDay();
+
+        $endDate = !empty($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : (
+                !empty($validated['start_date'])
+                    ? $startDate->copy()->endOfDay()
+                    : $defaultEnd->copy()->endOfDay()
+            );
+
+        /*
+        * Buat daftar tanggal sesuai rentang yang dipilih.
+        * Contoh:
+        * 19 Oktober sampai 22 Oktober.
+        */
+        $days = collect();
+
+        $currentDate = $startDate->copy()->startOfDay();
+        $lastDate = $endDate->copy()->startOfDay();
+
+        while ($currentDate->lte($lastDate)) {
+            $days->push($currentDate->copy());
+
+            $currentDate->addDay();
+        }
+
+        /*
+        * Ambil PO pada rentang tanggal yang dipilih.
+        * PO yang ditampilkan tetap berstatus RECEIVED.
+        */
+        $purchaseOrders = PurchaseOrder::with([
+            'kitchen',
+            'details.supplier',
+            'details.item',
+        ])
+            ->where('status', 'RECEIVED')
+            ->whereDate('po_date', '>=', $startDate->toDateString())
+            ->whereDate('po_date', '<=', $endDate->toDateString())
+            ->get();
+
+       // Ambil dapur berdasarkan PO yang ada dalam periode rekap.
+        // Jangan membatasi berdasarkan nama pendek karena nama asli
+        // dapur di database bisa panjang.
+        $kitchenIds = $purchaseOrders
+            ->pluck('kitchen_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $kitchenShortNames = [
+            'tempuran'       => 'Tempuran',
+            'sidowayah'      => 'Sidowayah',
+            'ngrundul'       => 'Ngrundul',
+            'kedungsari 2'   => 'Potrobangsan',
+            'adikarto'       => 'Adikarto',
+            'petanjuangan 2' => 'Petanjuangan 2',
+            'sawitan'        => 'Sawitan',
+            'kalidoni 2'    => 'Kalidoni 2',
+        ];
+
+        $kitchens = Kitchen::query()
+            ->whereIn('id', $kitchenIds)
+            ->get()
+            ->map(function ($kitchen) use ($kitchenShortNames) {
+
+                // Gunakan nama asli dari data Kitchen.
+                $originalName = $kitchen->display_name
+                    ?: $kitchen->name;
+
+                $normalizedName = mb_strtolower($originalName);
+
+                // Cocokkan nama pendek berdasarkan nama dapur asli.
+                $shortName = $originalName;
+
+                foreach ($kitchenShortNames as $keyword => $label) {
+                    if (str_contains($normalizedName, $keyword)) {
+                        $shortName = $label;
+                        break;
+                    }
+                }
+
+                // Nama pendek hanya untuk tampilan rekap.
+                $kitchen->recap_name = $shortName;
+
+                return $kitchen;
+            })
+            ->sortBy('recap_name')
+            ->values();
+
+        /*
+        * Susun rekap berdasarkan vendor, bahan, dan satuan.
+        */
+        $recap = [];
+
+        foreach ($purchaseOrders as $po) {
+            $dateKey = Carbon::parse($po->po_date)->format('Y-m-d');
+            $kitchenId = $po->kitchen_id;
+
+            foreach ($po->details as $detail) {
+
+                /*
+                * Abaikan detail biaya non-stok.
+                */
+                if (($detail->detail_type ?? 'stock') !== 'stock') {
+                    continue;
+                }
+
+                /*
+                * Abaikan detail tanpa relasi barang.
+                */
+                if (!$detail->item) {
+                    continue;
+                }
+
+                $quantity = (float) $detail->quantity;
+
+                /*
+                * Hanya jumlah positif.
+                */
+                if ($quantity <= 0) {
+                    continue;
+                }
+
+                /*
+                * Nama vendor mengikuti supplier pada PO.
+                */
+                $vendorName = $detail->supplier_name
+                    ?: $detail->supplier?->name
+                    ?: '-';
+
+                $itemName = $detail->item->name;
+
+                $unit = $detail->unit
+                    ?: $detail->item->unit
+                    ?: '-';
+
+                /*
+                * Satu baris untuk kombinasi vendor,
+                * nama bahan, dan satuan.
+                */
+                $rowKey = implode('|', [
+                    $vendorName,
+                    $itemName,
+                    $unit,
+                ]);
+
+                if (!isset($recap[$rowKey])) {
+                    $recap[$rowKey] = [
+                        'vendor' => $vendorName,
+                        'item' => $itemName,
+                        'unit' => $unit,
+                        'quantities' => [],
+                    ];
+                }
+
+                /*
+                * Kolom kuantitas menggunakan kombinasi tanggal
+                * dan ID dapur.
+                */
+                $cellKey = $dateKey . '|' . $kitchenId;
+
+                $recap[$rowKey]['quantities'][$cellKey] =
+                    ($recap[$rowKey]['quantities'][$cellKey] ?? 0)
+                    + $quantity;
+            }
+        }
+
+        /*
+        * Urutkan berdasarkan nama bahan A-Z.
+        */
+        $recap = collect($recap)
+            ->sortBy(
+                fn ($row) => $row['item'] ?? '',
+                SORT_NATURAL | SORT_FLAG_CASE
+            )
+            ->values();
+
+        /*
+        * Kirim semua variabel yang dibutuhkan Blade,
+        * termasuk startDate dan endDate.
+        */
+        return view('purchase_orders.weekly-recap', compact(
+            'startDate',
+            'endDate',
+            'days',
+            'kitchens',
+            'recap'
+        ));
     }
 }

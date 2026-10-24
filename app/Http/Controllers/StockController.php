@@ -21,6 +21,11 @@ class StockController extends Controller
                 'integer',
                 'exists:suppliers,id',
             ],
+            'search' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
         ]);
 
         $query = Item::with([
@@ -29,6 +34,7 @@ class StockController extends Controller
             'supplier',
         ])->where('status', true);
 
+        // FILTER PEMASOK INTERNAL
         if ($request->filled('supplier_id')) {
             $query->where(
                 'supplier_id',
@@ -36,11 +42,25 @@ class StockController extends Controller
             );
         }
 
+        // PENCARIAN NAMA ATAU KODE BARANG
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            if ($search !== '') {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('code', 'like', '%' . $search . '%');
+                });
+            }
+        }
+
+        // AMBIL DATA DAN PAGINATION
         $items = $query
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();
 
+        // DATA PEMASOK INTERNAL
         $suppliers = Supplier::orderBy('name')->get();
 
         return view(
